@@ -55,17 +55,18 @@ fn init_config(){
     	println!("Config file found.");
     }else{
     	println!("Config file not found.");
+    	create_config(path.to_str().unwrap());
     }
 }
 
-fn create_config(){
+fn create_config(file: &str){
 	let mut conf = Ini::new();
 	conf.begin_section("DB")
 		.set("user","root")
 		.set("password", "")
 		.set("db","testdb")
 		.set("ip", "127.0.0.1");
-	// conf.write_to_file()
+	conf.write_to_file(file);
 }
 
 /// Set options for the connection
