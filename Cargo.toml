@@ -1,0 +1,17 @@
+[package]
+name = "yayd-backend"
+version = "0.0.1"
+authors = ["Aron Heinecke"]
+
+[[bin]]
+name = "yayd-backend"
+
+[dependencies.mysql]
+mysql = "0.8.1"
+default-features = false
+
+[dependencies.lazy_static]
+lazy_static = "0.1.10"
+
+[dependencies.ini]
+rust-ini = "0.4.3"
