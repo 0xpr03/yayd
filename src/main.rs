@@ -1,6 +1,7 @@
 #![feature(path_ext)]
 extern crate mysql;
 extern crate ini;
+extern crate toml;
 #[macro_use]
 extern crate lazy_static;
 
@@ -10,6 +11,9 @@ use mysql::conn::pool;
 use mysql::value::from_value;
 
 use ini::Ini;
+use toml::Table;
+use toml::Encoder;
+
 
 use std::env::current_dir;
 use std::path::PathBuf;
@@ -41,8 +45,14 @@ fn main() {
 
     let options = mysql_options();
     let pool = pool::MyPool::new(options).unwrap();
+	
+	let toml = r#"
+    [test]
+    foo = "bar"
+	"#;
 
-
+	let value = toml::Parser::new(toml).parse().unwrap();
+	println!("{:?}", value);
 }
 
 /// create PathBuf by getting the current working dir
@@ -52,6 +62,7 @@ fn init_config(){
     path.set_file_name("config.cfg");
     // let  = path.as_path();
     println!("{:?}",path );
+    //let conftbl: TomlTable = TomlTable(nul);
     if(path.as_path().is_file()) {
     	println!("Config file found.");
     }else{
@@ -61,19 +72,23 @@ fn init_config(){
     }
 }
 
-fn create_config(file: &mut File){
-	let mut conf = Ini::new();
-	conf.begin_section("DB")
-		.set("user","root")
-		.set("password", "")
-		.set("db","testdb")
-		.set("ip", "127.0.0.1");
+fn create_config(file: &mut File) {
+	let toml = r#"[db]
+	user = "root"
+	password = ""
+	db = "testdb"
+	port = 3306
+	ip = "127.0.0.1"
+	"#;
+	let value = toml::Parser::new(toml).parse().unwrap();
+	println!("{:?}", value);
+	
 	// println!("{:?}", file.display());
-	let result = conf.write_to(file);
+	/*let result = conf.write_to(file);
 	match result {
 		Ok(_) => {},
 		Err(err) => panic!("Error writing the config: {}",err),
-	};
+	};*/
 }
 
 /// Set options for the connection
