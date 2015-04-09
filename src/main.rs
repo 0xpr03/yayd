@@ -14,6 +14,8 @@ use ini::Ini;
 use toml::Table;
 use toml::Encoder;
 
+use std::io::Write;
+
 
 use std::env::current_dir;
 use std::path::PathBuf;
@@ -63,7 +65,7 @@ fn init_config(){
     // let  = path.as_path();
     println!("{:?}",path );
     //let conftbl: TomlTable = TomlTable(nul);
-    if(path.as_path().is_file()) {
+    if path.as_path().is_file() {
     	println!("Config file found.");
     }else{
     	println!("Config file not found.");
@@ -82,13 +84,10 @@ fn create_config(file: &mut File) {
 	"#;
 	let value = toml::Parser::new(toml).parse().unwrap();
 	println!("{:?}", value);
-	
-	// println!("{:?}", file.display());
-	/*let result = conf.write_to(file);
-	match result {
+	match file.write_all(toml.as_bytes()) {
 		Ok(_) => {},
 		Err(err) => panic!("Error writing the config: {}",err),
-	};*/
+	};
 }
 
 /// Set options for the connection
