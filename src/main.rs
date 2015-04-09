@@ -15,6 +15,7 @@ use std::env::current_dir;
 use std::path::PathBuf;
 use std::path::Path;
 use std::fs::PathExt;
+use std::fs::File;
 
 use std::collections::HashMap;
 
@@ -55,18 +56,24 @@ fn init_config(){
     	println!("Config file found.");
     }else{
     	println!("Config file not found.");
-    	create_config(path.to_str().unwrap());
+    	let mut file = File::create(path.to_str().unwrap()).unwrap();
+    	create_config(&mut file);
     }
 }
 
-fn create_config(file: &str){
+fn create_config(file: &mut File){
 	let mut conf = Ini::new();
 	conf.begin_section("DB")
 		.set("user","root")
 		.set("password", "")
 		.set("db","testdb")
 		.set("ip", "127.0.0.1");
-	conf.write_to_file(file);
+	// println!("{:?}", file.display());
+	let result = conf.write_to(file);
+	match result {
+		Ok(_) => {},
+		Err(err) => panic!("Error writing the config: {}",err),
+	};
 }
 
 /// Set options for the connection
