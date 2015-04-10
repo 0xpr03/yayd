@@ -13,8 +13,5 @@ default-features = false
 [dependencies.lazy_static]
 lazy_static = "0.1.10"
 
-[dependencies.rust-ini]
-rust-ini = "0.4.3"
-
 [dependencies.toml]
 toml = "0.1.20"

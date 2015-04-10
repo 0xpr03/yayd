@@ -4,7 +4,6 @@ version = "0.0.1"
 dependencies = [
  "lazy_static 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "mysql 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rust-ini 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.20 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -39,14 +38,6 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "log"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "libc 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "mysql"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -63,14 +54,6 @@ dependencies = [
 name = "regex"
 version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "rust-ini"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "rustc-serialize"
