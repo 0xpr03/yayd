@@ -1,4 +1,5 @@
 #![feature(path_ext)]
+#![feature(convert)]
 extern crate mysql;
 extern crate ini;
 extern crate toml;
@@ -14,6 +15,7 @@ use toml::Table;
 use toml::Encoder;
 
 use std::io::Write;
+use std::io::Read;
 
 
 use std::env::current_dir;
@@ -27,27 +29,35 @@ use std::collections::HashMap;
 static VERSION : &'static str = "0.1"; // String not valid
 
 lazy_static! {
-	// static ref CONFIG: Table = {
-	// 	println!("Starting yayd-backend v{}",&VERSION);
+	static ref CONFIG: Table = {
+		println!("Starting yayd-backend v{}",&VERSION);
 		
-	// 	init_config() //return
-	// };
+		init_config() //return
+	};
 
 }
 
 
 fn main() {
-    init_config();
-	// println!("\nValue: {:?}", CONFIG.get("db").unwrap());
-
-    // let options = mysql_options();
-    // let pool = pool::MyPool::new(options).unwrap();
+    //init_config();
 	
+}
+
+
+/*-------------------*/
+// Config section
+
+#[derive(Debug)]
+pub enum ConfigError {
+	ReadError,
+	WriteError,
+	UnknownError,
+	ParseError,
 }
 
 /// create PathBuf by getting the current working dir
 /// set_file_name doesn't return smth -> needs to be run on mut path
-fn init_config() -> Result<Table,ConfigError> {
+fn init_config() -> Table {
     let mut path = current_dir().unwrap();
     path.set_file_name("config.cfg");
     // let  = path.as_path();
@@ -56,43 +66,28 @@ fn init_config() -> Result<Table,ConfigError> {
     let mut config : Option<Table> = None;
     if path.as_path().is_file() {
     	println!("Config file found.");
-    	let mut file = try!(File::open(path.to_str().unwrap()).map_err(|e| ConfigError::OpenError));
-    	let config = read_config(&mut file);
+    	let mut file = File::open(path.to_str().unwrap()).unwrap();
+    	let config = read_config(&mut file).unwrap();
     }else{
     	println!("Config file not found.");
-    	let mut file = try!(File::create(path.to_str().unwrap()));
+    	let mut file = File::create(path.to_str().unwrap()).unwrap();
     	//config = Some();
-    	let config = try!(create_config(&mut file));
+    	let config = create_config(&mut file);
     }
-    config
+    config.unwrap()
 }
 
-//makes it printable..
-use std::{io,error};
-#[derive(Debug)]
-enum ConfigError { ParseError,OpenError(io::Error),ReadError(io::Error),WriteError(io::Error),CreateError(io::Error),ErrTypeUnkown }
-
-impl From<ConfigError> for ConfigError {
-    fn from(err: ConfigError) -> ConfigError {
-        ConfigError(err)
-    }
-}
-
-///wrap io::Error, for example usage
-impl From<io::Error> for ConfigError {
-    fn from(err: io::Error) -> ConfigError {
-        ConfigError::ErrTypeUnkown
-    }
-}
-
-fn read_config<T>(file: &mut File) -> Result<Table,ConfigError> {
-	let mut f = File::open("foo.txt").map_err(|e| {ConfigError::OpenError(e)});
+fn read_config(file: &mut File) -> Result<Table,ConfigError> {
+	let mut f = try!(File::open("foo.txt").map_err(|_| ConfigError::ReadError));
 	let mut toml = String::new();
-	f.read_to_string(&mut toml).map_err(|e| {ConfigError::ReadError(e)});
-	toml::Parser::new(toml).parse().map_err(|e| {ConfigError::ParseError(e)});
+	try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
+	match toml::Parser::new(toml.as_str()).parse() {
+		None => Err(ConfigError::ParseError),
+		Some(table) => Ok(table),
+	}
 }
 
-fn create_config<T>(file: &mut File) -> Result<Table,ConfigError> {
+fn create_config(file: &mut File) -> Table {
 	//TODO: replace with import_string
 	let toml = r#"[db]
 user = "root"
@@ -104,7 +99,7 @@ ip = "127.0.0.1"
 	let mut parser = toml::Parser::new(toml);
 	let config: Table = parser.parse().unwrap();
 	println!("{:?}", config);
-	file.write_all(toml.as_bytes()).map_err(|e| {ConfigError::WriteError(e)});
+	file.write_all(toml.as_bytes()).unwrap();
 	config
 }
 
