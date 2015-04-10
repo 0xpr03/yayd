@@ -72,7 +72,7 @@ fn init_config() -> Table {
     	println!("Config file not found.");
     	let mut file = File::create(path.to_str().unwrap()).unwrap();
     	//config = Some();
-    	let config = create_config(&mut file);
+    	let config = create_config(&mut file).unwrap();
     }
     config.unwrap()
 }
@@ -87,7 +87,7 @@ fn read_config(file: &mut File) -> Result<Table,ConfigError> {
 	}
 }
 
-fn create_config(file: &mut File) -> Table {
+fn create_config(file: &mut File) -> Result<Table,ConfigError> {
 	//TODO: replace with import_string
 	let toml = r#"[db]
 user = "root"
@@ -99,8 +99,8 @@ ip = "127.0.0.1"
 	let mut parser = toml::Parser::new(toml);
 	let config: Table = parser.parse().unwrap();
 	println!("{:?}", config);
-	file.write_all(toml.as_bytes()).unwrap();
-	config
+	try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));
+	Ok(config)
 }
 
 // Set options for the connection
