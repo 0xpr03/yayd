@@ -30,8 +30,9 @@ lazy_static! {
 
 
 fn main() {
-    //init_config();
-	
+	for (key, value) in CONFIG.iter() {
+	    println!("{}: {}", key, value);
+	}
 }
 
 // Set options for the connection
