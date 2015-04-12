@@ -24,6 +24,7 @@ pub enum DownloadError {
 ///TODO: wrap errors
 ///Doesn't care about DMCAs, will emit errors on them
 pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, pool: MyPool) -> Result<bool,DownloadError> {
+	println!("{:?}", url);
 	let process = match Command::new("youtube-dl")
 								.arg("--newline")
 								.arg(format!("-o {}",folderFormat))
@@ -40,7 +41,7 @@ pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, poo
 	let mut conn = pool.get_conn().unwrap();
 	let statement = prepare_progress_updater(&mut conn);
 
-	let re = create_regex(&r"d+\.\d%");
+	let re = create_regex(&r"\d+\.\d%");
 
 	let i = 0;
 
@@ -48,7 +49,7 @@ pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, poo
 		match line{
 			Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
 			Ok(text) => {
-					println!("{}",text);
+					println!("Out: {}",text);
 					if re.is_match(&text) {
 						println!("Match: {:?}", text);
 					}
@@ -60,7 +61,7 @@ pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, poo
 }
 
 fn create_regex(expression: & str) -> regex::Regex {
-	match regex::Regex::new(r"^\d{4}-\d{2}-\d{2}$") {
+	match regex::Regex::new(expression) {
 	    Ok(re) => re,
 	    Err(err) => panic!("regex {}", err),
 	}

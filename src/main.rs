@@ -47,7 +47,7 @@ fn main() {
 	println!("Result: {:?}", result[0]);
 	println!("result str: {}", result[1].into_str());
 	//url: &str, quality: i32, qid: i64, folderFormat: &str, pool: MyPool
-	lib::downloader::download_video(&result[1].into_str(),
+	lib::downloader::download_video(&from_value::<String>(&result[1]),
 								from_value::<i32>(&result[3]),
 								from_value::<i64>(&result[0]),
 								"/home/dev/%(title)s-%(id)s.%(ext)s",
