@@ -35,7 +35,7 @@ pub fn init_config() -> Table {
     let mut config : Option<Table> = None;
     if path.as_path().is_file() {
     	println!("Config file found.");
-    	config = read_config(&path.to_str().unwrap()).ok();
+    	config = read_config(&path.to_str().unwrap()).ok(); //result to option
     }else{
     	println!("Config file not found.");
     	//config = Some();
