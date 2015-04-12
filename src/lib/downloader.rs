@@ -52,6 +52,7 @@ fn prepare_progress_updater<'a>(conn: &'a mut MyPooledConn) -> Stmt<'a> {
 	conn.prepare("UPDATE querydetails SET status = ? WHERE qid = ?").unwrap()
 }
 
+///updater called from the stdout progress
 fn update_progress(stmt: &mut Stmt, progress: i32, qid: i64){
 	stmt.execute(&[&progress,&qid]);
 }
