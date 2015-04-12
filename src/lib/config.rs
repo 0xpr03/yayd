@@ -14,11 +14,11 @@ use std::fs::File;
 
 #[derive(Debug)]
 pub enum ConfigError {
-	ReadError,
-	WriteError,
-	UnknownError,
-	CreateError,
-	ParseError,
+    ReadError,
+    WriteError,
+    UnknownError,
+    CreateError,
+    ParseError,
 }
 
 /// create PathBuf by getting the current working dir
@@ -31,29 +31,29 @@ pub fn init_config() -> Table {
     //let conftbl: TomlTable = TomlTable(nul);
     let mut config : Option<Table> = None;
     if path.as_path().is_file() {
-    	println!("Config file found.");
-    	config = read_config(&path.to_str().unwrap()).ok(); //result to option
+        println!("Config file found.");
+        config = read_config(&path.to_str().unwrap()).ok(); //result to option
     }else{
-    	println!("Config file not found.");
-    	//config = Some();
-    	config = create_config(&path.to_str().unwrap()).ok();
+        println!("Config file not found.");
+        //config = Some();
+        config = create_config(&path.to_str().unwrap()).ok();
     }
     config.unwrap()
 }
 
 pub fn read_config(file: &str) -> Result<Table,ConfigError> {
-	let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
-	let mut toml = String::new();
-	try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
-	match toml::Parser::new(toml.as_str()).parse() {
-		None => Err(ConfigError::ParseError),
-		Some(table) => Ok(table),
-	}
+    let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
+    let mut toml = String::new();
+    try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
+    match toml::Parser::new(toml.as_str()).parse() {
+        None => Err(ConfigError::ParseError),
+        Some(table) => Ok(table),
+    }
 }
 
 pub fn create_config(path: &str) -> Result<Table,ConfigError> {
-	//TODO: replace with import_string
-	let toml = r#"[db]
+    //TODO: replace with import_string
+    let toml = r#"[db]
 user = "root"
 password = ""
 db = "ytdownl"
@@ -62,14 +62,14 @@ ip = "127.0.0.1"
 
 [general]
 save_dir = "~/downloads/"
-	"#;
-	let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-	let mut parser = toml::Parser::new(toml);
-	let config: Table = match parser.parse() {
-		None => return Err(ConfigError::ParseError),
-		Some(table) => table,
-	};
-	println!("Raw new config: {:?}", config);
-	try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));
-	Ok(config)
+    "#;
+    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
+    let mut parser = toml::Parser::new(toml);
+    let config: Table = match parser.parse() {
+        None => return Err(ConfigError::ParseError),
+        Some(table) => table,
+    };
+    println!("Raw new config: {:?}", config);
+    try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));
+    Ok(config)
 }
