@@ -2,14 +2,11 @@
 extern crate toml;
 
 use toml::Table;
-use toml::Encoder;
 
 use std::io::Write;
 use std::io::Read;
 
 use std::env::current_dir;
-use std::path::PathBuf;
-use std::path::Path;
 use std::fs::PathExt;
 use std::fs::File;
 
@@ -62,6 +59,9 @@ password = ""
 db = "testdb"
 port = 3306
 ip = "127.0.0.1"
+
+[general]
+save_dir = "~/downloads/"
 	"#;
 	let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
 	let mut parser = toml::Parser::new(toml);

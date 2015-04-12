@@ -13,9 +13,6 @@ use mysql::value::from_value;
 use toml::Table;
 use toml::Value;
 
-use std::collections::HashMap;
-
-
 mod lib {
 	pub mod config;
 }
@@ -33,11 +30,14 @@ lazy_static! {
 
 fn main() {
 	let opts = mysql_options();
+	let pool = match pool::MyPool::new(opts) {
+		Ok(conn) => { println!("Connected successfully."); conn},
+		Err(err) => panic!("Uable to esablish a connection!\n{}",err),
+	};
 
-	
 }
 
-//Set options for the connection
+///Set options for the connection
 fn mysql_options() -> MyOpts {
 	let dbconfig = CONFIG.get("db").unwrap().clone();
 	let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
