@@ -33,6 +33,8 @@ lazy_static! {
 
 fn main() {
 	let opts = mysql_options();
+
+	
 }
 
 //Set options for the connection
@@ -40,12 +42,11 @@ fn mysql_options() -> MyOpts {
 	let dbconfig = CONFIG.get("db").unwrap().clone();
 	let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
 
-
     MyOpts {
     	//tcp_addr: Some(dbconfig.get("ip").unwrap().as_str().clone()),
     	tcp_addr: get_option_string(dbconfig,"ip"),
-    	tcp_port: 3306,
-    	//tcp_port: "3306"
+    	tcp_port: dbconfig.get("port").unwrap().as_integer().unwrap() as u16,
+    	//TODO: value does support Encodable -> set as encodable..
     	user: get_option_string(dbconfig,"user"),
     	pass: get_option_string(dbconfig, "password"),
     	db_name: get_option_string(dbconfig, "db"),
@@ -53,11 +54,15 @@ fn mysql_options() -> MyOpts {
     }
 }
 
+///Converts a toml::Value to a Option<String> for mysql::MyOpts
 fn get_option_string(table: & Table,key: & str) -> Option<String> {
 	let val: Value = table.get(key).unwrap().clone();
 	if let toml::Value::String(s) = val {
-		println!("Value: {:?}", s);
 		Some(s)
 	} else { unreachable!() }
-	//Some(table.get(key).unwrap().as_str().unwrap())
 }
+
+// fn get_option_int(table: & Table, key: & str) -> Option<int> {
+// 	let val: Value = table.get(key).unwrap().clone();
+// 	if let toml::Value::
+// }
