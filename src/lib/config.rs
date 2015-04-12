@@ -56,7 +56,7 @@ pub fn create_config(path: &str) -> Result<Table,ConfigError> {
 	let toml = r#"[db]
 user = "root"
 password = ""
-db = "testdb"
+db = "ytdownl"
 port = 3306
 ip = "127.0.0.1"
 

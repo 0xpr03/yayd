@@ -15,6 +15,7 @@ use toml::Value;
 
 mod lib {
 	pub mod config;
+	pub mod downloader;
 }
 
 static VERSION : &'static str = "0.1"; // String not valid
@@ -32,9 +33,22 @@ fn main() {
 	let opts = mysql_options();
 	let pool = match pool::MyPool::new(opts) {
 		Ok(conn) => { println!("Connected successfully."); conn},
-		Err(err) => panic!("Uable to esablish a connection!\n{}",err),
+		Err(err) => panic!("Unable to establish a connection!\n{}",err),
 	};
 
+	let mut conn = pool.get_conn().unwrap();
+	let mut stmt = conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+					INNER JOIN queries \
+					ON querydetails.qid = queries.qid \
+					WHERE querydetails.code = 0 \
+					ORDER BY queries.created \
+					LIMIT 1").unwrap();
+	let mut result = stmt.execute(&[]).unwrap();
+	let result = result.next().unwrap().unwrap();
+	println!("Result: {:?}", result[0]);
+	println!("result str: {}", result[1].into_str());
+
+	println!("EOL!");
 }
 
 ///Set options for the connection
