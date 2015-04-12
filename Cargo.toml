@@ -15,3 +15,6 @@ lazy_static = "0.1.10"
 
 [dependencies.toml]
 toml = "0.1.20"
+
+[dependencies.regex]
+regex = "0.1.27"

@@ -28,7 +28,6 @@ lazy_static! {
 
 }
 
-
 fn main() {
 	let opts = mysql_options();
 	let pool = match pool::MyPool::new(opts) {
@@ -47,6 +46,12 @@ fn main() {
 	let result = result.next().unwrap().unwrap();
 	println!("Result: {:?}", result[0]);
 	println!("result str: {}", result[1].into_str());
+	//url: &str, quality: i32, qid: i64, folderFormat: &str, pool: MyPool
+	lib::downloader::download_video(&result[1].into_str(),
+								from_value::<i32>(&result[3]),
+								from_value::<i64>(&result[0]),
+								"/home/dev/%(title)s-%(id)s.%(ext)s",
+								pool);
 
 	println!("EOL!");
 }
