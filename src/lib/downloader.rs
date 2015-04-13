@@ -14,7 +14,7 @@ use std::io::BufReader;
 
 #[derive(Debug)]
 pub enum DownloadError {
-    ConsoleError,
+    ConsoleError(str),
     RadError,
     DMCAError,
     InternalError,
@@ -25,18 +25,9 @@ pub enum DownloadError {
 ///TODO: get the sql statements out of the class
 ///TODO: wrap errors
 ///Doesn't care about DMCAs, will emit errors on them
-pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, pool: MyPool) -> Result<bool,DownloadError> {
+pub fn download_video(url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError> {
     println!("{:?}", url);
-    let process = match Command::new("youtube-dl")
-                                .arg("--newline")
-                                .arg(format!("-o {}",folderFormat))
-                                .arg(url)
-                                .stdin(Stdio::null())
-                                .stdout(Stdio::piped())
-                                .spawn() {
-        Err(why) => panic!("couldn't spawn cmd: {}", Error::description(&why)),
-        Ok(process) => process,
-    };
+    let process = try!(run_process(&url, &folderFormat));
     let mut s = String::new(); //buffer prep
     let mut stdout = BufReader::new(process.stdout.unwrap());
 
@@ -70,6 +61,19 @@ pub fn download_video(url: &str, quality: i32, qid: i64, folderFormat: &str, poo
     set_query_code(&mut conn, &3, &qid);
 
     Ok(true)
+}
+
+fn run_process(url: str, folderFormat: str) -> Result<Command,DownloadError> {
+	match Command::new("youtube-dl")
+                                .arg("--newline")
+                                .arg(format!("-o {}",folderFormat))
+                                .arg(url)
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::piped())
+                                .spawn() {
+        Err(why) => Err(DownloadError::ConsoleError(Error::description(&why))),
+        Ok(process) => Ok(process),
+    }
 }
 
 fn create_regex(expression: & str) -> regex::Regex {

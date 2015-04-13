@@ -50,7 +50,7 @@ fn main() {
     lib::downloader::download_video(&from_value::<String>(&result[1]),
                                 from_value::<i32>(&result[3]),
                                 from_value::<i64>(&result[0]),
-                                "/home/dev/%(title)s-%(id)s.%(ext)s",
+                                &"/home/dev/%(title)s-%(id)s.%(ext)s",
                                 pool);
 
     println!("EOL!");
