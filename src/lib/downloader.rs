@@ -10,11 +10,12 @@ use std::process::{Command, Stdio};
 use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
+use std::process::Child;
 
 
 #[derive(Debug)]
-pub enum DownloadError {
-    ConsoleError(str),
+pub enum DownloadError<'a>{
+    ConsoleError(&'a str),
     RadError,
     DMCAError,
     InternalError,
@@ -25,9 +26,9 @@ pub enum DownloadError {
 ///TODO: get the sql statements out of the class
 ///TODO: wrap errors
 ///Doesn't care about DMCAs, will emit errors on them
-pub fn download_video(url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError> {
+pub fn download_video<'a>(url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError<'a>> {
     println!("{:?}", url);
-    let process = try!(run_process(&url, &folderFormat));
+    let process = try!(run_process(url, folderFormat));
     let mut s = String::new(); //buffer prep
     let mut stdout = BufReader::new(process.stdout.unwrap());
 
@@ -63,7 +64,7 @@ pub fn download_video(url: & str, quality: i32, qid: i64, folderFormat: & str, p
     Ok(true)
 }
 
-fn run_process(url: str, folderFormat: str) -> Result<Command,DownloadError> {
+fn run_process<'a>(url: &str, folderFormat: &str) -> Result<Child,DownloadError<'a>> {
 	match Command::new("youtube-dl")
                                 .arg("--newline")
                                 .arg(format!("-o {}",folderFormat))
