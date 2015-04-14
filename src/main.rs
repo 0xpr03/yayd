@@ -1,6 +1,5 @@
 #![feature(path_ext)]
 #![feature(convert)]
-#![feature(plugin)]
 extern crate mysql;
 extern crate toml;
 #[macro_use]
