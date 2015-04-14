@@ -1,5 +1,6 @@
 #![feature(path_ext)]
 #![feature(convert)]
+#![feature(plugin)]
 extern crate mysql;
 extern crate toml;
 #[macro_use]
@@ -46,12 +47,17 @@ fn main() {
     let result = result.next().unwrap().unwrap();
     println!("Result: {:?}", result[0]);
     println!("result str: {}", result[1].into_str());
-    //url: &str, quality: i32, qid: i64, folderFormat: &str, pool: MyPool
-    lib::downloader::download_video(&from_value::<String>(&result[1]),
-                                from_value::<i32>(&result[3]),
+    //url: &str, quality: i16, qid: i64, folderFormat: &str, pool: MyPool
+    let downloader = lib::downloader::Downloader::new(&from_value::<String>(&result[1]),
+                                from_value::<i16>(&result[3]),
                                 from_value::<i64>(&result[0]),
                                 &"/home/dev/%(title)s-%(id)s.%(ext)s",
                                 pool);
+    // lib::downloader::download_video(&from_value::<String>(&result[1]),
+    //                             from_value::<i32>(&result[3]),
+    //                             from_value::<i64>(&result[0]),
+    //                             &"/home/dev/%(title)s-%(id)s.%(ext)s",
+    //                             pool);
 
     println!("EOL!");
 }
