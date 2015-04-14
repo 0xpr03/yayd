@@ -14,8 +14,8 @@ use std::process::Child;
 
 
 #[derive(Debug)]
-pub enum DownloadError<'a>{
-    ConsoleError(&'a str),
+pub enum DownloadError{
+    ConsoleError(String),
     RadError,
     DMCAError,
     InternalError,
@@ -26,7 +26,7 @@ pub enum DownloadError<'a>{
 ///TODO: get the sql statements out of the class
 ///TODO: wrap errors
 ///Doesn't care about DMCAs, will emit errors on them
-pub fn download_video<'a>(url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError<'a>> {
+pub fn download_video(url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError> {
     println!("{:?}", url);
     let process = try!(run_process(url, folderFormat));
     let mut s = String::new(); //buffer prep
@@ -64,7 +64,7 @@ pub fn download_video<'a>(url: & str, quality: i32, qid: i64, folderFormat: & st
     Ok(true)
 }
 
-fn run_process<'a>(url: &str, folderFormat: &str) -> Result<Child,DownloadError<'a>> {
+fn run_process(url: &str, folderFormat: &str) -> Result<Child,DownloadError> {
 	match Command::new("youtube-dl")
                                 .arg("--newline")
                                 .arg(format!("-o {}",folderFormat))
@@ -72,7 +72,7 @@ fn run_process<'a>(url: &str, folderFormat: &str) -> Result<Child,DownloadError<
                                 .stdin(Stdio::null())
                                 .stdout(Stdio::piped())
                                 .spawn() {
-        Err(why) => Err(DownloadError::ConsoleError(Error::description(&why))),
+        Err(why) => Err(DownloadError::ConsoleError(Error::description(&why).into())),
         Ok(process) => Ok(process),
     }
 }
