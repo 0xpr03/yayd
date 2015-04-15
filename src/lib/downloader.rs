@@ -1,11 +1,11 @@
-#![feature(plugin)]
 extern crate mysql;
 extern crate regex;
 
 use mysql::conn::pool::MyPool;
 use mysql::conn::pool::MyPooledConn;
-use mysql::value::ToValue;
 use mysql::conn::Stmt;
+use mysql::conn::QueryResult;
+use mysql::error::MyError;
 
 use std::process::{Command, Stdio};
 use std::error::Error;
@@ -17,28 +17,40 @@ macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
-pub struct Downloader<'a> {
-	url: &'a str,
-	quality: i16,
-	qid: i64,
-	folderFormat: &'a str,
-	pool: MyPool,
+pub struct DownloadDB {
+	pub url: String,
+	pub quality: i16,
+	pub qid: i64,
+	pub folder_format: String,
+	pub pool: MyPool,
+	pub download_limit: i16,
+}
+
+pub struct Downloader {
+	ddb: DownloadDB,
+	// pool: MyPool,
 }
 
 #[derive(Debug)]
 pub enum DownloadError{
     ConsoleError(String),
-    RadError,
+    ReadError,
     DMCAError,
     InternalError,
+    DBError(String),
+}
+
+impl From<MyError> for DownloadError {
+	fn from(err: MyError) -> DownloadError {
+		DownloadError::DBError(err.description().into())
+	}
 }
 
 
-impl<'a> Downloader<'a> {
-	pub fn new(url: &'a str, quality: i16, qid: i64, folderFormat: &'a str, pool: MyPool) -> Downloader<'a>{
-		Downloader {url: url, quality: quality, qid: qid, folderFormat: folderFormat, pool: pool}
+impl Downloader {
+	pub fn new(ddb: DownloadDB) -> Downloader{
+		Downloader {ddb: ddb}
 	}
-	#[derive(Debug)]
 	
 	///Regex: [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
 	///
@@ -46,20 +58,17 @@ impl<'a> Downloader<'a> {
 	///TODO: get the sql statements out of the class
 	///TODO: wrap errors
 	///Doesn't care about DMCAs, will emit errors on them
-	pub fn download_video(&self,url: & str, quality: i32, qid: i64, folderFormat: & str, pool: MyPool) -> Result<bool,DownloadError> {
-	    println!("{:?}", url);
-	    let process = try!(self.run_process(url, folderFormat));
-	    let mut s = String::new(); //buffer prep
-	    let mut stdout = BufReader::new(process.stdout.unwrap());
+	pub fn download_video(&self) -> Result<bool,DownloadError> {
+	    println!("{:?}", self.ddb.url);
+	    let process = try!(self.run_ytdl_process());
+	    let stdout = BufReader::new(process.stdout.unwrap());
 
-	    let mut conn = pool.get_conn().unwrap();
+	    let mut conn = self.ddb.pool.get_conn().unwrap();
 	    let mut statement = self.prepare_progress_updater(&mut conn);
-	    let mut conn = pool.get_conn().unwrap();
+	    let mut conn = self.ddb.pool.get_conn().unwrap();
 	    let re = regex!(r"\d+\.\d%");
 
-	    let i = 0;
-
-	    self.set_query_code(&mut conn, &1, &qid);
+	    try!(self.set_query_code(&mut conn, &1));
 
 	    for line in &mut stdout.lines(){
 	        match line{
@@ -69,7 +78,7 @@ impl<'a> Downloader<'a> {
 	                    match re.find(&text) {
 	                        Some(s) => { println!("Match at {}", s.0);
 	                                    println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
-	                                    self.update_progress(&mut statement, &text[s.0..s.1].to_string(), &qid);
+	                                    self.update_progress(&mut statement, &text[s.0..s.1].to_string());
 	                                },
 	                        None => println!("Detected no % match."),
 	                    }
@@ -78,17 +87,18 @@ impl<'a> Downloader<'a> {
 	        }
 	    }
 
-	    self.update_progress(&mut statement, &"Finished".to_string(), &qid);
-	    self.set_query_code(&mut conn, &3, &qid);
+	    self.update_progress(&mut statement, &"Finished".to_string());
+	    try!(self.set_query_code(&mut conn, &3));
 
 	    Ok(true)
 	}
 
-	fn run_process(&self,url: &str, folderFormat: &str) -> Result<Child,DownloadError> {
+	fn run_ytdl_process(&self) -> Result<Child,DownloadError> {
 		match Command::new("youtube-dl")
 	                                .arg("--newline")
-	                                .arg(format!("-o {}",folderFormat))
-	                                .arg(url)
+	                                .arg(format!("-r {}M",self.ddb.download_limit))
+	                                .arg(format!("-o {}",self.ddb.folder_format))
+	                                .arg(&self.ddb.url)
 	                                .stdin(Stdio::null())
 	                                .stdout(Stdio::piped())
 	                                .spawn() {
@@ -105,17 +115,22 @@ impl<'a> Downloader<'a> {
 	// }
 
 	// MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-	fn prepare_progress_updater(&self,conn: &'a mut MyPooledConn) -> Stmt { // no livetime needed: struct livetime used
+	fn prepare_progress_updater<'a>(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
 	    conn.prepare("UPDATE querydetails SET status = ? WHERE qid = ?").unwrap()
 	}
 
-	fn set_query_code(&self,conn: & mut MyPooledConn, code: &i8, qid: &i64){ // same here
+	fn set_query_code(&self,conn: & mut MyPooledConn, code: &i8) -> Result<(), DownloadError> { // same here
 	    let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
-	    stmt.execute(&[code,qid]);
+	    let result = stmt.execute(&[code,&self.ddb.qid]);
+	    match result {
+	    	Ok(_) => Ok(()),
+	    	Err(why) => Err(DownloadError::DBError(why.description().into())),
+	    }
+	    
 	}
 
 	///updater called from the stdout progress
-	fn update_progress(&self,stmt: &mut Stmt, progress: &String, qid: &i64){
-	    stmt.execute(&[progress,qid]);
+	fn update_progress(&self,stmt: &mut Stmt, progress: &String){
+	    stmt.execute(&[progress,&self.ddb.qid]);
 	}
 }

@@ -5,6 +5,8 @@ extern crate toml;
 #[macro_use]
 extern crate lazy_static;
 
+mod lib;
+
 use mysql::conn::MyOpts;
 use std::default::Default;
 use mysql::conn::pool;
@@ -13,17 +15,15 @@ use mysql::value::from_value;
 use toml::Table;
 use toml::Value;
 
-mod lib {
-    pub mod config;
-    pub mod downloader;
-}
+use lib::config;
+use lib::downloader;
 
 static VERSION : &'static str = "0.1"; // String not valid
 
 lazy_static! {
     static ref CONFIG: Table = {
         println!("Starting yayd-backend v{}",&VERSION);
-        lib::config::init_config() //return
+        config::init_config() //return
     };
 
 }
@@ -46,12 +46,20 @@ fn main() {
     let result = result.next().unwrap().unwrap();
     println!("Result: {:?}", result[0]);
     println!("result str: {}", result[1].into_str());
-    //url: &str, quality: i16, qid: i64, folderFormat: &str, pool: MyPool
-    let downloader = lib::downloader::Downloader::new(&from_value::<String>(&result[1]),
-                                from_value::<i16>(&result[3]),
-                                from_value::<i64>(&result[0]),
-                                &"/home/dev/%(title)s-%(id)s.%(ext)s",
-                                pool);
+    //url: &str, quality: i16, qid: i64, folderFormat: &str, pool: MyPool+
+    let download_db = downloader::DownloadDB { url: from_value::<String>(&result[1]),
+												quality: from_value::<i16>(&result[3]),
+												qid: from_value::<i64>(&result[0]),
+												folder_format: "/home/dev/%(title)s-%(id)s.%(ext)s".into(),
+												pool: pool,
+												download_limit: 6 };
+	let downloader = downloader::Downloader::new(download_db);
+	downloader.download_video();
+    // let downloader = lib::downloader::Downloader::new(&from_value::<String>(&result[1]),
+    //                             from_value::<i16>(&result[3]),
+    //                             from_value::<i64>(&result[0]),
+    //                             &"/home/dev/%(title)s-%(id)s.%(ext)s",
+    //                             pool);
     // lib::downloader::download_video(&from_value::<String>(&result[1]),
     //                             from_value::<i32>(&result[3]),
     //                             from_value::<i64>(&result[0]),

@@ -10,13 +10,14 @@ use std::env::current_dir;
 use std::fs::PathExt;
 use std::fs::File;
 
+
+// pub mod config;
 // Config section
 
 #[derive(Debug)]
 pub enum ConfigError {
     ReadError,
     WriteError,
-    UnknownError,
     CreateError,
     ParseError,
 }
@@ -26,16 +27,13 @@ pub enum ConfigError {
 pub fn init_config() -> Table {
     let mut path = current_dir().unwrap();
     path.set_file_name("config.cfg");
-    // let  = path.as_path();
     println!("{:?}",path );
-    //let conftbl: TomlTable = TomlTable(nul);
-    let mut config : Option<Table> = None;
+    let mut config : Option<Table>;
     if path.as_path().is_file() {
         println!("Config file found.");
         config = read_config(&path.to_str().unwrap()).ok(); //result to option
     }else{
         println!("Config file not found.");
-        //config = Some();
         config = create_config(&path.to_str().unwrap()).ok();
     }
     config.unwrap()
