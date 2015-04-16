@@ -93,6 +93,20 @@ impl Downloader {
 	    Ok(true)
 	}
 
+	pub fn url_encode(input: &str) -> String {
+		// iterator over input, apply function to each element(function
+		input.chars().map(|char| {
+	        match char {
+	            ' ' => '_',
+	            '&' => '-',
+	            c if c.is_ascii() => c,
+	            _ => '_'
+	        }
+    	}).collect()
+    	// match for each char, then do collect: loop through the iterator, collect all elements
+    	// into container FromIterator
+	}
+
 	fn run_ytdl_process(&self) -> Result<Child,DownloadError> {
 		match Command::new("youtube-dl")
 	                                .arg("--newline")
@@ -121,7 +135,7 @@ impl Downloader {
 
 	fn set_query_code(&self,conn: & mut MyPooledConn, code: &i8) -> Result<(), DownloadError> { // same here
 	    let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
-	    let result = stmt.execute(&[code,&self.ddb.qid]);
+	    let result = stmt.execute(&[code,&self.ddb.qid]); // why is this var needed ?!
 	    match result {
 	    	Ok(_) => Ok(()),
 	    	Err(why) => Err(DownloadError::DBError(why.description().into())),
