@@ -17,6 +17,7 @@ use toml::Value;
 
 use lib::config;
 use lib::downloader::DownloadDB;
+use lib::downloader::Downloader;
 
 static VERSION : &'static str = "0.1"; // String not valid
 
@@ -36,9 +37,15 @@ fn main() {
     };
     loop {
     	if let result = request_entry(& pool) {
-    		
+    		if(result.playlist){
+    			println!("Playlist not supported atm!");
+    			//TODO: set playlist entry to err
+    		}
+    		let download = downloader::Downloader::new(download_db);
+    		let name = download.
+
     	} else {
-    		
+    		std::thread::sleep_ms(5000);
     	}
     }
     

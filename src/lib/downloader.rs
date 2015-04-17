@@ -73,7 +73,7 @@ impl Downloader {
 
 	    try!(self.set_query_code(&mut conn, &1));
 
-	    stdout.lines().map(|line|{
+	    for line in stdout.lines(){
 	        match line{
 	            Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
 	            Ok(text) => {
@@ -88,12 +88,17 @@ impl Downloader {
 	                    //if re.is_match(&text) {println!("Match: {:?}", text);}
 	                },
 	        }
-	    });
+	    }
 
 	    self.update_progress(&mut statement, &"Finished".to_string());
 	    try!(self.set_query_code(&mut conn, &3));
 
 	    Ok(true)
+	}
+
+	pub fn get_file_name(&self) -> String {
+		let process = try!(run_filename_process());
+		
 	}
 
 	pub fn url_encode(input: &str) -> String {
@@ -110,12 +115,26 @@ impl Downloader {
     	// into container FromIterator
 	}
 
-	fn run_ytdl_process(&self, filename: &str) -> Result<Child,DownloadError> {
+	fn run_download_process(&self, filename: &str) -> Result<Child,DownloadError> {
 		match Command::new("youtube-dl")
 	                                .arg("--newline")
 	                                .arg(format!("-r {}M",self.ddb.download_limit))
 	                                .arg(format!("-o {}/{}",self.ddb.folder_format,filename))
 	                                .arg(&self.ddb.url)
+	                                .stdin(Stdio::null())
+	                                .stdout(Stdio::piped())
+	                                .spawn() {
+	        Err(why) => Err(DownloadError::ConsoleError(Error::description(&why).into())),
+	        Ok(process) => Ok(process),
+	    }
+	}
+
+	fn run_filename_process(&self) -> Result<Child,DownloadError> {
+		match Command::new("youtube-dl")
+	                                .arg("--newline")
+	                                .arg("--get-filename")
+	                                .arg(&self.ddb.url)
+	                                .arg("2>&1")
 	                                .stdin(Stdio::null())
 	                                .stdout(Stdio::piped())
 	                                .spawn() {
