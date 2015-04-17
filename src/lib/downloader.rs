@@ -12,6 +12,7 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process::Child;
+use std::ascii::AsciiExt;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -20,6 +21,8 @@ macro_rules! regex(
 pub struct DownloadDB {
 	pub url: String,
 	pub quality: i16,
+	pub playlist: bool,
+	pub compress: bool,
 	pub qid: i64,
 	pub folder_format: String,
 	pub pool: MyPool,
@@ -58,9 +61,9 @@ impl Downloader {
 	///TODO: get the sql statements out of the class
 	///TODO: wrap errors
 	///Doesn't care about DMCAs, will emit errors on them
-	pub fn download_video(&self) -> Result<bool,DownloadError> {
+	pub fn download_video(&self, filename: &str) -> Result<bool,DownloadError> {
 	    println!("{:?}", self.ddb.url);
-	    let process = try!(self.run_ytdl_process());
+	    let process = try!(self.run_ytdl_process(filename));
 	    let stdout = BufReader::new(process.stdout.unwrap());
 
 	    let mut conn = self.ddb.pool.get_conn().unwrap();
@@ -70,7 +73,7 @@ impl Downloader {
 
 	    try!(self.set_query_code(&mut conn, &1));
 
-	    for line in &mut stdout.lines(){
+	    stdout.lines().map(|line|{
 	        match line{
 	            Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
 	            Ok(text) => {
@@ -85,7 +88,7 @@ impl Downloader {
 	                    //if re.is_match(&text) {println!("Match: {:?}", text);}
 	                },
 	        }
-	    }
+	    });
 
 	    self.update_progress(&mut statement, &"Finished".to_string());
 	    try!(self.set_query_code(&mut conn, &3));
@@ -107,11 +110,11 @@ impl Downloader {
     	// into container FromIterator
 	}
 
-	fn run_ytdl_process(&self) -> Result<Child,DownloadError> {
+	fn run_ytdl_process(&self, filename: &str) -> Result<Child,DownloadError> {
 		match Command::new("youtube-dl")
 	                                .arg("--newline")
 	                                .arg(format!("-r {}M",self.ddb.download_limit))
-	                                .arg(format!("-o {}",self.ddb.folder_format))
+	                                .arg(format!("-o {}/{}",self.ddb.folder_format,filename))
 	                                .arg(&self.ddb.url)
 	                                .stdin(Stdio::null())
 	                                .stdout(Stdio::piped())
