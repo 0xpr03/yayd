@@ -36,16 +36,16 @@ fn main() {
         Err(err) => panic!("Unable to establish a connection!\n{}",err),
     };
     loop {
-    	if let result = request_entry(& pool) {
-    		if(result.playlist){
+    	if let Some(result) = request_entry(& pool) {
+    		if result.playlist {
     			println!("Playlist not supported atm!");
     			//TODO: set playlist entry to err
     		}
-    		let download = downloader::Downloader::new(download_db);
-    		let name = download.
-
+    		handle_request(result);
     	} else {
+    		println!("Pausing..");
     		std::thread::sleep_ms(5000);
+    		println!("End pausing..");
     	}
     }
     
@@ -54,6 +54,18 @@ fn main() {
     
 
     println!("EOL!");
+}
+
+fn handle_request(downl_db: DownloadDB){
+	let download = Downloader::new(downl_db);
+	let name = match download.get_file_name() {
+		Ok(v) => v,
+		Err(e) => {
+			println!("{:?}", e);
+			return;
+		}
+	};
+	println!("Filename: {}", name);
 }
 
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {

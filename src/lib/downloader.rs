@@ -63,7 +63,7 @@ impl Downloader {
 	///Doesn't care about DMCAs, will emit errors on them
 	pub fn download_video(&self, filename: &str) -> Result<bool,DownloadError> {
 	    println!("{:?}", self.ddb.url);
-	    let process = try!(self.run_ytdl_process(filename));
+	    let process = try!(self.run_download_process(filename));
 	    let stdout = BufReader::new(process.stdout.unwrap());
 
 	    let mut conn = self.ddb.pool.get_conn().unwrap();
@@ -96,9 +96,26 @@ impl Downloader {
 	    Ok(true)
 	}
 
-	pub fn get_file_name(&self) -> String {
-		let process = try!(run_filename_process());
-		
+	pub fn get_file_name(&self) -> Result<String,DownloadError> {
+		let process = try!(self.run_filename_process());
+		let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
+		let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
+
+		let mut stdout: String = String::new();
+		stdout_buffer.read_to_string(&mut stdout);
+		let mut stderr: String = String::new();
+		stderr_buffer.read_to_string(&mut stderr);
+		println!("stderr: {:?}", stderr);
+		println!("stdout: {:?}", stdout);
+		stdout.trim();
+		println!("get_file_name: {:?}", stdout);
+		Ok(stdout)
+		// "asd".to_string()
+		// for line in stdout.lines(){
+		// 	match line{
+		// 		_ => { println!("Line: {:?}", line); }
+		// 	}
+		// }
 	}
 
 	pub fn url_encode(input: &str) -> String {
@@ -131,12 +148,11 @@ impl Downloader {
 
 	fn run_filename_process(&self) -> Result<Child,DownloadError> {
 		match Command::new("youtube-dl")
-	                                .arg("--newline")
 	                                .arg("--get-filename")
 	                                .arg(&self.ddb.url)
-	                                .arg("2>&1")
 	                                .stdin(Stdio::null())
 	                                .stdout(Stdio::piped())
+	                                .stderr(Stdio::piped())
 	                                .spawn() {
 	        Err(why) => Err(DownloadError::ConsoleError(Error::description(&why).into())),
 	        Ok(process) => Ok(process),
