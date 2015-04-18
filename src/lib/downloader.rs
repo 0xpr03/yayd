@@ -1,3 +1,5 @@
+
+extern crate regex;
 use mysql::conn::pool::MyPool;
 use mysql::conn::pool::MyPooledConn;
 use mysql::conn::Stmt;
