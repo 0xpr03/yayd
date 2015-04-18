@@ -18,6 +18,7 @@ use toml::Value;
 use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
+use lib::downloader::DownloadError;
 
 static VERSION : &'static str = "0.1"; // String not valid
 
@@ -60,8 +61,12 @@ fn handle_request(downl_db: DownloadDB){
 	let download = Downloader::new(downl_db);
 	let name = match download.get_file_name() {
 		Ok(v) => v,
+		Err(DownloadError::DMCAError) => {
+			println!("DMCA error!");
+			return;
+		},
 		Err(e) => {
-			println!("{:?}", e);
+			println!("Unknown error: {:?}", e);
 			return;
 		}
 	};
