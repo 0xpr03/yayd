@@ -1,7 +1,3 @@
-
-extern crate toml;
-extern crate rustc_serialize;
-
 use toml::{Table,decode_str};
 
 use std::io::Write;

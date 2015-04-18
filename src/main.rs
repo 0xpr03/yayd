@@ -34,7 +34,7 @@ lazy_static! {
 fn main() {
 	println!("{:?}", CONFIG);
 
-/*
+
     let opts = mysql_options();
     let pool = match pool::MyPool::new(opts) {
         Ok(conn) => { println!("Connected successfully."); conn},
@@ -58,9 +58,9 @@ fn main() {
 	// downloader.download_video();
     
 
-    println!("EOL!");*/
+    println!("EOL!");
 }
-/*
+
 fn handle_request(downl_db: DownloadDB){
 	let dbcopy = downl_db; //copy, all implement copy & no &'s in use
 	let download = Downloader::new(downl_db);
@@ -125,12 +125,14 @@ fn mysql_options() -> MyOpts {
 
     MyOpts {
         //tcp_addr: Some(dbconfig.get("ip").unwrap().as_str().clone()),
-        tcp_addr: get_option_string(dbconfig,"ip"),
-        tcp_port: dbconfig.get("port").unwrap().as_integer().unwrap() as u16,
+        tcp_addr: CONFIG.db.ip,
+        //tcp_port: dbconfig.get("port").unwrap().as_integer().unwrap() as u16,
+        tcp_port: CONFIG.db.port as u16,
         //TODO: value does support Encodable -> set as encodable..
-        user: get_option_string(dbconfig,"user"),
-        pass: get_option_string(dbconfig, "password"),
-        db_name: get_option_string(dbconfig, "db"),
+        //user: get_option_string(dbconfig,"user"),
+        user: CONFIG.db.user,
+        pass: CONFIG.db.password,
+        db_name: CONFIG.db.db,
         ..Default::default() // set other to default
     }
 }
@@ -142,7 +144,7 @@ fn get_option_string(table: & Table,key: & str) -> Option<String> {
         Some(s)
     } else { unreachable!() }
 }
-*/
+
 // fn get_option_int(table: & Table, key: & str) -> Option<int> {
 //     let val: Value = table.get(key).unwrap().clone();
 //     if let toml::Value::
