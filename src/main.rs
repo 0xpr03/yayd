@@ -5,7 +5,6 @@ extern crate toml;
 extern crate rustc_serialize;
 #[macro_use]
 extern crate lazy_static;
-extern crate regex;
 
 mod lib;
 
@@ -34,9 +33,6 @@ lazy_static! {
 }
 
 fn main() {
-	println!("{:?}", CONFIG);
-
-
     let opts = mysql_options();
     let pool = match pool::MyPool::new(opts) {
         Ok(conn) => { println!("Connected successfully."); conn},
@@ -58,19 +54,19 @@ fn main() {
     
 	// let downloader = downloader::Downloader::new(download_db);
 	// downloader.download_video();
-    
 
     println!("EOL!");
 }
 
 fn handle_request(downl_db: DownloadDB){
-	let dbcopy = downl_db; //copy, all implement copy & no &'s in use
+	let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
 	let download = Downloader::new(downl_db);
 	let name = match download.get_file_name() {
 		Ok(v) => v,
 		Err(DownloadError::DMCAError) => {
 			println!("DMCA error!");
-			//println!("Output: ", socket::request_video(dbcopy.url, ));
+			let offlrequest = socket::request_video(dbcopy.url, CONFIG.general.jar_folder);
+			println!("Output: ", offlrequest);
 			return;
 		},
 		Err(e) => {
@@ -78,7 +74,7 @@ fn handle_request(downl_db: DownloadDB){
 			//TODO: add error descr (change enum etc)
 			set_query_state(&dbcopy.pool.clone(),&dbcopy.qid, &3, "Error!");
 			return;
-		}
+		},
 	};
 	println!("Filename: {}", name);
 }
@@ -122,32 +118,28 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
 
 ///Set options for the connection
 fn mysql_options() -> MyOpts {
-    let dbconfig = CONFIG.get("db").unwrap().clone();
-    let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
+    //let dbconfig = CONFIG.get("db").unwrap().clone();
+    //let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
 
     MyOpts {
         //tcp_addr: Some(dbconfig.get("ip").unwrap().as_str().clone()),
-        tcp_addr: CONFIG.db.ip,
+        tcp_addr: Some(CONFIG.db.ip.clone()),
         //tcp_port: dbconfig.get("port").unwrap().as_integer().unwrap() as u16,
         tcp_port: CONFIG.db.port as u16,
         //TODO: value does support Encodable -> set as encodable..
         //user: get_option_string(dbconfig,"user"),
-        user: CONFIG.db.user,
-        pass: CONFIG.db.password,
-        db_name: CONFIG.db.db,
+        user: Some(CONFIG.db.user.clone()),
+        pass: Some(CONFIG.db.password.clone()),
+        db_name: Some(CONFIG.db.db.clone()),
         ..Default::default() // set other to default
     }
 }
 
 ///Converts a toml::Value to a Option<String> for mysql::MyOpts
+#[allow(deprecated)]
 fn get_option_string(table: & Table,key: & str) -> Option<String> {
     let val: Value = table.get(key).unwrap().clone();
     if let toml::Value::String(s) = val {
         Some(s)
     } else { unreachable!() }
 }
-
-// fn get_option_int(table: & Table, key: & str) -> Option<int> {
-//     let val: Value = table.get(key).unwrap().clone();
-//     if let toml::Value::
-// }

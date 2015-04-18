@@ -22,23 +22,23 @@ pub enum ConfigError {
 
 #[derive(Debug, RustcDecodable)]
 pub struct Config {
-	db: ConfigDB,
-	general: ConfigGen,
+	pub db: ConfigDB,
+	pub general: ConfigGen,
 }
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigDB {
-	user: String,
-	password: String,
-	port: u16,
-	db: String,
-	ip: String,
+	pub user: String,
+	pub password: String,
+	pub port: u16,
+	pub db: String,
+	pub ip: String,
 }
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigGen{
-	save_dir: String,
-	jar_folder: String,
+	pub save_dir: String,
+	pub jar_folder: String,
 }
 
 /// create PathBuf by getting the current working dir
@@ -61,8 +61,8 @@ pub fn read_config(file: &str) -> Result<Config,ConfigError> {
     let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
     let mut toml = String::new();
     try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
-    let config: Config = match decode_str(toml) {
-        None => Err(ConfigError::ParseError),
+    let config: Config = match decode_str(&toml) {
+        None => return Err(ConfigError::ParseError),
         Some(dconfig) => dconfig,
     };
     Ok(config)
@@ -82,7 +82,7 @@ save_dir = "~/downloads/"
 jar_folder = "~/yayd"
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-    let config: Config = match decode_str(toml) {
+    let config: Config = match decode_str(&toml) {
         None => return Err(ConfigError::ParseError),
         Some(dconfig) => dconfig,
     };

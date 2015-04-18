@@ -16,7 +16,7 @@ macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
-#[derive(Copy)]
+#[derive(Clone)]
 pub struct DownloadDB {
 	pub url: String,
 	pub quality: i16,
@@ -29,7 +29,9 @@ pub struct DownloadDB {
 }
 
 // impl copy(&self) for DownloadDB -> DownloadDB {
-
+// 	let t = DownloadDB{
+// 		url: self.url
+// 	}
 // }
 
 pub struct Downloader {
