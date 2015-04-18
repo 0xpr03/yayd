@@ -2,8 +2,10 @@
 #![feature(convert)]
 extern crate mysql;
 extern crate toml;
+extern crate rustc_serialize;
 #[macro_use]
 extern crate lazy_static;
+extern crate regex;
 
 mod lib;
 
