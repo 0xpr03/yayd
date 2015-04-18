@@ -19,11 +19,12 @@ use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::downloader::DownloadError;
+use lib::socket;
 
 static VERSION : &'static str = "0.1"; // String not valid
 
 lazy_static! {
-    static ref CONFIG: Table = {
+    static ref CONFIG: config::Config = {
         println!("Starting yayd-backend v{}",&VERSION);
         config::init_config() //return
     };
@@ -31,6 +32,9 @@ lazy_static! {
 }
 
 fn main() {
+	println!("{:?}", CONFIG);
+
+/*
     let opts = mysql_options();
     let pool = match pool::MyPool::new(opts) {
         Ok(conn) => { println!("Connected successfully."); conn},
@@ -54,23 +58,37 @@ fn main() {
 	// downloader.download_video();
     
 
-    println!("EOL!");
+    println!("EOL!");*/
 }
-
+/*
 fn handle_request(downl_db: DownloadDB){
+	let dbcopy = downl_db; //copy, all implement copy & no &'s in use
 	let download = Downloader::new(downl_db);
 	let name = match download.get_file_name() {
 		Ok(v) => v,
 		Err(DownloadError::DMCAError) => {
 			println!("DMCA error!");
+			//println!("Output: ", socket::request_video(dbcopy.url, ));
 			return;
 		},
 		Err(e) => {
 			println!("Unknown error: {:?}", e);
+			//TODO: add error descr (change enum etc)
+			set_query_state(&dbcopy.pool.clone(),&dbcopy.qid, &3, "Error!");
 			return;
 		}
 	};
 	println!("Filename: {}", name);
+}
+
+fn set_query_state(pool: & pool::MyPool,qid: &i64 , code: &i8, state: &str){ // same here
+	let mut conn = pool.get_conn().unwrap();
+    let mut stmt = conn.prepare("UPDATE querydetails SET code = ?, status = ? WHERE qid = ?").unwrap();
+    let result = stmt.execute(&[code,&state,qid]); // why is this var needed ?!
+    match result {
+    	Ok(_) => (),
+    	Err(why) => println!("Error setting query state: {}",why),
+    }
 }
 
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
@@ -124,7 +142,7 @@ fn get_option_string(table: & Table,key: & str) -> Option<String> {
         Some(s)
     } else { unreachable!() }
 }
-
+*/
 // fn get_option_int(table: & Table, key: & str) -> Option<int> {
 //     let val: Value = table.get(key).unwrap().clone();
 //     if let toml::Value::

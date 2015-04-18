@@ -1,7 +1,8 @@
 
 extern crate toml;
+extern crate rustc_serialize;
 
-use toml::Table;
+use toml::{Table,decode_str};
 
 use std::io::Write;
 use std::io::Read;
@@ -9,6 +10,7 @@ use std::io::Read;
 use std::env::current_dir;
 use std::fs::PathExt;
 use std::fs::File;
+
 
 
 // pub mod config;
@@ -22,13 +24,33 @@ pub enum ConfigError {
     ParseError,
 }
 
+#[derive(Debug, RustcDecodable)]
+pub struct Config {
+	db: ConfigDB,
+	general: ConfigGen,
+}
+
+#[derive(Debug, RustcDecodable)]
+pub struct ConfigDB {
+	user: String,
+	password: String,
+	port: u16,
+	db: String,
+	ip: String,
+}
+
+#[derive(Debug, RustcDecodable)]
+pub struct ConfigGen{
+	save_dir: String,
+	jar_folder: String,
+}
+
 /// create PathBuf by getting the current working dir
-/// set_file_name doesn't return smth -> needs to be run on mut path
-pub fn init_config() -> Table {
+pub fn init_config() -> Config {
     let mut path = current_dir().unwrap();
-    path.set_file_name("config.cfg");
+    path.set_file_name("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
     println!("{:?}",path );
-    let mut config : Option<Table>;
+    let mut config : Option<Config>;
     if path.as_path().is_file() {
         println!("Config file found.");
         config = read_config(&path.to_str().unwrap()).ok(); //result to option
@@ -39,17 +61,18 @@ pub fn init_config() -> Table {
     config.unwrap()
 }
 
-pub fn read_config(file: &str) -> Result<Table,ConfigError> {
+pub fn read_config(file: &str) -> Result<Config,ConfigError> {
     let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
     let mut toml = String::new();
     try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
-    match toml::Parser::new(toml.as_str()).parse() {
+    let config: Config = match decode_str(toml) {
         None => Err(ConfigError::ParseError),
-        Some(table) => Ok(table),
-    }
+        Some(dconfig) => dconfig,
+    };
+    Ok(config)
 }
 
-pub fn create_config(path: &str) -> Result<Table,ConfigError> {
+pub fn create_config(path: &str) -> Result<Config,ConfigError> {
     //TODO: replace with import_string
     let toml = r#"[db]
 user = "root"
@@ -60,12 +83,12 @@ ip = "127.0.0.1"
 
 [general]
 save_dir = "~/downloads/"
+jar_folder = "~/yayd"
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-    let mut parser = toml::Parser::new(toml);
-    let config: Table = match parser.parse() {
+    let config: Config = match decode_str(toml) {
         None => return Err(ConfigError::ParseError),
-        Some(table) => table,
+        Some(dconfig) => dconfig,
     };
     println!("Raw new config: {:?}", config);
     try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));

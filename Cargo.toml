@@ -1,7 +1,7 @@
 [package]
 name = "yayd-backend"
 version = "0.0.1"
-authors = ["Aron Heinecke"]
+authors = ["Aron Heinecke <aron.heinecke@t-online.de"]
 
 [[bin]]
 name = "yayd-backend"
@@ -19,6 +19,9 @@ toml = "0.1.20"
 [dependencies.regex]
 regex = "0.1.27"
 regex_macros = "0.1.15"
+
+[dependencies.rustc-serialize]
+rustc-serialize = "0.3.12"
 
 #[dependencies.hyper]
 #hyper = "0.3.13"

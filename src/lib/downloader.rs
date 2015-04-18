@@ -17,6 +17,7 @@ macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
+#[derive(Copy)]
 pub struct DownloadDB {
 	pub url: String,
 	pub quality: i16,
@@ -27,6 +28,10 @@ pub struct DownloadDB {
 	pub pool: MyPool,
 	pub download_limit: i16,
 }
+
+// impl copy(&self) for DownloadDB -> DownloadDB {
+
+// }
 
 pub struct Downloader {
 	ddb: DownloadDB,
@@ -129,7 +134,7 @@ impl Downloader {
 		// iterator over input, apply function to each element(function
 		input.chars().map(|char| {
 	        match char {
-	            ' ' => '_',
+	            ' ' | '?' | '!' | '\\' | '/' | '.' => '_',
 	            '&' => '-',
 	            c if c.is_ascii() => c,
 	            _ => '_'
