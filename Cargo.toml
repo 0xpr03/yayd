@@ -19,3 +19,6 @@ toml = "0.1.20"
 [dependencies.regex]
 regex = "0.1.27"
 regex_macros = "0.1.15"
+
+#[dependencies.hyper]
+#hyper = "0.3.13"
