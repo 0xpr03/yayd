@@ -4,14 +4,13 @@ extern crate regex;
 use mysql::conn::pool::MyPool;
 use mysql::conn::pool::MyPooledConn;
 use mysql::conn::Stmt;
-use mysql::conn::QueryResult;
 use mysql::error::MyError;
 
-use std::process::{Command, Stdio};
+use std::process::{Command, Stdio, Child};
 use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::process::Child;
+use std::io;
 use std::ascii::AsciiExt;
 
 macro_rules! regex(
@@ -39,7 +38,7 @@ pub enum DownloadError{
     ConsoleError(String),
     ReadError,
     DMCAError,
-    InternalError,
+    InternalError(String),
     DBError(String),
 }
 
@@ -49,6 +48,11 @@ impl From<MyError> for DownloadError {
 	}
 }
 
+impl From<io::Error> for DownloadError {
+	fn from(err: io::Error) -> DownloadError {
+		DownloadError::InternalError(err.description().into())
+	}
+}
 
 impl Downloader {
 	pub fn new(ddb: DownloadDB) -> Downloader{
@@ -102,11 +106,14 @@ impl Downloader {
 		let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
 
 		let mut stdout: String = String::new();
-		stdout_buffer.read_to_string(&mut stdout);
+		try!(stdout_buffer.read_to_string(&mut stdout));
 		let mut stderr: String = String::new();
-		stderr_buffer.read_to_string(&mut stderr);
+		try!(stderr_buffer.read_to_string(&mut stderr));
 		println!("stderr: {:?}", stderr);
 		println!("stdout: {:?}", stdout);
+		if stderr.contains("not available in your country") {
+			return Err(DownloadError::DMCAError);
+		}
 		stdout.trim();
 		println!("get_file_name: {:?}", stdout);
 		Ok(stdout)
