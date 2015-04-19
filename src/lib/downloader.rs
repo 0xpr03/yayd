@@ -12,6 +12,8 @@ use std::io::BufReader;
 use std::io;
 use std::ascii::AsciiExt;
 
+static AUDIO_QUALITY: i16 = 141;
+
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
@@ -23,7 +25,8 @@ pub struct DownloadDB {
     pub playlist: bool,
     pub compress: bool,
     pub qid: i64,
-    pub folder_format: String,
+    pub subid: i32, // needed for playlists ?, can't use qid for all files..
+    pub folder: String,
     pub pool: MyPool,
     pub download_limit: u16,
 }
@@ -41,7 +44,7 @@ pub struct Downloader {
 
 #[derive(Debug)]
 pub enum DownloadError{
-    ConsoleError(String),
+    DownloadError(String),
     ReadError,
     DMCAError,
     InternalError(String),
@@ -111,9 +114,14 @@ impl Downloader {
         try!(stderr_buffer.read_to_string(&mut stderr));
         println!("stderr: {:?}", stderr);
         println!("stdout: {:?}", stdout);
-        if stderr.contains("not available in your country") {
-            return Err(DownloadError::DMCAError);
+        if stderr.is_empty() != true {
+            if stderr.contains("not available in your country") {
+                return Err(DownloadError::DMCAError);
+            }else{
+
+            }
         }
+        
         stdout.trim();
         println!("get_file_name: {:?}", stdout);
         Ok(stdout)
@@ -143,12 +151,12 @@ impl Downloader {
         match Command::new("youtube-dl")
                                     .arg("--newline")
                                     .arg(format!("-r {}M",self.ddb.download_limit))
-                                    .arg(format!("-o {}/{}",self.ddb.folder_format,filename))
+                                    .arg(format!("-o {}/{}",self.ddb.folder,filename))
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
                                     .spawn() {
-            Err(why) => Err(DownloadError::ConsoleError(Error::description(&why).into())),
+            Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
     }
@@ -161,7 +169,7 @@ impl Downloader {
                                     .stdout(Stdio::piped())
                                     .stderr(Stdio::piped())
                                     .spawn() {
-            Err(why) => Err(DownloadError::ConsoleError(Error::description(&why).into())),
+            Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
     }
@@ -181,5 +189,68 @@ impl Downloader {
     ///updater called from the stdout progress
     fn update_progress(&self,stmt: &mut Stmt, progress: &String){
         stmt.execute(&[progress,&self.ddb.qid]);
+    }
+
+    ///This function does a 3rd party binding
+    ///due to the country restrictions, in case it's needed
+    ///Because hyper doesn't support timeout settings atm, we're calling an external
+    ///lib
+    ///The returned value contains the original video name, the lib downloads & saved
+    ///the file at the given folder to the given name
+    pub fn lib_request_video(&self,url: &str, jarfolder: &str, jar_cmd: &str) -> Result<String,SocketError> {
+        let process = try!(request_video_cmd(url, jarfolder,jar_cmd));
+
+        let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
+        let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
+
+        let mut stdout: String = String::new();
+        try!(stdout_buffer.read_to_string(&mut stdout));
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+        println!("stdout: {:?}", stdout);
+        if stderr.contains("error") {
+            println!("stderr: {:?}", stderr);
+            return Err(DownloadError::InternalError(stderr));
+        }
+        stdout.trim();
+        println!("get_file_name: {:?}", stdout);
+        Ok(stdout)
+    }
+
+    ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
+    fn lib_request_video_cmd(&self) -> Result<Child,SocketError> {
+        println!("{:?}", format!("{} {}/offliberty.jar",jar_cmd,jarfolder));
+        match Command::new(format!("{} {}/offliberty.jar",jar_cmd,jarfolder))
+                                        .arg("request")
+                                        .arg(url)
+                                        .arg("-folder")
+                                        .arg(self.folder)
+                                        .arg(gen_request_str())
+                                        .arg("-name")
+                                        .arg(self.qid)
+                                        .stdin(Stdio::null())
+                                        .stdout(Stdio::piped())
+                                        .stderr(Stdio::piped())
+                                        .spawn() {
+                Err(why) => Err(SocketError::InternalError(Error::description(&why).into())),
+                Ok(process) => Ok(process),
+            }
+    }
+
+    ///Generate -a or -v, based on if an audio or video quality is requested
+    fn gen_request_str(&self) -> str{
+        if self.is_audiow {
+            "-a"
+        } else {
+            "-v"
+        }
+    }
+
+    ///Check if the quality is 141, standing for audio or not
+    fn is_audiow(&self){
+        match self.quality {
+            AUDIO_QUALITY => false,
+            _ => true,
+        }
     }
 }
