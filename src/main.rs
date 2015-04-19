@@ -92,18 +92,18 @@ fn handle_download(downl_db: DownloadDB) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db);
     //get filename, check for DMCA
-    let name = match download.get_file_name() {
+    let name = match download.get_file_name() { // get filename
         Ok(v) => v,
-        Err(DownloadError::DMCAError) => {
+        Err(DownloadError::DMCAError) => { //now request via lib..
             println!("DMCA error!");
-            let offlrequest = match socket::request_video(&dbcopy.url, &CONFIG.general.jar_folder, &CONFIG.general.jar_cmd) {
+            let name = match download.lib_request_video(&dbcopy.url, &CONFIG.general.jar_folder, &CONFIG.general.jar_cmd) {
                 Err(err) => { println!("Offliberty-call error {:?}", err); return false; },
                 Ok(v) => v,
             };
             println!("Output: {}", offlrequest);
             "default-debug-cover".to_string()
         },
-        Err(e) => {
+        Err(e) => { // unknown error / video private etc.. abort
             println!("Unknown error: {:?}", e);
             //TODO: add error descr (change enum etc)
             set_query_state(&dbcopy.pool.clone(),&dbcopy.qid, "Error!");
@@ -147,7 +147,7 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                                 quality: from_value::<i16>(&result[3]),
                                                 qid: from_value::<i64>(&result[0]),
-                                                folder_format: CONFIG.general.save_dir.clone(),
+                                                folder: CONFIG.general.save_dir.clone(),
                                                 pool: pool.clone(),
                                                 download_limit: CONFIG.general.download_mbps.clone(),
                                                 playlist: false, //TEMP
