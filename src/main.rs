@@ -116,8 +116,11 @@ fn handle_download(downl_db: DownloadDB) -> bool{
     println!("Filename: {}", name);
 
     if is_split_container(&dbcopy.quality) { // download both files if needed & convert together
-        //TODO: actual logic
+        //TODO: actual logic see descr
     }
+    //TODO: check for audio
+
+    //TODO: download file, convert if audio ?!
     true
 }
 
