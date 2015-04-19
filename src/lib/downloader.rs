@@ -12,8 +12,6 @@ use std::io::BufReader;
 use std::io;
 use std::ascii::AsciiExt;
 
-static AUDIO_QUALITY: i16 = 141;
-
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
@@ -103,6 +101,8 @@ impl Downloader {
         Ok(true)
     }
 
+    ///Trys to get the original name of a file, while checking for availability
+    ///
     pub fn get_file_name(&self) -> Result<String,DownloadError> {
         let process = try!(self.run_filename_process());
         let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
@@ -125,19 +125,14 @@ impl Downloader {
         stdout.trim();
         println!("get_file_name: {:?}", stdout);
         Ok(stdout)
-        // "asd".to_string()
-        // for line in stdout.lines(){
-        //     match line{
-        //         _ => { println!("Line: {:?}", line); }
-        //     }
-        // }
     }
 
+    ///Return an url-conform String
     pub fn url_encode(input: &str) -> String {
         // iterator over input, apply function to each element(function
         input.chars().map(|char| {
             match char {
-                ' ' | '?' | '!' | '\\' | '/' | '.' => '_',
+                ' ' | '?' | '!' | '\\' | '/' | '.' | '(' | ')' | '[' | ']' => '_',
                 '&' => '-',
                 c if c.is_ascii() => c,
                 _ => '_'
@@ -239,7 +234,7 @@ impl Downloader {
 
     ///Generate -a or -v, based on if an audio or video quality is requested
     fn gen_request_str(&self) -> str{
-        if self.is_audiow {
+        if self.is_audio {
             "-a"
         } else {
             "-v"
@@ -247,9 +242,9 @@ impl Downloader {
     }
 
     ///Check if the quality is 141, standing for audio or not
-    fn is_audiow(&self){
+    pub fn is_audio(&self){
         match self.quality {
-            AUDIO_QUALITY => false,
+            &CONFIG.codecs.audio => false,
             _ => true,
         }
     }

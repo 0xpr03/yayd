@@ -88,20 +88,23 @@ fn main() {
 ///which will output a mp3, or if requested, a hard quality depending on the max-available of
 ///the video url. Thus in case of a DMCA we can't pick a quality anymore.
 ///Also the filename depends on the socket output then.
+///
+///If it's a non-zipped single file, the file is moved after a success download,convert etc to the
+///main folder from which it should be downloadable.
+///The original non-ascii & url_encode name of the file is stored in the DB
 fn handle_download(downl_db: DownloadDB) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db);
     //get filename, check for DMCA
+    let dmca = false; // "succ." dmca -> file already downloaded
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib..
             println!("DMCA error!");
             let name = match download.lib_request_video(&dbcopy.url, &CONFIG.general.jar_folder, &CONFIG.general.jar_cmd) {
                 Err(err) => { println!("Offliberty-call error {:?}", err); return false; },
-                Ok(v) => v,
-            };
-            println!("Output: {}", offlrequest);
-            "default-debug-cover".to_string()
+                Ok(v) => { dmca = true; v },
+            }
         },
         Err(e) => { // unknown error / video private etc.. abort
             println!("Unknown error: {:?}", e);
@@ -112,7 +115,9 @@ fn handle_download(downl_db: DownloadDB) -> bool{
     };
     println!("Filename: {}", name);
 
-
+    if is_split_container(&dbcopy.quality) { // download both files if needed & convert together
+        //TODO: actual logic
+    }
     true
 }
 
@@ -125,6 +130,13 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
         Ok(_) => (),
         Err(why) => println!("Error setting query state: {}",why),
     }
+}
+
+///Return whether the quality is a split container: video only
+///as specified in the docs
+fn is_split_container(quality &i16){
+    141 | 83 | 82 | 84 | 85 => false,
+    _ => true,
 }
 
 ///Request an entry from the DB that should be handled
@@ -143,7 +155,6 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     };
     println!("Result: {:?}", result[0]);
     println!("result str: {}", result[1].into_str());
-    //url: &str, quality: i16, qid: i64, folderFormat: &str, pool: MyPool+
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                                 quality: from_value::<i16>(&result[3]),
                                                 qid: from_value::<i64>(&result[0]),
@@ -170,12 +181,8 @@ fn mysql_options() -> MyOpts {
     //let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
 
     MyOpts {
-        //tcp_addr: Some(dbconfig.get("ip").unwrap().as_str().clone()),
         tcp_addr: Some(CONFIG.db.ip.clone()),
-        //tcp_port: dbconfig.get("port").unwrap().as_integer().unwrap() as u16,
         tcp_port: CONFIG.db.port,
-        //TODO: value does support Encodable -> set as encodable..
-        //user: get_option_string(dbconfig,"user"),
         user: Some(CONFIG.db.user.clone()),
         pass: Some(CONFIG.db.password.clone()),
         db_name: Some(CONFIG.db.db.clone()),

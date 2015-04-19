@@ -24,6 +24,7 @@ pub enum ConfigError {
 pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
+    pub codecs: ConfigQuality,
 }
 
 #[derive(Debug, RustcDecodable)]
@@ -37,10 +38,16 @@ pub struct ConfigDB {
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigGen{
-    pub save_dir: String,
-    pub jar_folder: String,
-    pub jar_cmd: String,
-    pub download_mbps: u16,
+    pub save_dir: String, // folder to temp. save the raw files
+    pub download_dir: String, // folder to which the files should be moved
+    pub jar_folder: String, // DMCA lib
+    pub jar_cmd: String, // command for the DMCA lib
+    pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
+}
+
+#[derive(Debug, RustcDecodable)]
+pub struct ConfigCodecs {
+    pub audio: i32,
 }
 
 /// create PathBuf by getting the current working dir
@@ -80,10 +87,14 @@ port = 3306
 ip = "127.0.0.1"
 
 [general]
-save_dir = "~/downloads"
+save_dir = "~/downloads/temp"
+download_dir = "~/downloads"
 jar_folder = "~/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
 download_mbps = 6
+
+[codecs]
+audio = 141
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {
