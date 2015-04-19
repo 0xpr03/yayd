@@ -78,10 +78,8 @@ impl Downloader {
 
 	    let mut conn = self.ddb.pool.get_conn().unwrap();
 	    let mut statement = self.prepare_progress_updater(&mut conn);
-	    let mut conn = self.ddb.pool.get_conn().unwrap();
-	    let re = regex!(r"\d+\.\d%");
+	    let re = regex!(r"\d+\.\d");
 
-	    try!(self.set_query_code(&mut conn, &1));
 
 	    for line in stdout.lines(){
 	        match line{
@@ -99,9 +97,6 @@ impl Downloader {
 	                },
 	        }
 	    }
-
-	    self.update_progress(&mut statement, &"Finished".to_string());
-	    try!(self.set_query_code(&mut conn, &3));
 
 	    Ok(true)
 	}
@@ -181,17 +176,7 @@ impl Downloader {
 
 	// MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
 	fn prepare_progress_updater<'a>(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
-	    conn.prepare("UPDATE querydetails SET status = ? WHERE qid = ?").unwrap()
-	}
-
-	fn set_query_code(&self,conn: & mut MyPooledConn, code: &i8) -> Result<(), DownloadError> { // same here
-	    let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
-	    let result = stmt.execute(&[code,&self.ddb.qid]); // why is this var needed ?!
-	    match result {
-	    	Ok(_) => Ok(()),
-	    	Err(why) => Err(DownloadError::DBError(why.description().into())),
-	    }
-	    
+	    conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?").unwrap()
 	}
 
 	///updater called from the stdout progress

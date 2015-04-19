@@ -39,6 +39,7 @@ pub struct ConfigDB {
 pub struct ConfigGen{
 	pub save_dir: String,
 	pub jar_folder: String,
+	pub jar_cmd: String,
 }
 
 /// create PathBuf by getting the current working dir
@@ -80,6 +81,7 @@ ip = "127.0.0.1"
 [general]
 save_dir = "~/downloads/"
 jar_folder = "~/yayd"
+jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {
