@@ -22,24 +22,25 @@ pub enum ConfigError {
 
 #[derive(Debug, RustcDecodable)]
 pub struct Config {
-	pub db: ConfigDB,
-	pub general: ConfigGen,
+    pub db: ConfigDB,
+    pub general: ConfigGen,
 }
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigDB {
-	pub user: String,
-	pub password: String,
-	pub port: u16,
-	pub db: String,
-	pub ip: String,
+    pub user: String,
+    pub password: String,
+    pub port: u16,
+    pub db: String,
+    pub ip: String,
 }
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigGen{
-	pub save_dir: String,
-	pub jar_folder: String,
-	pub jar_cmd: String,
+    pub save_dir: String,
+    pub jar_folder: String,
+    pub jar_cmd: String,
+    pub download_mbps: u16,
 }
 
 /// create PathBuf by getting the current working dir
@@ -79,9 +80,10 @@ port = 3306
 ip = "127.0.0.1"
 
 [general]
-save_dir = "~/downloads/"
+save_dir = "~/downloads"
 jar_folder = "~/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
+download_mbps = 6
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {
