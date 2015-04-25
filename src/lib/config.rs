@@ -24,7 +24,7 @@ pub enum ConfigError {
 pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
-    pub codecs: ConfigQuality,
+    pub codecs: ConfigCodecs,
 }
 
 #[derive(Debug, RustcDecodable)]
@@ -36,7 +36,7 @@ pub struct ConfigDB {
     pub ip: String,
 }
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Clone, Debug, RustcDecodable)]
 pub struct ConfigGen{
     pub save_dir: String, // folder to temp. save the raw files
     pub download_dir: String, // folder to which the files should be moved
@@ -47,7 +47,7 @@ pub struct ConfigGen{
 
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigCodecs {
-    pub audio: i32,
+    pub audio: i16,
 }
 
 /// create PathBuf by getting the current working dir

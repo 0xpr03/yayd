@@ -11,6 +11,8 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::io;
 use std::ascii::AsciiExt;
+use lib::config::ConfigGen;
+use std::convert::Into;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -22,21 +24,16 @@ pub struct DownloadDB {
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
+    pub audioquality: i16,
     pub qid: i64,
     pub subid: i32, // needed for playlists ?, can't use qid for all files..
-    pub folder: String,
+    pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
-    pub download_limit: u16,
 }
 
-// impl copy(&self) for DownloadDB -> DownloadDB {
-//     let t = DownloadDB{
-//         url: self.url
-//     }
-// }
-
-pub struct Downloader {
+pub struct Downloader<'a> {
     ddb: DownloadDB,
+    defaults: &'a ConfigGen,
     // pool: MyPool,
 }
 
@@ -61,12 +58,12 @@ impl From<io::Error> for DownloadError {
     }
 }
 
-impl Downloader {
-    pub fn new(ddb: DownloadDB) -> Downloader{
-        Downloader {ddb: ddb}
+impl<'a> Downloader<'a>{
+    pub fn new(ddb: DownloadDB, defaults: &'a ConfigGen) -> Downloader<'a>{
+        Downloader {ddb: ddb, defaults: defaults}
     }
     
-    ///Regex: [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
+    ///Regex matching: [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
     ///
     ///Downloads a video, updates the DB
     ///TODO: get the sql statements out of the class
@@ -114,17 +111,17 @@ impl Downloader {
         try!(stderr_buffer.read_to_string(&mut stderr));
         println!("stderr: {:?}", stderr);
         println!("stdout: {:?}", stdout);
-        if stderr.is_empty() != true {
+        if stderr.is_empty() == true {
+            stdout.trim();
+            println!("get_file_name: {:?}", stdout);
+            Ok(stdout)
+        }else{
             if stderr.contains("not available in your country") {
                 return Err(DownloadError::DMCAError);
             }else{
-
+                return Err(DownloadError::DownloadError(stderr));
             }
         }
-        
-        stdout.trim();
-        println!("get_file_name: {:?}", stdout);
-        Ok(stdout)
     }
 
     ///Return an url-conform String
@@ -145,7 +142,7 @@ impl Downloader {
     fn run_download_process(&self, filename: &str) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--newline")
-                                    .arg(format!("-r {}M",self.ddb.download_limit))
+                                    .arg(format!("-r {}M",self.defaults.download_mbps))
                                     .arg(format!("-o {}/{}",self.ddb.folder,filename))
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
@@ -177,7 +174,7 @@ impl Downloader {
     // }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-    fn prepare_progress_updater<'a>(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
+    fn prepare_progress_updater(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
         conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?").unwrap()
     }
 
@@ -192,8 +189,8 @@ impl Downloader {
     ///lib
     ///The returned value contains the original video name, the lib downloads & saved
     ///the file at the given folder to the given name
-    pub fn lib_request_video(&self,url: &str, jarfolder: &str, jar_cmd: &str) -> Result<String,SocketError> {
-        let process = try!(request_video_cmd(url, jarfolder,jar_cmd));
+    pub fn lib_request_video(&self) -> Result<String,DownloadError> {
+        let process = try!(self.lib_request_video_cmd());
 
         let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
         let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
@@ -213,28 +210,28 @@ impl Downloader {
     }
 
     ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
-    fn lib_request_video_cmd(&self) -> Result<Child,SocketError> {
-        println!("{:?}", format!("{} {}/offliberty.jar",jar_cmd,jarfolder));
-        match Command::new(format!("{} {}/offliberty.jar",jar_cmd,jarfolder))
+    fn lib_request_video_cmd(&self) -> Result<Child,DownloadError> {
+        println!("{:?}", format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
+        match Command::new(format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder))
                                         .arg("request")
-                                        .arg(url)
+                                        .arg(self.ddb.url)
                                         .arg("-folder")
-                                        .arg(self.folder)
-                                        .arg(gen_request_str())
+                                        .arg(self.ddb.folder)
+                                        .arg(self.gen_request_str())
                                         .arg("-name")
-                                        .arg(self.qid)
+                                        .arg(self.ddb.qid.to_string()) //eq. format! https://botbot.me/mozilla/rust/msg/37524131/
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
                                         .spawn() {
-                Err(why) => Err(SocketError::InternalError(Error::description(&why).into())),
+                Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
                 Ok(process) => Ok(process),
             }
     }
 
     ///Generate -a or -v, based on if an audio or video quality is requested
-    fn gen_request_str(&self) -> str{
-        if self.is_audio {
+    fn gen_request_str(&self) -> &'a str{
+        if self.is_audio() {
             "-a"
         } else {
             "-v"
@@ -242,9 +239,9 @@ impl Downloader {
     }
 
     ///Check if the quality is 141, standing for audio or not
-    pub fn is_audio(&self){
-        match self.quality {
-            &CONFIG.codecs.audio => false,
+    pub fn is_audio(&self) -> bool {
+        match self.ddb.quality {
+            k if(k == self.ddb.audioquality ) => false,
             _ => true,
         }
     }

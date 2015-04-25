@@ -26,7 +26,6 @@ use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::downloader::DownloadError;
-use lib::socket;
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -39,7 +38,7 @@ lazy_static! {
 
 }
 
-//#[repr(i8)] borken #10292
+//#[repr(i8)] broken, enum not usable as of #10292
 enum QueryCodes {
     Waiting = 0,
     InProgress = 1,
@@ -57,7 +56,7 @@ fn main() {
         if let Some(result) = request_entry(& pool) {
             if result.playlist {
                 println!("Playlist not supported atm!");
-                //TODO: set playlist entry to err
+                //TODO: set playlist entry to errg
             }
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
@@ -94,14 +93,14 @@ fn main() {
 ///The original non-ascii & url_encode name of the file is stored in the DB
 fn handle_download(downl_db: DownloadDB) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
-    let download = Downloader::new(downl_db);
+    let download = Downloader::new(downl_db, &CONFIG.general);
     //get filename, check for DMCA
     let dmca = false; // "succ." dmca -> file already downloaded
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
-        Err(DownloadError::DMCAError) => { //now request via lib..
+        Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             println!("DMCA error!");
-            let name = match download.lib_request_video(&dbcopy.url, &CONFIG.general.jar_folder, &CONFIG.general.jar_cmd) {
+            match download.lib_request_video() {
                 Err(err) => { println!("Offliberty-call error {:?}", err); return false; },
                 Ok(v) => { dmca = true; v },
             }
@@ -116,7 +115,7 @@ fn handle_download(downl_db: DownloadDB) -> bool{
     println!("Filename: {}", name);
 
     if is_split_container(&dbcopy.quality) { // download both files if needed & convert together
-        //TODO: actual logic see descr
+        //download.//TODO: actual logic see descr
     }
     //TODO: check for audio
 
@@ -137,9 +136,11 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
 
 ///Return whether the quality is a split container: video only
 ///as specified in the docs
-fn is_split_container(quality &i16){
-    141 | 83 | 82 | 84 | 85 => false,
-    _ => true,
+fn is_split_container(quality: &i16){
+    match *quality {
+        141 | 83 | 82 | 84 | 85 => false,
+        _ => true,
+    }
 }
 
 ///Request an entry from the DB that should be handled
@@ -161,6 +162,7 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                                 quality: from_value::<i16>(&result[3]),
                                                 qid: from_value::<i64>(&result[0]),
+                                                audioquality: CONFIG.codecs.audio,
                                                 folder: CONFIG.general.save_dir.clone(),
                                                 pool: pool.clone(),
                                                 download_limit: CONFIG.general.download_mbps.clone(),
