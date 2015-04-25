@@ -69,15 +69,14 @@ impl<'a> Downloader<'a>{
     ///TODO: get the sql statements out of the class
     ///TODO: wrap errors
     ///Doesn't care about DMCAs, will emit errors on them
-    pub fn download_video(&self, filename: &str) -> Result<bool,DownloadError> {
+    pub fn download_video(&self, filename: &str, folder: Option<String>) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
-        let process = try!(self.run_download_process(filename));
+        let process = try!(self.run_download_process(filename, folder));
         let stdout = BufReader::new(process.stdout.unwrap());
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
         let re = regex!(r"\d+\.\d");
-
 
         for line in stdout.lines(){
             match line{
@@ -139,11 +138,15 @@ impl<'a> Downloader<'a>{
         // into container FromIterator
     }
 
-    fn run_download_process(&self, filename: &str) -> Result<Child,DownloadError> {
+    fn run_download_process(&self, filename: &str, folder: Option<String>) -> Result<Child,DownloadError> {
+        let own_folder = match folder {
+            Some(v) => v,
+            None => self.ddb.folder.clone(),
+        };
         match Command::new("youtube-dl")
                                     .arg("--newline")
                                     .arg(format!("-r {}M",self.defaults.download_mbps))
-                                    .arg(format!("-o {}/{}",self.ddb.folder,filename))
+                                    .arg(format!("-o {}/{}",own_folder,filename))
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())

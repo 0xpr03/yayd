@@ -113,7 +113,10 @@ fn handle_download(downl_db: DownloadDB) -> bool{
         },
     };
     println!("Filename: {}", name);
-
+    if(dmca){
+        //TODO: insert title name for file
+        return true;
+    }
     if is_split_container(&dbcopy.quality) { // download both files if needed & convert together
         //download.//TODO: actual logic see descr
     }
