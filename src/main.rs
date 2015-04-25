@@ -18,6 +18,8 @@ use mysql::value::from_value;
 
 use std::error::Error;
 
+use std::ascii::AsciiExt;
+
 use toml::Table;
 use toml::Value;
 
@@ -25,6 +27,7 @@ use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::downloader::DownloadError;
+use lib::converter::Converter;
 
 use std::fs::rename;
 
@@ -53,6 +56,7 @@ fn main() {
         Ok(conn) => { println!("Connected successfully."); conn},
         Err(err) => panic!("Unable to establish a connection!\n{}",err),
     };
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.codecs.audio, pool.clone());
     loop {
         if let Some(result) = request_entry(& pool) {
             if result.playlist {
@@ -62,7 +66,7 @@ fn main() {
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             
-            let code = if handle_download(result, None) {
+            let code = if handle_download(result, None, &converter) {
                 2//QueryCodes::Finished as i32
             } else {
                 3//QueryCodes::Failed as i32
@@ -92,7 +96,7 @@ fn main() {
 ///If it's a non-zipped single file, the file is moved after a success download,convert etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode name of the file is stored in the DB
-fn handle_download(downl_db: DownloadDB, folder: Option<String>) -> bool{
+fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db, &CONFIG.general);
     //get filename, check for DMCA
@@ -113,31 +117,70 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>) -> bool{
             return false;
         },
     };
+
     println!("Filename: {}", name);
+    let url_filename = format!("{}{}",url_encode(&name),
+                                    get_file_ext(&download));
+
     if(dmca){
         //TODO: insert title name for file
         return true;
     }
-    if is_split_container(&dbcopy.quality) { // download both files if needed & convert together
-        //download.//TODO: actual logic see descr
-    }
-    //TODO: check for audio
-    download.download_video(&dbcopy.qid.to_string(), folder.clone());
     
-    if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-        //TODO: convert -> saves already ?
-    }else{
-        match rename(format!("{}/{}", ))
-        //TODO: move file
-    }
+    //download video, which is now video/audio(m4a)
+    download.download_video(&dbcopy.qid.to_string(), folder.clone());
 
+    if is_split_container(&dbcopy.quality) { // download audio file & convert together
+        //download.//TODO: actual logic see descr
+        let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
+        let video_path = format_file_patH(&dbcopy.qid, folder.clone());
+        download.download_video(&audio_path, folder.clone());
+        converter.merge_files(&dbcopy.qid, &audio_path, &video_path,&format_save_path(folder.clone(),&name));
+    }else{
+        //TODO: check for audio
+        if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+            //TODO: convert -> saves already ?
+        }else{
+            //converter.
+            //match rename(format!("{}/{}", folder));
+            //TODO: move file
+        }
+
+    }
+    
     //TODO: download file, convert if audio ?!
     true
 }
 
-// fn get_savename(name: &str) -> String {
+fn get_file_ext<'a>(download: &Downloader) -> &'a str {
+    match download.is_audio() {
+        true => "mp3",
+        false => "mp4",
+    }
+}
 
-// }
+fn format_file_patH(qid: &i64, folder: Option<String>) -> String {
+    match folder {
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
+        None => format!("{}/{}", &CONFIG.general.save_dir, qid),
+    }
+}
+
+///Formats the audio path, based on the qid & optional folders
+fn format_audio_path(qid: &i64, folder: Option<String>) -> String {
+    match folder {
+        Some(v) => format!("{}/{}/{}a", &CONFIG.general.save_dir, v, qid),
+        None => format!("{}/{}a", &CONFIG.general.save_dir, qid),
+    }
+}
+
+///Format save path, which stays inside the optional folder, if set for zipping later
+fn format_save_path(folder: Option<String>, name: &str) -> String {
+    match folder {
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, url_encode(name)),
+        None => format!("{}/{}", &CONFIG.general.download_dir, url_encode(name)),
+    }
+}
 
 ///Set the state of the current query, also in dependence of the code, see QueryCodes
 fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
@@ -157,6 +200,21 @@ fn is_split_container(quality: &i16) -> bool {
         141 | 83 | 82 | 84 | 85 => false,
         _ => true,
     }
+}
+
+///Return an url-conform String
+fn url_encode(input: &str) -> String {
+    // iterator over input, apply function to each element(function
+    input.chars().map(|char| {
+        match char {
+            ' ' | '?' | '!' | '\\' | '/' | '.' | '(' | ')' | '[' | ']' => '_',
+            '&' => '-',
+            c if c.is_ascii() => c,
+            _ => '_'
+        }
+    }).collect()
+    // match for each char, then do collect: loop through the iterator, collect all elements
+    // into container FromIterator
 }
 
 ///Request an entry from the DB that should be handled

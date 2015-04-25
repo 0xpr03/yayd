@@ -1,7 +1,6 @@
 
 extern crate regex;
-use mysql::conn::pool::MyPool;
-use mysql::conn::pool::MyPooledConn;
+use mysql::conn::pool::{MyPool,MyPooledConn};
 use mysql::conn::Stmt;
 use mysql::error::MyError;
 
@@ -10,7 +9,6 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io;
-use std::ascii::AsciiExt;
 use lib::config::ConfigGen;
 use std::convert::Into;
 
@@ -120,21 +118,6 @@ impl<'a> Downloader<'a>{
                 return Err(DownloadError::DownloadError(stderr));
             }
         }
-    }
-
-    ///Return an url-conform String
-    pub fn url_encode(input: &str) -> String {
-        // iterator over input, apply function to each element(function
-        input.chars().map(|char| {
-            match char {
-                ' ' | '?' | '!' | '\\' | '/' | '.' | '(' | ')' | '[' | ']' => '_',
-                '&' => '-',
-                c if c.is_ascii() => c,
-                _ => '_'
-            }
-        }).collect()
-        // match for each char, then do collect: loop through the iterator, collect all elements
-        // into container FromIterator
     }
 
     fn run_download_process(&self, filename: &str, folder: Option<String>) -> Result<Child,DownloadError> {
