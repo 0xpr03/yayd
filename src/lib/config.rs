@@ -1,4 +1,4 @@
-use toml::{Table,decode_str};
+use toml::decode_str;
 
 use std::io::Write;
 use std::io::Read;
@@ -43,6 +43,7 @@ pub struct ConfigGen{
     pub jar_folder: String, // DMCA lib
     pub jar_cmd: String, // command for the DMCA lib
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
+    pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
 }
 
 #[derive(Debug, RustcDecodable)]
@@ -92,6 +93,7 @@ download_dir = "~/downloads"
 jar_folder = "~/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
 download_mbps = 6
+ffmpeg_bin = "ffmpeg"
 
 [codecs]
 audio = 141

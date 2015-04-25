@@ -1,7 +1,6 @@
 
 
 #![feature(path_ext)]
-#![feature(convert)]
 extern crate mysql;
 extern crate toml;
 extern crate rustc_serialize;
@@ -26,6 +25,8 @@ use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::downloader::DownloadError;
+
+use std::fs::rename;
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -61,7 +62,7 @@ fn main() {
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             
-            let code = if handle_download(result) {
+            let code = if handle_download(result, None) {
                 2//QueryCodes::Finished as i32
             } else {
                 3//QueryCodes::Failed as i32
@@ -91,7 +92,7 @@ fn main() {
 ///If it's a non-zipped single file, the file is moved after a success download,convert etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode name of the file is stored in the DB
-fn handle_download(downl_db: DownloadDB) -> bool{
+fn handle_download(downl_db: DownloadDB, folder: Option<String>) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db, &CONFIG.general);
     //get filename, check for DMCA
@@ -121,10 +122,22 @@ fn handle_download(downl_db: DownloadDB) -> bool{
         //download.//TODO: actual logic see descr
     }
     //TODO: check for audio
+    download.download_video(&dbcopy.qid.to_string(), folder.clone());
+    
+    if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+        //TODO: convert -> saves already ?
+    }else{
+        match rename(format!("{}/{}", ))
+        //TODO: move file
+    }
 
     //TODO: download file, convert if audio ?!
     true
 }
+
+// fn get_savename(name: &str) -> String {
+
+// }
 
 ///Set the state of the current query, also in dependence of the code, see QueryCodes
 fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
@@ -169,7 +182,6 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                                 folder: CONFIG.general.save_dir.clone(),
                                                 pool: pool.clone(),
                                                 playlist: false, //TEMP
-                                                subid: 0, //TEMP
                                                 compress: false };
     Some(download_db)
 }

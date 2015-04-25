@@ -26,7 +26,6 @@ pub struct DownloadDB {
     pub compress: bool,
     pub audioquality: i16,
     pub qid: i64,
-    pub subid: i32, // needed for playlists ?, can't use qid for all files..
     pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
 }
@@ -244,8 +243,8 @@ impl<'a> Downloader<'a>{
     ///Check if the quality is 141, standing for audio or not
     pub fn is_audio(&self) -> bool {
         match self.ddb.quality {
-            k if(k == self.ddb.audioquality ) => false,
-            _ => true,
+            k if(k == self.ddb.audioquality ) => true,
+            _ => false,
         }
     }
 }
