@@ -95,7 +95,7 @@ fn handle_download(downl_db: DownloadDB) -> bool{
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db, &CONFIG.general);
     //get filename, check for DMCA
-    let dmca = false; // "succ." dmca -> file already downloaded
+    let mut dmca = false; // "succ." dmca -> file already downloaded
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
@@ -136,7 +136,7 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
 
 ///Return whether the quality is a split container: video only
 ///as specified in the docs
-fn is_split_container(quality: &i16){
+fn is_split_container(quality: &i16) -> bool {
     match *quality {
         141 | 83 | 82 | 84 | 85 => false,
         _ => true,
@@ -165,8 +165,8 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                                 audioquality: CONFIG.codecs.audio,
                                                 folder: CONFIG.general.save_dir.clone(),
                                                 pool: pool.clone(),
-                                                download_limit: CONFIG.general.download_mbps.clone(),
                                                 playlist: false, //TEMP
+                                                subid: 0, //TEMP
                                                 compress: false };
     Some(download_db)
 }

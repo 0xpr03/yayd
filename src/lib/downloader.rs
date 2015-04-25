@@ -214,9 +214,9 @@ impl<'a> Downloader<'a>{
         println!("{:?}", format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
         match Command::new(format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder))
                                         .arg("request")
-                                        .arg(self.ddb.url)
+                                        .arg(&self.ddb.url)
                                         .arg("-folder")
-                                        .arg(self.ddb.folder)
+                                        .arg(&self.ddb.folder)
                                         .arg(self.gen_request_str())
                                         .arg("-name")
                                         .arg(self.ddb.qid.to_string()) //eq. format! https://botbot.me/mozilla/rust/msg/37524131/
