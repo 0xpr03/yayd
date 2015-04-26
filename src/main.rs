@@ -119,25 +119,28 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     };
 
     println!("Filename: {}", name);
-    let url_filename = format!("{}{}",url_encode(&name),
-                                    get_file_ext(&download));
 
     if(dmca){
-        //TODO: insert title name for file
-        return true;
+        //TODO: insert title name for file,
+        //copy file to download folder
+        return false;
     }
     
-    //download video, which is now video/audio(m4a)
-    download.download_video(&dbcopy.qid.to_string(), folder.clone());
+    let file_path = format_file_patH(&dbcopy.qid, folder.clone());
+    let save_path = &format_save_path(folder.clone(),&name, &download);
+    //download video, which is video/audio(m4a)
+    download.download_video(&file_path, false);
 
     if is_split_container(&dbcopy.quality) { // download audio file & convert together
-        //download.//TODO: actual logic see descr
         let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
-        let video_path = format_file_patH(&dbcopy.qid, folder.clone());
-        download.download_video(&audio_path, folder.clone());
-        converter.merge_files(&dbcopy.qid, &audio_path, &video_path,&format_save_path(folder.clone(),&name));
+        
+        println!("Downloading audio.. {}", audio_path);
+        download.download_video(&audio_path, true);
+        match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
+            Err(e) => {println!("merge error: {:?}",e); return false;},
+            Ok(()) => {},
+        }
     }else{
-        //TODO: check for audio
         if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
             //TODO: convert -> saves already ?
         }else{
@@ -175,10 +178,10 @@ fn format_audio_path(qid: &i64, folder: Option<String>) -> String {
 }
 
 ///Format save path, which stays inside the optional folder, if set for zipping later
-fn format_save_path(folder: Option<String>, name: &str) -> String {
+fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader) -> String {
     match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, url_encode(name)),
-        None => format!("{}/{}", &CONFIG.general.download_dir, url_encode(name)),
+        Some(v) => format!("{}/{}/{}.{}", &CONFIG.general.save_dir, v, url_encode(name),get_file_ext(download)),
+        None => format!("{}/{}.{}", &CONFIG.general.download_dir, url_encode(name),get_file_ext(download)),
     }
 }
 

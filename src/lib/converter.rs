@@ -31,9 +31,10 @@ impl<'a> Converter<'a> {
     }
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
-    pub fn merge_files(&self, qid: &i64, audio_file: &'a str, video_file: &'a str, output_file: &'a str) -> Result<(), DownloadError>{
+    pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str) -> Result<(), DownloadError>{
         let process = try!(self.create_merge_cmd(audio_file, video_file, output_file));
         let stdout = BufReader::new(process.stdout.unwrap());
+        let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
@@ -55,6 +56,10 @@ impl<'a> Converter<'a> {
             }
         }
 
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+        println!("Stderr: {}", stderr);
+
         Ok(())
     }
 
@@ -62,6 +67,8 @@ impl<'a> Converter<'a> {
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
+        let temp = self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file);
+        println!("merge cmd: {}", temp);
         match Command::new(self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file))
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::piped())
@@ -75,7 +82,7 @@ impl<'a> Converter<'a> {
     ///Create a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
     fn format_ffmpeg_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
-        format!(r#"{} -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" |& tr '\r' '\n'"#,
+        format!(r#"{} -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             audio_file,

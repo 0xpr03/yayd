@@ -66,9 +66,16 @@ impl<'a> Downloader<'a>{
     ///TODO: get the sql statements out of the class
     ///TODO: wrap errors
     ///Doesn't care about DMCAs, will emit errors on them
-    pub fn download_video(&self, filename: &str, folder: Option<String>) -> Result<bool,DownloadError> {
+    ///download_audio: ignore quality & download config set audio for split containers
+    pub fn download_video(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
-        let process = try!(self.run_download_process(filename, folder));
+        let curr_quality = if download_audio {
+            &self.ddb.audioquality
+        }else{
+            &self.ddb.quality
+        };
+        println!("quality: {}",curr_quality);
+        let process = try!(self.run_download_process(file_path,curr_quality));
         let stdout = BufReader::new(process.stdout.unwrap());
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
@@ -110,7 +117,7 @@ impl<'a> Downloader<'a>{
         if stderr.is_empty() == true {
             stdout.trim();
             println!("get_file_name: {:?}", stdout);
-            Ok(stdout)
+            Ok(stdout.trim().to_string())
         }else{
             if stderr.contains("not available in your country") {
                 return Err(DownloadError::DMCAError);
@@ -120,15 +127,15 @@ impl<'a> Downloader<'a>{
         }
     }
 
-    fn run_download_process(&self, filename: &str, folder: Option<String>) -> Result<Child,DownloadError> {
-        let own_folder = match folder {
-            Some(v) => v,
-            None => self.ddb.folder.clone(),
-        };
+    fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--newline")
-                                    .arg(format!("-r {}M",self.defaults.download_mbps))
-                                    .arg(format!("-o {}/{}",own_folder,filename))
+                                    .arg("-r")
+                                    .arg(format!("{}M",self.defaults.download_mbps))
+                                    .arg("-f")
+                                    .arg(quality.to_string())
+                                    .arg("-o")
+                                    .arg(file_path)
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
@@ -136,6 +143,22 @@ impl<'a> Downloader<'a>{
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
+        // let temp = Command::new("youtube-dl")
+        //                             .arg("--newline")
+        //                             .arg("-r")
+        //                             .arg(format!("{}M",self.defaults.download_mbps))
+        //                             .arg("-f")
+        //                             .arg(quality.to_string())
+        //                             .arg("-o")
+        //                             .arg(file_path)
+        //                             .arg(&self.ddb.url)
+        //                             .stdin(Stdio::null())
+        //                             .stdout(Stdio::piped());
+        // println!("downl cmd: {:?}", temp);
+        // match temp.spawn() {
+        //     Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
+        //     Ok(process) => Ok(process),
+        // }
     }
 
     fn run_filename_process(&self) -> Result<Child,DownloadError> {
