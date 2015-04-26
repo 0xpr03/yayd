@@ -137,28 +137,13 @@ impl<'a> Downloader<'a>{
                                     .arg("-o")
                                     .arg(file_path)
                                     .arg(&self.ddb.url)
+                                    .arg("2>&1")
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
                                     .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
-        // let temp = Command::new("youtube-dl")
-        //                             .arg("--newline")
-        //                             .arg("-r")
-        //                             .arg(format!("{}M",self.defaults.download_mbps))
-        //                             .arg("-f")
-        //                             .arg(quality.to_string())
-        //                             .arg("-o")
-        //                             .arg(file_path)
-        //                             .arg(&self.ddb.url)
-        //                             .stdin(Stdio::null())
-        //                             .stdout(Stdio::piped());
-        // println!("downl cmd: {:?}", temp);
-        // match temp.spawn() {
-        //     Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
-        //     Ok(process) => Ok(process),
-        // }
     }
 
     fn run_filename_process(&self) -> Result<Child,DownloadError> {
@@ -173,13 +158,6 @@ impl<'a> Downloader<'a>{
             Ok(process) => Ok(process),
         }
     }
-
-    // fn create_regex(expression: & str) -> regex::Regex {
-    //     match regex::Regex::new(expression) {
-    //         Ok(re) => re,
-    //         Err(err) => panic!("regex {}", err),
-    //     }
-    // }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
     fn prepare_progress_updater(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used

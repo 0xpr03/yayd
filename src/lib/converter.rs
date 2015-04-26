@@ -67,9 +67,39 @@ impl<'a> Converter<'a> {
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        let temp = self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file);
-        println!("merge cmd: {}", temp);
-        match Command::new(self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file))
+        // let temp = self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file);
+        // println!("merge cmd: {}", temp);
+        // match Command::new(self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file))
+        //                                 .stdin(Stdio::null())
+        //                                 .stdout(Stdio::piped())
+        //                                 .stderr(Stdio::piped())
+        //                                 .spawn() {
+        //         Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
+        //         Ok(process) => Ok(process),
+        // }
+
+        //TODO: rewrite using sh -c
+        match Command::new(format!("{}",self.ffmpeg_cmd))
+                                        .arg("-stats")
+                                        .arg("-threads")
+                                        .arg("-0")
+                                        .arg("-i")
+                                        .arg(video_file)
+                                        .arg("-i")
+                                        .arg(audio_file)
+                                        .arg("-map")
+                                        .arg("-0")
+                                        .arg("-map")
+                                        .arg("-1")
+                                        .arg("-codec")
+                                        .arg("copy")
+                                        .arg("-shortest")
+                                        .arg(audio_file)
+                                        .arg("2>&1")
+                                        .arg("|& tr '\\r' '\\sn'")
+                                        // .arg("tr")
+                                        // .arg("'\\r'")
+                                        // .arg("'\\sn'")
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
