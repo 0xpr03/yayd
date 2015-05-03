@@ -79,8 +79,10 @@ impl<'a> Converter<'a> {
         // }
 
         //TODO: rewrite using sh -c
-        match Command::new(format!("{}",self.ffmpeg_cmd))
-                                        .arg("-stats")
+        match Command::new("bash")
+                                        .arg("-c")
+                                        .arg(self.format_ffmpeg_cmd(audio_file, video_file, output_file))
+                                        /*.arg("-stats")
                                         .arg("-threads")
                                         .arg("-0")
                                         .arg("-i")
@@ -96,7 +98,7 @@ impl<'a> Converter<'a> {
                                         .arg("-shortest")
                                         .arg(audio_file)
                                         .arg("2>&1")
-                                        .arg("|& tr '\\r' '\\sn'")
+                                        .arg("|& tr '\\r' '\\sn'")*/
                                         // .arg("tr")
                                         // .arg("'\\r'")
                                         // .arg("'\\sn'")
@@ -112,11 +114,13 @@ impl<'a> Converter<'a> {
     ///Create a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
     fn format_ffmpeg_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
-        format!(r#"{} -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{} -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             audio_file,
-            output_file)
+            output_file);
+        println!("ffmpeg cmd: {}", a);
+        a
     }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
