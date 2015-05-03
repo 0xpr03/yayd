@@ -137,7 +137,6 @@ impl<'a> Downloader<'a>{
                                     .arg("-o")
                                     .arg(file_path)
                                     .arg(&self.ddb.url)
-                                    .arg("2>&1")
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
                                     .spawn() {
@@ -231,4 +230,9 @@ impl<'a> Downloader<'a>{
             _ => false,
         }
     }
+}
+
+#[test]
+fn conversion(){
+
 }
