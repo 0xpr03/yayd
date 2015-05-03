@@ -67,41 +67,19 @@ impl<'a> Converter<'a> {
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        // let temp = self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file);
-        // println!("merge cmd: {}", temp);
-        // match Command::new(self.format_ffmpeg_cmd(&audio_file, &video_file, &output_file))
-        //                                 .stdin(Stdio::null())
-        //                                 .stdout(Stdio::piped())
-        //                                 .stderr(Stdio::piped())
-        //                                 .spawn() {
-        //         Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
-        //         Ok(process) => Ok(process),
-        // }
+        try!(self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file))))
+    }
 
-        //TODO: rewrite using sh -c
+    ///Creates a cmd to gain the amount of frames in a video, for progress calculation
+    fn create_fps_get_cmd(&self, video_file: &str) -> Result<Child, DownloadError> {
+        try!(self.create_bash_cmd(self.format_fps_get_cmd(video_file)))
+    }
+
+    ///Create an bash cmd
+    fn create_bash_cmd(&self, cmd: String) -> Result<Child, DownloadError> {
         match Command::new("bash")
                                         .arg("-c")
-                                        .arg(self.format_ffmpeg_cmd(audio_file, video_file, output_file))
-                                        /*.arg("-stats")
-                                        .arg("-threads")
-                                        .arg("-0")
-                                        .arg("-i")
-                                        .arg(video_file)
-                                        .arg("-i")
-                                        .arg(audio_file)
-                                        .arg("-map")
-                                        .arg("-0")
-                                        .arg("-map")
-                                        .arg("-1")
-                                        .arg("-codec")
-                                        .arg("copy")
-                                        .arg("-shortest")
-                                        .arg(audio_file)
-                                        .arg("2>&1")
-                                        .arg("|& tr '\\r' '\\sn'")*/
-                                        // .arg("tr")
-                                        // .arg("'\\r'")
-                                        // .arg("'\\sn'")
+                                        .arg(cmd)
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
@@ -111,7 +89,15 @@ impl<'a> Converter<'a> {
         }
     }
 
-    ///Create a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
+    ///Formats a command to gain the total amount of frames in a video file
+    ///which will be used for the progress calculation
+    fn format_frame_get_cmd(&self, video_file: &str) -> String {
+        let a = format!(r#"ffmpeg -i {} -vcodec copy -acodec copy -f null /dev/null 2>&1 | grep 'frame=' | cut -f 2 -d ' '"#, video_file);
+        println!("ffmpeg-fps cmd: {}", a);
+        a
+    }
+
+    ///Creates a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
     fn format_ffmpeg_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
         let a = format!(r#"{} -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
