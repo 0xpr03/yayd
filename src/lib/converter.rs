@@ -67,12 +67,12 @@ impl<'a> Converter<'a> {
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        try!(self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file))))
+        try!(self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file)))
     }
 
     ///Creates a cmd to gain the amount of frames in a video, for progress calculation
     fn create_fps_get_cmd(&self, video_file: &str) -> Result<Child, DownloadError> {
-        try!(self.create_bash_cmd(self.format_fps_get_cmd(video_file)))
+        try!(self.create_bash_cmd(self.format_frame_get_cmd(video_file)))
     }
 
     ///Create an bash cmd
