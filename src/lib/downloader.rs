@@ -37,6 +37,7 @@ pub struct Downloader<'a> {
 #[derive(Debug)]
 pub enum DownloadError{
     DownloadError(String),
+    FFMPEGError(String),
     ReadError,
     DMCAError,
     InternalError(String),
@@ -115,7 +116,6 @@ impl<'a> Downloader<'a>{
         println!("stderr: {:?}", stderr);
         println!("stdout: {:?}", stdout);
         if stderr.is_empty() == true {
-            stdout.trim();
             println!("get_file_name: {:?}", stdout);
             Ok(stdout.trim().to_string())
         }else{
