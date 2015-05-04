@@ -72,7 +72,7 @@ fn main() {
                 3//QueryCodes::Failed as i32
             };
             set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
-            let state = if code = 2 {
+            let state = if code == 2 {
                 "finished"
             } else {
                 "failed"
@@ -103,10 +103,11 @@ fn main() {
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode name of the file is stored in the DB
 fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> bool{
+    
     let is_zipped = match folder {
-        Some(v) => true,
+        Some(_) => true,
         None => false,
-    }
+    };
 
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
     let download = Downloader::new(downl_db, &CONFIG.general);
@@ -129,7 +130,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         },
     };
 
-    let name_http_valid = url_encode(name);
+    let name_http_valid = url_encode(&name);
 
     println!("Filename: {}", name);
 
@@ -149,12 +150,12 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         2
     };
     //update progress
-    update_steps(&pool.clone(),&result.qid, 1, total_steps));
+    update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 1, total_steps);
 
     //download video, which is video/audio(m4a)
     download.download_video(&file_path, false);
 
-    update_steps(&pool.clone(),&result.qid, 2, total_steps));
+    update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 2, total_steps);
 
     if is_splitted_format { // download audio file & convert together
         let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
@@ -162,14 +163,14 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         println!("Downloading audio.. {}", audio_path);
         download.download_video(&audio_path, true);
 
-        update_steps(&pool.clone(),&result.qid, 3, total_steps));
+        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
 
         match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
             Err(e) => {println!("merge error: {:?}",e); return false;},
             Ok(()) => {},
         }
 
-        update_steps(&pool.clone(),&result.qid, 4, total_steps));
+        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
 
     }else{
         if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
@@ -183,15 +184,15 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     }
 
     if is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        add_file_entry(&dbcopy.pool.clone(),&name_http_valid, &name);
+        add_file_entry(&dbcopy.pool.clone(), &dbcopy.qid,&name_http_valid, &name);
     }
     
     //TODO: download file, convert if audio ?!
     true
 }
 
-fn update_steps(pool: & pool::MyPool, qid: &i64, state: &str, step: i32, max_steps: i32){
-    set_query_state(&pool,&result.qid, format!("{}|{}", step, max_steps));
+fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
+    set_query_state(&pool,qid, &format!("{}|{}", step, max_steps));
 }
 
 fn get_file_ext<'a>(download: &Downloader) -> &'a str {
@@ -235,10 +236,10 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
     }
 }
 
-fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, &real_name: &str){
+fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO files (fid,name,rname,valid) VALUES (?,?,?,?)").unwrap();
-    let result = stmt.execute(&[fid,real_name,name,&1]); // why is this var needed ?!
+    let result = stmt.execute(&[fid,&real_name,&name,&1]); // why is this var needed ?!
     match result {
         Ok(_) => (),
         Err(why) => println!("Error adding file: {}",why),
