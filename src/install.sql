@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS `playlists` (
 DROP TABLE IF EXISTS `queries`;
 CREATE TABLE IF NOT EXISTS `queries` (
 `qid` int(10) unsigned NOT NULL,
-  `url` varchar(33) NOT NULL,
+  `url` varchar(90) NOT NULL,
   `type` tinyint(4) NOT NULL,
   `quality` smallint(6) NOT NULL,
   `created` datetime NOT NULL,
