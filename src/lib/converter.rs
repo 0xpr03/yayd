@@ -32,25 +32,26 @@ impl<'a> Converter<'a> {
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
     pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str) -> Result<(), DownloadError>{
+        let max_frames: i64 = try!(self.get_max_frames(video_file));
+        println!("Total frames: {}",max_frames);
+
         let process = try!(self.create_merge_cmd(audio_file, video_file, output_file));
         let stdout = BufReader::new(process.stdout.unwrap());
         let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"\d+\.\d");
+        let re = regex!(r"(frame= (\d+))");
 
         for line in stdout.lines(){
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
                         println!("Out: {}",text);
-                        match re.find(&text) {
-                            Some(s) => { println!("Match at {}", s.0);
-                                        println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
-                                        self.update_progress(&mut statement, &text[s.0..s.1].to_string(), qid);
-                                    },
-                            None => println!("Detected no % match."),
+                        if re.is_match(&text) {
+                            let cap = re.captures(&text).unwrap();
+                            println!("frame: {}", cap.at(2).unwrap());
+                            self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(2).unwrap()).to_string(), qid);
                         }
                     },
             }
@@ -63,27 +64,45 @@ impl<'a> Converter<'a> {
         Ok(())
     }
 
+    fn caclulate_progress<'b>(&self, max_frames: &i64, current_frame: &str) -> i64 {
+        let frame = current_frame.parse::<i64>().unwrap();
+        frame / max_frames * 100
+    }
+
+    ///retrives the max frames from a video file, needed a percentual progress calculation
+    fn get_max_frames(&self, video_file: &str) -> Result<i64,DownloadError> {
+        let process = try!(self.create_fps_get_cmd(video_file));
+        let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
+        let mut stdout: String = String::new();
+        try!(stdout_buffer.read_to_string(&mut stdout));
+        println!("total frames stdout: {:?}", stdout.trim());
+        match stdout.trim().parse::<i64>() {
+            Ok(v) => Ok(v),
+            Err(why) => Err(DownloadError::FFMPEGError(format!("Couldn't get max frames {}",stdout))),
+        }
+    }
+
     ///Merges an audio & an video file together.
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        try!(self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file)))
+        self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file))
     }
 
     ///Creates a cmd to gain the amount of frames in a video, for progress calculation
     fn create_fps_get_cmd(&self, video_file: &str) -> Result<Child, DownloadError> {
-        try!(self.create_bash_cmd(self.format_frame_get_cmd(video_file)))
+        self.create_bash_cmd(self.format_frame_get_cmd(video_file))
     }
 
     ///Create an bash cmd
     fn create_bash_cmd(&self, cmd: String) -> Result<Child, DownloadError> {
         match Command::new("bash")
-                                        .arg("-c")
-                                        .arg(cmd)
-                                        .stdin(Stdio::null())
-                                        .stdout(Stdio::piped())
-                                        .stderr(Stdio::piped())
-                                        .spawn() {
+                            .arg("-c")
+                            .arg(cmd)
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::piped())
+                            .stderr(Stdio::piped())
+                            .spawn() {
                 Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
                 Ok(process) => Ok(process),
         }
@@ -116,7 +135,7 @@ impl<'a> Converter<'a> {
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self,stmt: &mut Stmt, progress: &String, qid: &i64){
-        stmt.execute(&[progress,qid]);
+    fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64){
+        stmt.execute(&[&progress,qid]);
     }
 }
