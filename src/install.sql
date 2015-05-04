@@ -64,13 +64,14 @@ CREATE TABLE IF NOT EXISTS `queries` (
   `uid` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 DROP TABLE IF EXISTS `querydetails`;
-CREATE TABLE IF NOT EXISTS `querydetails` (
-  `qid` int(10) unsigned NOT NULL,
-  `code` tinyint(4) NOT NULL,
-  `progress` double NULL DEFAULT NULL,
-  `status` varchar(10) NOT NULL,
-  `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE `querydetails` (
+ `qid` int(10) unsigned NOT NULL,
+ `code` tinyint(4) NOT NULL,
+ `progress` double DEFAULT NULL,
+ `status` varchar(10) NOT NULL,
+ `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (`qid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE IF NOT EXISTS `users` (
 `uid` int(11) NOT NULL,
