@@ -65,7 +65,7 @@ fn main() {
             }
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
-            set_query_state(&pool.clone(),&result.qid, "started");
+            set_query_state(&pool.clone(),&qid, "started");
             let code = if handle_download(result, None, &converter) {
                 2//QueryCodes::Finished as i32
             } else {
@@ -77,15 +77,12 @@ fn main() {
             } else {
                 "failed"
             };
-            set_query_state(&pool.clone(),&result.qid, state);
+            set_query_state(&pool.clone(),&qid, state);
         } else {
             println!("Pausing..");
             std::thread::sleep_ms(SLEEP_MS);
         }
     }
-    
-    // let downloader = downloader::Downloader::new(download_db);
-    // downloader.download_video();
 
     println!("EOL!");
 }
@@ -172,7 +169,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
 
         update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
 
-    }else{
+    }else{ // we're already done, only need to copy / convert to mp3 if requested
         if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
             //TODO: convert -> saves already ?
         }else{
