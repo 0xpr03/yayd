@@ -66,7 +66,11 @@ fn main() {
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             set_query_state(&pool.clone(),&qid, "started");
-            let code = if handle_download(result, None, &converter) {
+            let succes = match handle_download(result, None, &converter) {
+                Ok(v) => v,
+                Err(e) => {println!("Error: {:?}", e); false }
+            };
+            let code = if succes {
                 2//QueryCodes::Finished as i32
             } else {
                 3//QueryCodes::Failed as i32
@@ -99,14 +103,15 @@ fn main() {
 ///If it's a non-zipped single file, the file is moved after a success download,convert etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode name of the file is stored in the DB
-fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> bool{
-    
+fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> Result<bool,DownloadError>{
+    //update progress
     let is_zipped = match folder {
         Some(_) => true,
         None => false,
     };
 
     let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
+    update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 1, 0);
     let download = Downloader::new(downl_db, &CONFIG.general);
     //get filename, check for DMCA
     let mut dmca = false; // "succ." dmca -> file already downloaded
@@ -115,17 +120,16 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             println!("DMCA error!");
             match download.lib_request_video() {
-                Err(err) => { println!("Offliberty-call error {:?}", err); return false; },
+                Err(err) => { println!("Offliberty-call error {:?}", err); return Err(err); },
                 Ok(v) => { dmca = true; v },
             }
         },
         Err(e) => { // unknown error / video private etc.. abort
             println!("Unknown error: {:?}", e);
-            //TODO: add error descr (change enum etc)
-            set_query_state(&dbcopy.pool.clone(),&dbcopy.qid, "Error!");
-            return false;
+            return Err(e);
         },
     };
+
 
     let name_http_valid = url_encode(&name);
 
@@ -134,10 +138,10 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     if(dmca){
         //TODO: insert title name for file,
         //copy file to download folder
-        return true;
+        return Ok(true);
     }
     
-    let file_path = format_file_patH(&dbcopy.qid, folder.clone());
+    let file_path = format_file_path(&dbcopy.qid, folder.clone());
     let save_path = &format_save_path(folder.clone(),&name, &download);
 
     let is_splitted_format = is_split_container(&dbcopy.quality);
@@ -146,46 +150,45 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     } else {
         2
     };
-    //update progress
-    update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 1, total_steps);
-
-    //download video, which is video/audio(m4a)
-    download.download_video(&file_path, false);
-
     update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 2, total_steps);
 
+    //download video, which is video/audio(m4a)
+    try!(download.download_file(&file_path, false));
+
+    
+
     if is_splitted_format { // download audio file & convert together
+        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
+
         let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
         
         println!("Downloading audio.. {}", audio_path);
-        download.download_video(&audio_path, true);
+        try!(download.download_file(&audio_path, true));
 
-        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
+        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
 
         match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
-            Err(e) => {println!("merge error: {:?}",e); return false;},
+            Err(e) => {println!("merge error: {:?}",e); return Err(e);},
             Ok(()) => {},
         }
 
-        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
+        
 
     }else{ // we're already done, only need to copy / convert to mp3 if requested
         if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
             //TODO: convert -> saves already ?
         }else{
-            //converter.
-            //match rename(format!("{}/{}", folder));
-            //TODO: move file
+            try!(move_file(&file_path, &save_path));
         }
 
     }
 
-    if is_zipped { // add file to list, except it's for zip-compression later (=folder set)
+    if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         add_file_entry(&dbcopy.pool.clone(), &dbcopy.qid,&name_http_valid, &name);
     }
     
     //TODO: download file, convert if audio ?!
-    true
+    Ok(true)
 }
 
 fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
@@ -199,7 +202,14 @@ fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     }
 }
 
-fn format_file_patH(qid: &i64, folder: Option<String>) -> String {
+fn move_file(original: &str, destination: &str) -> Result<(),DownloadError> {
+    match rename(original, destination) { // no try possible..
+        Err(v) => Err(v.into()),
+        Ok(_) => Ok(()),
+    }
+}
+
+fn format_file_path(qid: &i64, folder: Option<String>) -> String {
     match folder {
         Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
         None => format!("{}/{}", &CONFIG.general.save_dir, qid),
@@ -225,7 +235,7 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
 ///Set the state of the current query, also in dependence of the code, see QueryCodes
 fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
     let mut conn = pool.get_conn().unwrap();
-    let mut stmt = conn.prepare("UPDATE querydetails SET status = ? WHERE qid = ?").unwrap();
+    let mut stmt = conn.prepare("UPDATE querydetails SET status = ? , progress = 0 WHERE qid = ?").unwrap();
     let result = stmt.execute(&[&state,qid]); // why is this var needed ?!
     match result {
         Ok(_) => (),
