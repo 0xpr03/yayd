@@ -5,9 +5,6 @@ use std::process::{Command, Stdio, Child};
 use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::io;
-use std::ascii::AsciiExt;
-use lib::config::ConfigGen;
 use std::convert::Into;
 
 use lib::downloader::DownloadError;
@@ -41,7 +38,7 @@ impl<'a> Converter<'a> {
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"(frame= (\d+))");
+        let re = regex!(r"(frame=\s*(\d+))");
 
         for line in stdout.lines(){
             match line{
@@ -51,7 +48,7 @@ impl<'a> Converter<'a> {
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
                             println!("frame: {}", cap.at(2).unwrap());
-                            self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(2).unwrap()).to_string(), qid);
+                            try!(self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(2).unwrap()).to_string(), qid));
                         }
                     },
             }
@@ -111,7 +108,7 @@ impl<'a> Converter<'a> {
     ///Formats a command to gain the total amount of frames in a video file
     ///which will be used for the progress calculation
     fn format_frame_get_cmd(&self, video_file: &str) -> String {
-        let a = format!(r#"ffmpeg -i {} -vcodec copy -acodec copy -f null /dev/null 2>&1 | grep 'frame=' | cut -f 2 -d ' '"#, video_file);
+        let a = format!(r#"{} -i {} -vcodec copy -acodec copy -f null /dev/null 2>&1 | grep 'frame=' | cut -f 2 -d ' '"#,self.ffmpeg_cmd, video_file);
         println!("ffmpeg-fps cmd: {}", a);
         a
     }
@@ -135,7 +132,7 @@ impl<'a> Converter<'a> {
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64){
-        stmt.execute(&[&progress,qid]);
+    fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64) -> Result<(),DownloadError>{
+        try!(stmt.execute(&[&progress,qid]).map(|_| Ok(())))
     }
 }

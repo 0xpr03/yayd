@@ -68,7 +68,7 @@ impl<'a> Downloader<'a>{
     ///TODO: wrap errors
     ///Doesn't care about DMCAs, will emit errors on them
     ///download_audio: ignore quality & download config set audio for split containers
-    pub fn download_video(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
+    pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
         let curr_quality = if download_audio {
             &self.ddb.audioquality
@@ -91,7 +91,7 @@ impl<'a> Downloader<'a>{
                         match re.find(&text) {
                             Some(s) => { println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
-                                        self.update_progress(&mut statement, &text[s.0..s.1].to_string());
+                                        try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                     },
                             None => println!("Detected no % match."),
                         }
@@ -164,8 +164,9 @@ impl<'a> Downloader<'a>{
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self,stmt: &mut Stmt, progress: &String){
-        stmt.execute(&[progress,&self.ddb.qid]);
+    fn update_progress(&self,stmt: &mut Stmt, progress: &String) -> Result<(),DownloadError>{
+        try!(stmt.execute(&[progress,&self.ddb.qid]).map(|_| Ok(())))
+        //-> only return errors, ignore the return value of stmt.execute
     }
 
     ///This function does a 3rd party binding

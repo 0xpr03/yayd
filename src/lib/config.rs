@@ -88,12 +88,12 @@ port = 3306
 ip = "127.0.0.1"
 
 [general]
-save_dir = "~/downloads/temp"
-download_dir = "~/downloads"
-jar_folder = "~/yayd"
+save_dir = "/home/dev/downloads/temp"
+download_dir = "/home/dev/downloads"
+jar_folder = "/home/dev/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
 download_mbps = 6
-ffmpeg_bin = "ffmpeg"
+ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/ffmpeg"
 
 [codecs]
 audio = 140
