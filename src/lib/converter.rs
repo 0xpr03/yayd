@@ -38,17 +38,16 @@ impl<'a> Converter<'a> {
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"(frame=\s*(\d+))");
+        let re = regex!(r"frame=\s*(\d+)");
 
         for line in stdout.lines(){
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
-                        println!("Out: {}",text);
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
-                            println!("frame: {}", cap.at(2).unwrap());
-                            try!(self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(2).unwrap()).to_string(), qid));
+                            println!("frame: {}", cap.at(1).unwrap());
+                            try!(self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(1).unwrap()).to_string(), qid));
                         }
                     },
             }
@@ -72,10 +71,23 @@ impl<'a> Converter<'a> {
         let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
-        println!("total frames stdout: {:?}", stdout.trim());
-        match stdout.trim().parse::<i64>() {
-            Ok(v) => Ok(v),
-            Err(why) => Err(DownloadError::FFMPEGError(format!("Couldn't get max frames {}",stdout))),
+        //println!("total frames stdout: {:?}", stdout.trim());
+
+        let regex_duration = regex!(r"Duration: ((\d\d):(\d\d):(\d\d)\.\d\d)");
+        let regex_fps = regex!(r"(\d+)\sfps");
+
+        if regex_duration.is_match(&stdout) && regex_fps.is_match(&stdout) {
+            let cap_fps = regex_fps.captures(&stdout).unwrap();
+            
+            let cap_duration = regex_duration.captures(&stdout).unwrap();
+            println!("Found duration: {}",cap_duration.at(0).unwrap());
+            let fps = cap_fps.at(1).unwrap().parse::<i64>().unwrap();
+            let mut seconds = cap_duration.at(4).unwrap().parse::<i64>().unwrap();
+            seconds += cap_duration.at(3).unwrap().parse::<i64>().unwrap() * 60;
+            seconds += cap_duration.at(2).unwrap().parse::<i64>().unwrap() * 60 * 60 ;
+            Ok(seconds * fps)
+        }else{
+            Err(DownloadError::FFMPEGError(format!("Couldn't get max frames {}",stdout)))
         }
     }
 
@@ -108,7 +120,7 @@ impl<'a> Converter<'a> {
     ///Formats a command to gain the total amount of frames in a video file
     ///which will be used for the progress calculation
     fn format_frame_get_cmd(&self, video_file: &str) -> String {
-        let a = format!(r#"{} -i {} -vcodec copy -acodec copy -f null /dev/null 2>&1 | grep 'frame=' | cut -f 2 -d ' '"#,self.ffmpeg_cmd, video_file);
+        let a = format!(r#"{}ffprobe -i {} 2>&1"#,self.ffmpeg_cmd, video_file);
         println!("ffmpeg-fps cmd: {}", a);
         a
     }
@@ -116,7 +128,7 @@ impl<'a> Converter<'a> {
     ///Creates a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
     fn format_ffmpeg_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{} -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             audio_file,
