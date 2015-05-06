@@ -87,13 +87,13 @@ impl<'a> Downloader<'a>{
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
-                        println!("Out: {}",text);
+                        //println!("Out: {}",text);
                         match re.find(&text) {
                             Some(s) => { println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                         try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                     },
-                            None => println!("Detected no % match."),
+                            None => {/*println!("Detected no % match.")*/},
                         }
                     },
             }
@@ -113,8 +113,8 @@ impl<'a> Downloader<'a>{
         try!(stdout_buffer.read_to_string(&mut stdout));
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
-        println!("stderr: {:?}", stderr);
-        println!("stdout: {:?}", stdout);
+        //println!("stderr: {:?}", stderr);
+        //println!("stdout: {:?}", stdout);
         if stderr.is_empty() == true {
             println!("get_file_name: {:?}", stdout);
             Ok(stdout.trim().to_string())
@@ -185,13 +185,12 @@ impl<'a> Downloader<'a>{
         try!(stdout_buffer.read_to_string(&mut stdout));
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
-        println!("stdout: {:?}", stdout);
+        //println!("stdout: {:?}", stdout);
         if stderr.contains("error") {
             println!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
         }
         stdout.trim();
-        println!("get_file_name: {:?}", stdout);
         Ok(stdout)
     }
 

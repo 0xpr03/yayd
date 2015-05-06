@@ -12,16 +12,12 @@ mod lib;
 use mysql::conn::MyOpts;
 use std::default::Default;
 use mysql::conn::pool;
-use mysql::error::MyError;
 use mysql::conn::pool::MyPooledConn;
 use mysql::value::from_value;
 
 use std::error::Error;
 
 use std::ascii::AsciiExt;
-
-use toml::Table;
-use toml::Value;
 
 use lib::config;
 use lib::downloader::DownloadDB;
@@ -43,12 +39,12 @@ lazy_static! {
 }
 
 //#[repr(i8)] broken, enum not usable as of #10292
-enum QueryCodes {
-    Waiting = 0,
-    InProgress = 1,
-    Finished = 2,
-    Failed = 3,
-}
+// enum QueryCodes {
+//     Waiting = 0,
+//     InProgress = 1,
+//     Finished = 2,
+//     Failed = 3,
+// }
 
 fn main() {
     let opts = mysql_options();
@@ -65,7 +61,7 @@ fn main() {
             }
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
-            set_query_state(&pool.clone(),&qid, "started");
+            set_query_state(&pool.clone(),&qid, "started", false);
             let succes = match handle_download(result, None, &converter) {
                 Ok(v) => v,
                 Err(e) => {println!("Error: {:?}", e); false }
@@ -81,7 +77,7 @@ fn main() {
             } else {
                 "failed"
             };
-            set_query_state(&pool.clone(),&qid, state);
+            set_query_state(&pool.clone(),&qid, state, true);
         } else {
             println!("Pausing..");
             std::thread::sleep_ms(SLEEP_MS);
@@ -135,7 +131,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
 
     println!("Filename: {}", name);
 
-    if(dmca){
+    if dmca {
         //TODO: insert title name for file,
         //copy file to download folder
         return Ok(true);
@@ -192,7 +188,12 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
 }
 
 fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
-    set_query_state(&pool,qid, &format!("{}|{}", step, max_steps));
+    let finished = if max_steps == step {
+        true
+    }else{
+        false
+    };
+    set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 
 fn get_file_ext<'a>(download: &Downloader) -> &'a str {
@@ -233,10 +234,15 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
 }
 
 ///Set the state of the current query, also in dependence of the code, see QueryCodes
-fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str){ // same here
+fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool){ // same here
     let mut conn = pool.get_conn().unwrap();
-    let mut stmt = conn.prepare("UPDATE querydetails SET status = ? , progress = 0 WHERE qid = ?").unwrap();
-    let result = stmt.execute(&[&state,qid]); // why is this var needed ?!
+    let progress: i32 = if finished {
+        100
+    }else{
+        0
+    };
+    let mut stmt = conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?").unwrap();
+    let result = stmt.execute(&[&state,&progress,qid]); // why is this var needed ?!
     match result {
         Ok(_) => (),
         Err(why) => println!("Error setting query state: {}",why),
@@ -326,13 +332,4 @@ fn mysql_options() -> MyOpts {
         db_name: Some(CONFIG.db.db.clone()),
         ..Default::default() // set other to default
     }
-}
-
-///Converts a toml::Value to a Option<String> for mysql::MyOpts
-#[allow(deprecated)]
-fn get_option_string(table: & Table,key: & str) -> Option<String> {
-    let val: Value = table.get(key).unwrap().clone();
-    if let toml::Value::String(s) = val {
-        Some(s)
-    } else { unreachable!() }
 }
