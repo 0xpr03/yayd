@@ -57,8 +57,9 @@ CREATE TABLE `querydetails` (
  `code` tinyint(4) NOT NULL,
  `progress` double DEFAULT NULL,
  `status` varchar(10) NOT NULL,
- `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+ `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (`qid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
 CREATE TABLE `files` (
  `fid` int(10) unsigned NOT NULL,
  `name` varchar(60) CHARACTER SET ascii NOT NULL,
