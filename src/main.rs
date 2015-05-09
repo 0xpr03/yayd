@@ -128,8 +128,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         },
     };
 
-
-    let name_http_valid = url_encode(&name);
+    let name_http_valid = format_file_name(&name, &download);
 
     println!("Filename: {}", name);
 
@@ -232,6 +231,10 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
         Some(v) => format!("{}/{}/{}.{}", &CONFIG.general.save_dir, v, url_encode(name),get_file_ext(download)),
         None => format!("{}/{}.{}", &CONFIG.general.download_dir, url_encode(name),get_file_ext(download)),
     }
+}
+
+fn format_file_name<'a>(name: &str, download: &'a Downloader) -> String {
+    format!("{}.{}",name, get_file_ext(download))
 }
 
 ///Set the state of the current query, also in dependence of the code, see QueryCodes

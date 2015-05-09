@@ -148,6 +148,8 @@ impl<'a> Downloader<'a>{
     fn run_filename_process(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--get-filename")
+                                    .arg("-o")
+                                    .arg("%(title)s-%(id)s")
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
