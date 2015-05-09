@@ -25,7 +25,7 @@ use lib::downloader::Downloader;
 use lib::downloader::DownloadError;
 use lib::converter::Converter;
 
-use std::fs::rename;
+use std::fs::{rename,remove_file};
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -53,8 +53,10 @@ fn main() {
         Err(err) => panic!("Unable to establish a connection!\n{}",err),
     };
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.codecs.audio, pool.clone());
+    let mut print_pause = true;
     loop {
         if let Some(result) = request_entry(& pool) {
+            print_pause = true;
             if result.playlist {
                 println!("Playlist not supported atm!");
                 //TODO: set playlist entry to errg
@@ -79,7 +81,7 @@ fn main() {
             };
             set_query_state(&pool.clone(),&qid, state, true);
         } else {
-            println!("Pausing..");
+            if print_pause { println!("Pausing.."); print_pause = false; }
             std::thread::sleep_ms(SLEEP_MS);
         }
     }
@@ -131,52 +133,51 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
 
     println!("Filename: {}", name);
 
-    if dmca {
+    if !dmca {
         //TODO: insert title name for file,
         //copy file to download folder
-        return Ok(true);
-    }
     
-    let file_path = format_file_path(&dbcopy.qid, folder.clone());
-    let save_path = &format_save_path(folder.clone(),&name, &download);
+        let file_path = format_file_path(&dbcopy.qid, folder.clone());
+        let save_path = &format_save_path(folder.clone(),&name, &download);
 
-    let is_splitted_format = is_split_container(&dbcopy.quality);
-    let total_steps = if is_splitted_format {
-        4
-    } else {
-        2
-    };
-    update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 2, total_steps);
+        let is_splitted_format = is_split_container(&dbcopy.quality);
+        let total_steps = if is_splitted_format {
+            4
+        } else {
+            2
+        };
+        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 2, total_steps);
 
-    //download video, which is video/audio(m4a)
-    try!(download.download_file(&file_path, false));
-
-    
-
-    if is_splitted_format { // download audio file & convert together
-        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
-
-        let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
-        
-        println!("Downloading audio.. {}", audio_path);
-        try!(download.download_file(&audio_path, true));
-
-        update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
-
-        match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
-            Err(e) => {println!("merge error: {:?}",e); return Err(e);},
-            Ok(()) => {},
-        }
+        //download video, which is video/audio(m4a)
+        try!(download.download_file(&file_path, false));
 
         
 
-    }else{ // we're already done, only need to copy / convert to mp3 if requested
-        if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-            //TODO: convert -> saves already ?
-        }else{
-            try!(move_file(&file_path, &save_path));
-        }
+        if is_splitted_format { // download audio file & convert together
+            update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
 
+            let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
+            
+            println!("Downloading audio.. {}", audio_path);
+            try!(download.download_file(&audio_path, true));
+
+            update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
+
+            match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
+                Err(e) => {println!("merge error: {:?}",e); return Err(e);},
+                Ok(()) => {},
+            }
+
+            try!(remove_file(&audio_path));
+
+        }else{ // we're already done, only need to copy / convert to mp3 if requested
+            if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+                //TODO: convert -> saves already ?
+            }else{
+                try!(move_file(&file_path, &save_path));
+            }
+        }
+        try!(remove_file(&file_path));
     }
 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
