@@ -40,54 +40,40 @@ BEGIN
 	END$$
 
 DELIMITER ;
-DROP TABLE IF EXISTS `files`;
-CREATE TABLE IF NOT EXISTS `files` (
-  `fid` int(10) unsigned NOT NULL,
-  `name` varchar(60) CHARACTER SET ascii NOT NULL,
-  `rname` varchar(60) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
-  `valid` int(11) NOT NULL
+CREATE TABLE `users` (
+ `uid` int(11) NOT NULL AUTO_INCREMENT,
+ `name` varchar(15) NOT NULL,
+ PRIMARY KEY (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-DROP TABLE IF EXISTS `playlists`;
-CREATE TABLE IF NOT EXISTS `playlists` (
-  `qid` int(10) unsigned NOT NULL,
-  `from` smallint(6) NOT NULL,
-  `to` smallint(6) NOT NULL,
-  `zip` tinyint(1) NOT NULL
+CREATE TABLE `playlists` (
+ `qid` int(10) unsigned NOT NULL,
+ `from` smallint(6) NOT NULL,
+ `to` smallint(6) NOT NULL,
+ `zip` tinyint(1) NOT NULL,
+ PRIMARY KEY (`qid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-DROP TABLE IF EXISTS `queries`;
-CREATE TABLE IF NOT EXISTS `queries` (
-`qid` int(10) unsigned NOT NULL,
-  `url` varchar(90) NOT NULL,
-  `type` tinyint(4) NOT NULL,
-  `quality` smallint(6) NOT NULL,
-  `created` datetime NOT NULL,
-  `uid` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-DROP TABLE IF EXISTS `querydetails`;
 CREATE TABLE `querydetails` (
  `qid` int(10) unsigned NOT NULL,
  `code` tinyint(4) NOT NULL,
  `progress` double DEFAULT NULL,
  `status` varchar(10) NOT NULL,
- `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
-DROP TABLE IF EXISTS `users`;
-CREATE TABLE IF NOT EXISTS `users` (
-`uid` int(11) NOT NULL,
-  `name` varchar(15) NOT NULL
+ `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-ALTER TABLE `files`
- ADD PRIMARY KEY (`fid`);
- ALTER TABLE `playlists`
- ADD PRIMARY KEY (`qid`);
-ALTER TABLE `queries`
- ADD PRIMARY KEY (`qid`);
-ALTER TABLE `querydetails`
- ADD PRIMARY KEY (`qid`);
-ALTER TABLE `users`
- ADD PRIMARY KEY (`uid`);
-ALTER TABLE `queries`
-MODIFY `qid` int(10) unsigned NOT NULL AUTO_INCREMENT;
-ALTER TABLE `users`
-MODIFY `uid` int(11) NOT NULL AUTO_INCREMENT;
+CREATE TABLE `files` (
+ `fid` int(10) unsigned NOT NULL,
+ `name` varchar(60) CHARACTER SET ascii NOT NULL,
+ `rname` varchar(60) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+ `valid` int(11) NOT NULL,
+ PRIMARY KEY (`fid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE `queries` (
+ `qid` int(10) unsigned NOT NULL AUTO_INCREMENT,
+ `url` varchar(90) NOT NULL,
+ `type` tinyint(4) NOT NULL,
+ `quality` smallint(6) NOT NULL,
+ `created` datetime NOT NULL,
+ `uid` int(11) NOT NULL,
+ `playlistid` int(11) DEFAULT NULL,
+ PRIMARY KEY (`qid`),
+ KEY `playlistid` (`playlistid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
