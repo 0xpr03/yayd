@@ -128,7 +128,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         },
     };
 
-    let name_http_valid = format_file_name(&name, &download);
+    let name_http_valid = format_file_name(&name, &download, &dbcopy.qid);
 
     println!("Filename: {}", name);
 
@@ -137,7 +137,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         //copy file to download folder
     
         let file_path = format_file_path(&dbcopy.qid, folder.clone());
-        let save_path = &format_save_path(folder.clone(),&name, &download);
+        let save_path = &format_save_path(folder.clone(),&name, &download, &dbcopy.qid);
 
         let is_splitted_format = is_split_container(&dbcopy.quality);
         let total_steps = if is_splitted_format {
@@ -226,15 +226,16 @@ fn format_audio_path(qid: &i64, folder: Option<String>) -> String {
 }
 
 ///Format save path, which stays inside the optional folder, if set for zipping later
-fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader) -> String {
+fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
     match folder {
-        Some(v) => format!("{}/{}/{}.{}", &CONFIG.general.save_dir, v, url_encode(name),get_file_ext(download)),
-        None => format!("{}/{}.{}", &CONFIG.general.download_dir, url_encode(name),get_file_ext(download)),
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(name,download,qid)),
+        None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(name,download,qid)),
     }
 }
 
-fn format_file_name<'a>(name: &str, download: &'a Downloader) -> String {
-    format!("{}.{}",name, get_file_ext(download))
+fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
+    println!("Fileextension: {:?}", get_file_ext(download));
+    format!("{}-{}.{}",url_encode(name), qid, get_file_ext(download))
 }
 
 ///Set the state of the current query, also in dependence of the code, see QueryCodes
@@ -254,6 +255,7 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool)
 }
 
 fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
+    println!("name: {}",name);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO files (fid,name,rname,valid) VALUES (?,?,?,?)").unwrap();
     let result = stmt.execute(&[fid,&real_name,&name,&1]); // why is this var needed ?!

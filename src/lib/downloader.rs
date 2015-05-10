@@ -119,7 +119,7 @@ impl<'a> Downloader<'a>{
             println!("get_file_name: {:?}", stdout);
             Ok(stdout.trim().to_string())
         }else{
-            if stderr.contains("not available in your country") {
+            if stderr.contains("not available in your country") || stderr.contains("contains content from") {
                 return Err(DownloadError::DMCAError);
             }else{
                 return Err(DownloadError::DownloadError(stderr));
@@ -149,7 +149,7 @@ impl<'a> Downloader<'a>{
         match Command::new("youtube-dl")
                                     .arg("--get-filename")
                                     .arg("-o")
-                                    .arg("%(title)s-%(id)s")
+                                    .arg("%(title)s")
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
