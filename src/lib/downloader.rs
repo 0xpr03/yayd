@@ -189,9 +189,9 @@ impl<'a> Downloader<'a>{
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
         //println!("stdout: {:?}", stdout);
-        println!("stdout: {}",stdout);
         if stderr.contains("error") {
             println!("stderr: {:?}", stderr);
+            println!("stdout: {}",stdout);
             return Err(DownloadError::InternalError(stderr));
         }
         stdout.trim();
