@@ -130,15 +130,15 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
 
     let name_http_valid = format_file_name(&name, &download, &dbcopy.qid);
 
+    let file_path = format_file_path(&dbcopy.qid, folder.clone());
+    let save_path = &format_save_path(folder.clone(),&name, &download, &dbcopy.qid);
+
     println!("Filename: {}", name);
 
     if !dmca {
         //TODO: insert title name for file,
         //copy file to download folder
     
-        let file_path = format_file_path(&dbcopy.qid, folder.clone());
-        let save_path = &format_save_path(folder.clone(),&name, &download, &dbcopy.qid);
-
         let is_splitted_format = is_split_container(&dbcopy.quality);
         let total_steps = if is_splitted_format {
             4
@@ -177,6 +177,8 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
             }
         }
         try!(remove_file(&file_path));
+    }else{
+        try!(move_file(&file_path, &save_path));
     }
 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)

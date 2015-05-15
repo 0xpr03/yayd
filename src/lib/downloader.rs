@@ -194,9 +194,12 @@ impl<'a> Downloader<'a>{
             println!("stdout: {}",stdout);
             return Err(DownloadError::InternalError(stderr));
         }
-        stdout.trim();
+        println!("Going to unwrap..\n{}", stdout);
+        //this ONLY works because `filename ` is ascii..
+        let mut out = stdout[stdout.find("filename ").unwrap()+9..].trim().to_string();
+        //stdout.trim();
         
-        Ok(stdout)
+        Ok(out)
     }
 
     ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
