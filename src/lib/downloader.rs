@@ -189,19 +189,21 @@ impl<'a> Downloader<'a>{
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
         //println!("stdout: {:?}", stdout);
+        println!("stdout: {}",stdout);
         if stderr.contains("error") {
             println!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
         }
         stdout.trim();
+        
         Ok(stdout)
     }
 
     ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
     fn lib_request_video_cmd(&self) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.jar_cmd);
-        println!("{:?}", format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
-        match Command::new("java")
+        println!("{:?}", format!("{}/java -jar {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
+        match Command::new("./java")
                                         .current_dir(java_path)
                                         .arg("-jar")
                                         .arg(format!("{}/offliberty.jar",&self.defaults.jar_folder))
