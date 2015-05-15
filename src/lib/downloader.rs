@@ -9,6 +9,7 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::io;
+use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
 
@@ -179,7 +180,7 @@ impl<'a> Downloader<'a>{
     ///the file at the given folder to the given name
     pub fn lib_request_video(&self) -> Result<String,DownloadError> {
         let process = try!(self.lib_request_video_cmd());
-
+        println!("Requesting video via lib..");
         let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
         let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
 
@@ -198,8 +199,12 @@ impl<'a> Downloader<'a>{
 
     ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
     fn lib_request_video_cmd(&self) -> Result<Child,DownloadError> {
+        let java_path = Path::new(&self.defaults.jar_cmd);
         println!("{:?}", format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
-        match Command::new(format!("{} {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder))
+        match Command::new("java")
+                                        .current_dir(java_path)
+                                        .arg("-jar")
+                                        .arg(format!("{}/offliberty.jar",&self.defaults.jar_folder))
                                         .arg("request")
                                         .arg(&self.ddb.url)
                                         .arg("-folder")
@@ -211,7 +216,7 @@ impl<'a> Downloader<'a>{
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
                                         .spawn() {
-                Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
+                Err(why) => {println!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
                 Ok(process) => Ok(process),
             }
     }

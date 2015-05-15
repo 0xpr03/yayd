@@ -91,7 +91,7 @@ ip = "127.0.0.1"
 save_dir = "/home/dev/downloads/temp"
 download_dir = "/home/dev/downloads"
 jar_folder = "/home/dev/yayd"
-jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin/java -jar"
+jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin"
 download_mbps = 6
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
