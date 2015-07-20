@@ -1,27 +1,27 @@
 [package]
 name = "yayd-backend"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Aron Heinecke <aron.heinecke@t-online.de"]
 
 [[bin]]
 name = "yayd-backend"
 
 [dependencies.mysql]
-mysql = "0.8.1"
+mysql = "0.14.0"
 default-features = false
 
 [dependencies.lazy_static]
-lazy_static = "0.1.10"
+lazy_static = "0.1.11"
 
 [dependencies.toml]
-toml = "0.1.20"
+toml = "0.1.21"
 
 [dependencies.regex]
-regex = "0.1.27"
-regex_macros = "0.1.15"
+regex = "0.1.40"
+regex_macros = "0.1.21"
 
 [dependencies.rustc-serialize]
-rustc-serialize = "0.3.12"
+rustc-serialize = "0.3.15"
 
 #[dependencies.hyper]
 #hyper = "0.3.13"

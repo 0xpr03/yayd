@@ -1,6 +1,3 @@
-
-
-#![feature(path_ext)]
 extern crate mysql;
 extern crate toml;
 extern crate rustc_serialize;
