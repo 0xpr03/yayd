@@ -177,12 +177,12 @@ impl<'a> Downloader<'a>{
         //-> only return errors, ignore the return value of stmt.execute
     }
 
-    ///This function does a 3rd party binding
-    ///due to the country restrictions, in case it's needed
+    ///This function does a 3rd party binding in case it's needed
+    ///due to the country restrictions
     ///Because hyper doesn't support timeout settings atm, we're calling an external
     ///lib
-    ///The returned value contains the original video name, the lib downloads & saved
-    ///the file at the given folder to the given name
+    ///The returned value contains the original video name, the lib downloads & saves
+    ///the file at the given folder under the given name
     pub fn lib_request_video(&self) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd());
         println!("Requesting video via lib..");
