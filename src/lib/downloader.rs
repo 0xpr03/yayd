@@ -77,8 +77,8 @@ impl<'a> Downloader<'a>{
             &self.ddb.quality
         };
         println!("quality: {}",curr_quality);
-        let process = try!(self.run_download_process(file_path,curr_quality));
-        let stdout = BufReader::new(process.stdout.unwrap());
+        let mut child = try!(self.run_download_process(file_path,curr_quality));
+        let stdout = BufReader::new(child.stdout.take().unwrap());
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
@@ -100,20 +100,25 @@ impl<'a> Downloader<'a>{
             }
         }
 
+        child.wait(); // waits for finish & then exists zombi process fixes #10
+
         Ok(true)
     }
 
     ///Trys to get the original name of a file, while checking for availability
     ///
     pub fn get_file_name(&self) -> Result<String,DownloadError> {
-        let process = try!(self.run_filename_process());
-        let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
-        let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
+        let mut child = try!(self.run_filename_process());
+        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
+
+
+        child.wait();
         //println!("stderr: {:?}", stderr);
         //println!("stdout: {:?}", stdout);
         if stderr.is_empty() == true {
@@ -179,15 +184,17 @@ impl<'a> Downloader<'a>{
     ///The returned value contains the original video name, the lib downloads & saved
     ///the file at the given folder to the given name
     pub fn lib_request_video(&self) -> Result<String,DownloadError> {
-        let process = try!(self.lib_request_video_cmd());
+        let mut child = try!(self.lib_request_video_cmd());
         println!("Requesting video via lib..");
-        let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
-        let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
+        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
+
+        child.wait();
         //println!("stdout: {:?}", stdout);
         if !stderr.is_empty() {
             println!("stderr: {:?}", stderr);

@@ -32,9 +32,9 @@ impl<'a> Converter<'a> {
         let max_frames: i64 = try!(self.get_max_frames(video_file));
         println!("Total frames: {}",max_frames);
 
-        let process = try!(self.create_merge_cmd(audio_file, video_file, output_file));
-        let stdout = BufReader::new(process.stdout.unwrap());
-        let mut stderr_buffer = BufReader::new(process.stderr.unwrap());
+        let mut child = try!(self.create_merge_cmd(audio_file, video_file, output_file));
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
@@ -53,6 +53,8 @@ impl<'a> Converter<'a> {
             }
         }
 
+        child.wait();
+
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
         println!("Stderr: {}", stderr);
@@ -67,11 +69,12 @@ impl<'a> Converter<'a> {
 
     ///retrives the max frames from a video file, needed a percentual progress calculation
     fn get_max_frames(&self, video_file: &str) -> Result<i64,DownloadError> {
-        let process = try!(self.create_fps_get_cmd(video_file));
-        let mut stdout_buffer = BufReader::new(process.stdout.unwrap());
+        let mut child = try!(self.create_fps_get_cmd(video_file));
+        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
         //println!("total frames stdout: {:?}", stdout.trim());
+        child.wait();
 
         let regex_duration = regex!(r"Duration: ((\d\d):(\d\d):(\d\d)\.\d\d)");
         let regex_fps = regex!(r"(\d+)\sfps");
