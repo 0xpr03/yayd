@@ -88,16 +88,16 @@ fn main() {
 
 ///Download handler
 ///Used by the playlist/file handler to download one file
-///Based on the quality it needs to download audio & video splitted & convert them together
-///In case of a playlist download it depends on the target download folder & if should bezipped
+///Based on the quality it needs to download audio & video separately and convert them together
+///In case of a playlist download it depends on the target download folder & if it should be bezipped
 ///In case of a DMCA we need to download the file via the socket connector,
-///which will output a mp3, or if requested, a hard quality depending on the max-available of
-///the video url. Thus in case of a DMCA we can't pick a quality anymore.
+///which will output a mp3, or if requested, the video but with the highest quality.
+///Thus in case of a DMCA we can't pick a quality anymore.
 ///Also the filename depends on the socket output then.
 ///
-///If it's a non-zipped single file, the file is moved after a success download,convert etc to the
+///If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 ///main folder from which it should be downloadable.
-///The original non-ascii & url_encode name of the file is stored in the DB
+///The original non-ascii & url_encode'd name of the file is stored in the DB
 fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> Result<bool,DownloadError>{
     //update progress
     let is_zipped = match folder {
@@ -147,8 +147,6 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         //download video, which is video/audio(m4a)
         try!(download.download_file(&file_path, false));
 
-        
-
         if is_splitted_format { // download audio file & convert together
             update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
 
@@ -186,6 +184,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     Ok(true)
 }
 
+///Update progress steps for db entry
 fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
     let finished = if max_steps == step {
         true
@@ -195,6 +194,7 @@ fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
     set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 
+///Returns the file extension
 fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     match download.is_audio() {
         true => "mp3",
@@ -202,6 +202,7 @@ fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     }
 }
 
+///Move file to location
 fn move_file(original: &str, destination: &str) -> Result<(),DownloadError> {
     match rename(original, destination) { // no try possible..
         Err(v) => Err(v.into()),
@@ -209,6 +210,7 @@ fn move_file(original: &str, destination: &str) -> Result<(),DownloadError> {
     }
 }
 
+///Format save location for file, zip dependent
 fn format_file_path(qid: &i64, folder: Option<String>) -> String {
     match folder {
         Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
@@ -224,7 +226,7 @@ fn format_audio_path(qid: &i64, folder: Option<String>) -> String {
     }
 }
 
-///Format save path, which stays inside the optional folder, if set for zipping later
+///Format save path, dependent on zip option.
 fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
     match folder {
         Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(name,download,qid)),
@@ -232,12 +234,13 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
     }
 }
 
+///Format file name for 
 fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
     println!("Fileextension: {:?}", get_file_ext(download));
     format!("{}-{}.{}",url_encode(name), qid, get_file_ext(download))
 }
 
-///Set the state of the current query, also in dependence of the code, see QueryCodes
+///Set the state of the current query, code dependent, see QueryCodes
 fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool){ // same here
     let mut conn = pool.get_conn().unwrap();
     let progress: i32 = if finished {
@@ -253,6 +256,7 @@ fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool)
     }
 }
 
+///add file to db including it's name & fid based on qid
 fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
     println!("name: {}",name);
     let mut conn = pool.get_conn().unwrap();
@@ -264,7 +268,7 @@ fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
     }
 }
 
-///Return whether the quality is a split container: video only
+///Return whether the quality is a split container or not: video only
 ///as specified in the docs
 fn is_split_container(quality: &i16) -> bool {
     match *quality {
@@ -273,12 +277,12 @@ fn is_split_container(quality: &i16) -> bool {
     }
 }
 
-///Return an url-conform String
+///Return an sanitized String (url encode still required)
 fn url_encode(input: &str) -> String {
     // iterator over input, apply function to each element(function
     input.chars().map(|char| {
         match char {
-            ' ' | '?' | '!' | '\\' | '/' | '.' | '(' | ')' | '[' | ']' => '_',
+            '\'' | '"' => '_',
             '&' => '-',
             c if c.is_ascii() => c,
             _ => '_'
@@ -288,7 +292,7 @@ fn url_encode(input: &str) -> String {
     // into container FromIterator
 }
 
-///Request an entry from the DB that should be handled
+///Request an entry from the DB to handle
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
@@ -315,26 +319,24 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     Some(download_db)
 }
 
+///Update status code for query entry
 fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
     let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
-    let result = stmt.execute(&[code,qid]); // why is this var needed ?!
+    let result = stmt.execute(&[code,qid]);
     match result {
         Ok(_) => Ok(()),
         Err(why) => Err(DownloadError::DBError(why.description().into())),
     }
 }
 
-///Set options for the connection
+///Set dbms connection settings
 fn mysql_options() -> MyOpts {
-    //let dbconfig = CONFIG.get("db").unwrap().clone();
-    //let dbconfig = dbconfig.as_table().unwrap(); // shadow binding to workaround borrow / lifetime problems
-
     MyOpts {
         tcp_addr: Some(CONFIG.db.ip.clone()),
         tcp_port: CONFIG.db.port,
         user: Some(CONFIG.db.user.clone()),
         pass: Some(CONFIG.db.password.clone()),
         db_name: Some(CONFIG.db.db.clone()),
-        ..Default::default() // set other to default
+        ..Default::default() // set others to default
     }
 }

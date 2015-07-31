@@ -96,7 +96,9 @@ download_mbps = 6
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 [codecs]
-audio = 140
+audio_raw = 140
+audio_raw_hq = 141
+audio_mp3 = 1
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {
