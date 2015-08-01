@@ -9,10 +9,7 @@ mod lib;
 use mysql::conn::MyOpts;
 use std::default::Default;
 use mysql::conn::pool;
-use mysql::conn::pool::MyPooledConn;
 use mysql::value::from_value;
-
-use std::error::Error;
 
 use lib::config;
 use lib::downloader::DownloadDB;
@@ -42,11 +39,9 @@ lazy_static! {
 // }
 
 fn main() {
-    let opts = mysql_options();
-    let pool = match pool::MyPool::new(opts) {
-        Ok(conn) => { println!("Connected successfully."); conn},
-        Err(err) => panic!("Unable to establish a connection!\n{}",err),
-    };
+    
+    let pool = lib::db_connect(mysql_options(), SLEEP_MS);
+    
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.codecs.audio, pool.clone());
     let mut print_pause = true;
     loop {
@@ -209,12 +204,12 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
 ///Request an entry from the DB to handle
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut conn = pool.get_conn().unwrap();
-    let mut stmt = try!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+    let mut stmt = conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
                     WHERE querydetails.code = 0 \
                     ORDER BY queries.created \
-                    LIMIT 1"));
+                    LIMIT 1").unwrap();
     let mut result = stmt.execute(&[]).unwrap();
     let result = match result.next() {
         Some(val) => val.unwrap(),

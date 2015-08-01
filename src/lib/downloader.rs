@@ -2,13 +2,11 @@
 extern crate regex;
 use mysql::conn::pool::{MyPool,MyPooledConn};
 use mysql::conn::Stmt;
-use mysql::error::MyError;
 
 use std::process::{Command, Stdio, Child};
 use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::io;
 use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
@@ -80,7 +78,7 @@ impl<'a> Downloader<'a>{
             }
         }
 
-        child.wait(); // waits for finish & then exists zombi process fixes #10
+        try!(child.wait()); // waits for finish & then exists zombi process fixes #10
 
         Ok(true)
     }
@@ -98,7 +96,7 @@ impl<'a> Downloader<'a>{
         try!(stderr_buffer.read_to_string(&mut stderr));
 
 
-        child.wait();
+        try!(child.wait());
         //println!("stderr: {:?}", stderr);
         //println!("stdout: {:?}", stdout);
         if stderr.is_empty() == true {
@@ -174,7 +172,7 @@ impl<'a> Downloader<'a>{
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
 
-        child.wait();
+        try!(child.wait());
         //println!("stdout: {:?}", stdout);
         if !stderr.is_empty() {
             println!("stderr: {:?}", stderr);
@@ -182,7 +180,7 @@ impl<'a> Downloader<'a>{
             return Err(DownloadError::InternalError(stderr));
         }
         //this ONLY works because `filename ` is ascii..
-        let mut out = stdout[stdout.find("filename ").unwrap()+9..].trim().to_string();
+        let out = stdout[stdout.find("filename ").unwrap()+9..].trim().to_string();
         //stdout.trim();
         
         Ok(out)
