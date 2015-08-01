@@ -19,6 +19,11 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file};
 
+//macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) } example
+
+///Move result value out, return with none on err & print
+macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
+
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
 
@@ -75,8 +80,6 @@ fn main() {
             std::thread::sleep_ms(SLEEP_MS);
         }
     }
-
-    println!("EOL!");
 }
 
 ///Download handler
@@ -203,16 +206,16 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
 
 ///Request an entry from the DB to handle
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
-    let mut conn = pool.get_conn().unwrap();
-    let mut stmt = conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+    let mut conn = try_reoption!(pool.get_conn());
+    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
                     WHERE querydetails.code = 0 \
                     ORDER BY queries.created \
-                    LIMIT 1").unwrap();
-    let mut result = stmt.execute(&[]).unwrap();
+                    LIMIT 1"));
+    let mut result = try_reoption!(stmt.execute(&[]));
     let result = match result.next() {
-        Some(val) => val.unwrap(),
+        Some(val) => try_reoption!(val),
         None => {return None; },
     };
     println!("Result: {:?}", result[0]);
