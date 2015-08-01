@@ -19,7 +19,7 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file};
 
-//macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) } example
+macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
 
 ///Move result value out, return with none on err & print
 macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
@@ -214,10 +214,8 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                     ORDER BY queries.created \
                     LIMIT 1"));
     let mut result = try_reoption!(stmt.execute(&[]));
-    let result = match result.next() {
-        Some(val) => try_reoption!(val),
-        None => {return None; },
-    };
+    let result = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
+    
     println!("Result: {:?}", result[0]);
     println!("result str: {}", result[1].into_str());
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
