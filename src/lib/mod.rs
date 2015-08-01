@@ -6,10 +6,37 @@ pub mod converter;
 
 use mysql::conn::pool;
 use mysql::conn::pool::MyPooledConn;
-use lib::downloader::DownloadError;
 use lib::downloader::Downloader;
 
+use mysql::error::MyError;
+use std::error::Error;
+use std::io;
+
+use std::ascii::AsciiExt;
+
 use std::fs::{rename};
+
+#[derive(Debug)]
+pub enum DownloadError{
+    DownloadError(String),
+    FFMPEGError(String),
+    ReadError,
+    DMCAError,
+    InternalError(String),
+    DBError(String),
+}
+
+impl From<MyError> for DownloadError {
+    fn from(err: MyError) -> DownloadError {
+        DownloadError::DBError(err.description().into())
+    }
+}
+
+impl From<io::Error> for DownloadError {
+    fn from(err: io::Error) -> DownloadError {
+        DownloadError::InternalError(err.description().into())
+    }
+}
 
 ///Return whether the quality is a split container or not: video only
 ///as specified in the docs

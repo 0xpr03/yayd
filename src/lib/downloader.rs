@@ -13,6 +13,8 @@ use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
 
+use lib::DownloadError;
+
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
@@ -33,28 +35,6 @@ pub struct Downloader<'a> {
     ddb: DownloadDB,
     defaults: &'a ConfigGen,
     // pool: MyPool,
-}
-
-#[derive(Debug)]
-pub enum DownloadError{
-    DownloadError(String),
-    FFMPEGError(String),
-    ReadError,
-    DMCAError,
-    InternalError(String),
-    DBError(String),
-}
-
-impl From<MyError> for DownloadError {
-    fn from(err: MyError) -> DownloadError {
-        DownloadError::DBError(err.description().into())
-    }
-}
-
-impl From<io::Error> for DownloadError {
-    fn from(err: io::Error) -> DownloadError {
-        DownloadError::InternalError(err.description().into())
-    }
 }
 
 impl<'a> Downloader<'a>{

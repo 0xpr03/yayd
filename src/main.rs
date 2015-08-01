@@ -14,12 +14,10 @@ use mysql::value::from_value;
 
 use std::error::Error;
 
-use std::ascii::AsciiExt;
-
 use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
-use lib::downloader::DownloadError;
+use lib::DownloadError;
 use lib::converter::Converter;
 
 use std::fs::{remove_file};
@@ -211,12 +209,12 @@ fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downlo
 ///Request an entry from the DB to handle
 fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut conn = pool.get_conn().unwrap();
-    let mut stmt = conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+    let mut stmt = try!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
                     WHERE querydetails.code = 0 \
                     ORDER BY queries.created \
-                    LIMIT 1").unwrap();
+                    LIMIT 1"));
     let mut result = stmt.execute(&[]).unwrap();
     let result = match result.next() {
         Some(val) => val.unwrap(),

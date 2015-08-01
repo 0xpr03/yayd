@@ -7,7 +7,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::convert::Into;
 
-use lib::downloader::DownloadError;
+use lib::DownloadError;
 
 use mysql::conn::pool::{MyPool,MyPooledConn};
 use mysql::conn::Stmt;
