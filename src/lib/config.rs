@@ -42,6 +42,7 @@ pub struct ConfigGen{
     pub download_dir: String, // folder to which the files should be moved
     pub jar_folder: String, // DMCA lib
     pub jar_cmd: String, // command for the DMCA lib
+    pub mp3_bitrate: u16,
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
     pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
 }
@@ -50,7 +51,8 @@ pub struct ConfigGen{
 pub struct ConfigCodecs {
     pub audio_raw_mq: i16,
     pub audio_raw_hq: i16,
-    pub audio_mp3: i16,
+    pub audio_mp3_alias: i16,
+    pub audio_mp3_source: i16,
 }
 
 /// create PathBuf by getting the current working dir
@@ -95,12 +97,14 @@ download_dir = "/home/dev/downloads"
 jar_folder = "/home/dev/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin"
 download_mbps = 6
+mp3_bitrate = 180
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 [codecs]
 audio_raw_mq = 140
 audio_raw_hq = 141
-audio_mp3 = 1
+audio_mp3_alias = 1
+audio_mp3_source = 141
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {

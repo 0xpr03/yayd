@@ -18,13 +18,13 @@ macro_rules! regex(
 
 pub struct Converter<'a> {
     pub ffmpeg_cmd: &'a str,
-    pub audio_quality: &'a i16,
+    pub mp3_bitrate: &'a u16,
     pub pool: MyPool,
 }
 
 impl<'a> Converter<'a> {
-    pub fn new(ffmpeg_cmd: &'a str, audio_quality: &'a i16, pool: MyPool) -> Converter<'a> {
-        Converter{ffmpeg_cmd: ffmpeg_cmd, audio_quality: audio_quality, pool: pool}
+    pub fn new(ffmpeg_cmd: &'a str, mp3_bitrate: &'a u16, pool: MyPool) -> Converter<'a> {
+        Converter{ffmpeg_cmd: ffmpeg_cmd, mp3_bitrate: mp3_bitrate, pool: pool}
     }
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder

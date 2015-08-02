@@ -47,7 +47,7 @@ fn main() {
     
     let pool = lib::db_connect(mysql_options(), SLEEP_MS);
     
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.codecs.audio, pool.clone());
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.general.mp3_bitrate , pool.clone());
     let mut print_pause = true;
     loop {
         if let Some(result) = request_entry(& pool) {
@@ -221,7 +221,7 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                     quality: from_value::<i16>(&result[3]),
                                     qid: from_value::<i64>(&result[0]),
-                                    codecs: CONFIG.codecs.clone(),
+                                    codecs: &CONFIG.codecs,
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: false, //TEMP

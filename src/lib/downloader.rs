@@ -19,25 +19,25 @@ macro_rules! regex(
 );
 
 #[derive(Clone)]
-pub struct DownloadDB {
+pub struct DownloadDB<'a> {
     pub url: String,
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
-    pub codecs: ConfigCodecs,
+    pub codecs: &'a ConfigCodecs,
     pub qid: i64,
     pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
 }
 
 pub struct Downloader<'a> {
-    ddb: DownloadDB,
+    ddb: DownloadDB<'a>,
     defaults: &'a ConfigGen,
     // pool: MyPool,
 }
 
 impl<'a> Downloader<'a>{
-    pub fn new(ddb: DownloadDB, defaults: &'a ConfigGen) -> Downloader<'a>{
+    pub fn new(ddb: DownloadDB<'a>, defaults: &'a ConfigGen) -> Downloader<'a>{
         Downloader {ddb: ddb, defaults: defaults}
     }
     
@@ -50,8 +50,8 @@ impl<'a> Downloader<'a>{
     ///download_audio: ignore quality & download config set audio for split containers
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
-        let curr_quality = if download_audio {
-            &self.ddb.audioquality
+        let curr_quality = if ( &self.ddb.quality == &self.ddb.codecs.audio_mp3_alias ) {
+            &self.ddb.codecs.audio_mp3_source
         }else{
             &self.ddb.quality
         };
@@ -225,14 +225,14 @@ impl<'a> Downloader<'a>{
         match self.ddb.quality {
             k if(k == self.ddb.codecs.audio_raw_hq) => true,
             k if(k == self.ddb.codecs.audio_raw_mq) => true,
-            k if(k == self.ddb.codecs.audio_mp3) => true,
+            k if(k == self.ddb.codecs.audio_mp3_alias) => true,
             _ => false,
         }
     }
     
     pub fn is_m4a(&self) -> bool {
         match self.ddb.quality {
-            k if(k == self.ddb.codecs.audio_mp3) => false,
+            k if(k == self.ddb.codecs.audio_mp3_alias) => false,
             _ => true,
         }
     }
