@@ -10,6 +10,7 @@ use std::io::BufReader;
 use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
+use lib::config::ConfigCodecs;
 
 use lib::DownloadError;
 
@@ -23,7 +24,7 @@ pub struct DownloadDB {
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
-    pub audioquality: i16,
+    pub codecs: ConfigCodecs,
     pub qid: i64,
     pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
@@ -68,7 +69,7 @@ impl<'a> Downloader<'a>{
                 Ok(text) => {
                         //println!("Out: {}",text);
                         match re.find(&text) {
-                            Some(s) => { println!("Match at {}", s.0);
+                            Some(s) => { //println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                         try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                     },
@@ -173,7 +174,7 @@ impl<'a> Downloader<'a>{
         try!(stderr_buffer.read_to_string(&mut stderr));
 
         try!(child.wait());
-        //println!("stdout: {:?}", stdout);
+        
         if !stderr.is_empty() {
             println!("stderr: {:?}", stderr);
             println!("stdout: {}",stdout);
@@ -222,8 +223,17 @@ impl<'a> Downloader<'a>{
     ///Check if the quality is 141, standing for audio or not
     pub fn is_audio(&self) -> bool {
         match self.ddb.quality {
-            k if(k == self.ddb.audioquality ) => true,
+            k if(k == self.ddb.codecs.audio_raw_hq) => true,
+            k if(k == self.ddb.codecs.audio_raw_mq) => true,
+            k if(k == self.ddb.codecs.audio_mp3) => true,
             _ => false,
+        }
+    }
+    
+    pub fn is_m4a(&self) -> bool {
+        match self.ddb.quality {
+            k if(k == self.ddb.codecs.audio_mp3) => false,
+            _ => true,
         }
     }
 }

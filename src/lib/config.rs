@@ -46,9 +46,11 @@ pub struct ConfigGen{
     pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
 }
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, RustcDecodable,Clone)]
 pub struct ConfigCodecs {
-    pub audio: i16,
+    pub audio_raw_mq: i16,
+    pub audio_raw_hq: i16,
+    pub audio_mp3: i16,
 }
 
 /// create PathBuf by getting the current working dir
@@ -96,7 +98,7 @@ download_mbps = 6
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 [codecs]
-audio_raw = 140
+audio_raw_mq = 140
 audio_raw_hq = 141
 audio_mp3 = 1
     "#;

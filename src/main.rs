@@ -221,7 +221,7 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                     quality: from_value::<i16>(&result[3]),
                                     qid: from_value::<i64>(&result[0]),
-                                    audioquality: CONFIG.codecs.audio,
+                                    codecs: CONFIG.codecs.clone(),
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: false, //TEMP

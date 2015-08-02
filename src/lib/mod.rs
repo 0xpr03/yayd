@@ -134,7 +134,7 @@ pub fn url_encode(input: &str) -> String {
     // iterator over input, apply function to each element(function
     input.chars().map(|char| {
         match char {
-            '\'' | '"' => '_',
+            '\'' | '"' | '\\' => '_',
             '&' => '-',
             c if c.is_ascii() => c,
             _ => '_'
