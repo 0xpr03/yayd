@@ -101,9 +101,8 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         None => false,
     };
 
-    let dbcopy = downl_db.clone(); //copy, all implement copy & no &'s in use
-    lib::update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 1, 0);
-    let download = Downloader::new(downl_db, &CONFIG.general);
+    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0);
+    let download = Downloader::new(&downl_db, &CONFIG.general);
     //get filename, check for DMCA
     let mut dmca = false; // "succ." dmca -> file already downloaded
     let name = match download.get_file_name() { // get filename
@@ -121,10 +120,10 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         },
     };
 
-    let name_http_valid = lib::format_file_name(&name, &download, &dbcopy.qid);
+    let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
 
-    let file_path = format_file_path(&dbcopy.qid, folder.clone());
-    let save_path = &format_save_path(folder.clone(),&name, &download, &dbcopy.qid);
+    let file_path = format_file_path(&downl_db.qid, folder.clone());
+    let save_path = &format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     println!("Filename: {}", name);
 
@@ -132,28 +131,28 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
         //TODO: insert title name for file,
         //copy file to download folder
     
-        let is_splitted_format = lib::is_split_container(&dbcopy.quality);
+        let is_splitted_format = lib::is_split_container(&downl_db.quality);
         let total_steps = if is_splitted_format {
             4
         } else {
             2
         };
-        lib::update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 2, total_steps);
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
 
         //download video, which is video/audio(m4a)
         try!(download.download_file(&file_path, false));
 
         if is_splitted_format { // download audio file & convert together
-            lib::update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 3, total_steps);
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps);
 
-            let audio_path = format_audio_path(&dbcopy.qid, folder.clone());
+            let audio_path = format_audio_path(&downl_db.qid, folder.clone());
             
             println!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
 
-            lib::update_steps(&dbcopy.pool.clone(),&dbcopy.qid, 4, total_steps);
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps);
 
-            match converter.merge_files(&dbcopy.qid,&file_path, &audio_path,&save_path) {
+            match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path) {
                 Err(e) => {println!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
@@ -173,7 +172,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     }
 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        lib::add_file_entry(&dbcopy.pool.clone(), &dbcopy.qid,&name_http_valid, &name);
+        lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
     
     //TODO: download file, convert if audio ?!

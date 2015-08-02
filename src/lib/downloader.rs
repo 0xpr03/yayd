@@ -31,13 +31,13 @@ pub struct DownloadDB<'a> {
 }
 
 pub struct Downloader<'a> {
-    ddb: DownloadDB<'a>,
+    pub ddb: &'a DownloadDB<'a>,
     defaults: &'a ConfigGen,
     // pool: MyPool,
 }
 
 impl<'a> Downloader<'a>{
-    pub fn new(ddb: DownloadDB<'a>, defaults: &'a ConfigGen) -> Downloader<'a>{
+    pub fn new(ddb: &'a DownloadDB<'a>, defaults: &'a ConfigGen) -> Downloader<'a>{
         Downloader {ddb: ddb, defaults: defaults}
     }
     
@@ -55,6 +55,7 @@ impl<'a> Downloader<'a>{
         }else{
             &self.ddb.quality
         };
+        
         println!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));
         let stdout = BufReader::new(child.stdout.take().unwrap());
