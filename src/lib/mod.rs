@@ -115,9 +115,20 @@ pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> 
 
 ///Returns the file extension
 pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
-    match download.is_audio() {
-        true => "mp3",
-        false => "mp4",
+    if download.is_audio() {
+        if download.ddb.extensions.aac.contains(&download.ddb.quality) {
+            "aac"
+        }else{
+            "unknown"
+        }
+    }else{
+        if download.ddb.extensions.mp4.contains(&download.ddb.quality) {
+                "mp4"
+        } else if download.ddb.extensions.flv.contains(&download.ddb.quality) {
+            "flv"
+        } else {
+            "unknown"
+        }
     }
 }
 
