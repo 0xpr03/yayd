@@ -53,7 +53,7 @@ impl<'a> Converter<'a> {
             }
         }
 
-        child.wait();
+        try!(child.wait());
 
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
@@ -74,7 +74,7 @@ impl<'a> Converter<'a> {
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
         //println!("total frames stdout: {:?}", stdout.trim());
-        child.wait();
+        try!(child.wait());
 
         let regex_duration = regex!(r"Duration: ((\d\d):(\d\d):(\d\d)\.\d\d)");
         let regex_fps = regex!(r"(\d+)\sfps");

@@ -152,9 +152,11 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         //TODO: insert title name for file,
         //copy file to download folder
     
-        let is_splitted_format = lib::is_split_container(&downl_db.quality);
-        let total_steps = if is_splitted_format {
+        let is_splitted_video = lib::is_split_container(&downl_db.quality);
+        let total_steps = if is_splitted_video {
             4
+        } else if download.is_audio() && !download.is_m4a() {
+            3
         } else {
             2
         };
@@ -163,7 +165,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         //download video, which is video/audio(m4a)
         try!(download.download_file(&file_path, false));
 
-        if is_splitted_format { // download audio file & convert together
+        if is_splitted_video { // download audio file & convert together
             lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps);
 
             let audio_path = format_audio_path(&downl_db.qid, folder.clone());
@@ -184,7 +186,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
         }else{ // we're already done, only need to copy / convert to mp3 if requested
             if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-                //TODO: convert -> saves already ?
+                
             }else{
                 try!(lib::move_file(&file_path, &save_path));
             }
