@@ -70,7 +70,6 @@ fn main() {
                     Err(e) => {println!("Error: {:?}", e); false }
                 };
             
-            
                 if !left_files.is_empty() {
                     for i in &left_files {
                         match remove_file(&i) {
@@ -94,6 +93,7 @@ fn main() {
                 "failed"
             };
             lib::set_query_state(&pool.clone(),&qid, state, true);
+            
         } else {
             if print_pause { println!("Pausing.."); print_pause = false; }
             std::thread::sleep_ms(SLEEP_MS);
@@ -119,11 +119,12 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         Some(_) => true,
         None => false,
     };
-
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0);
+    
     let download = Downloader::new(&downl_db, &CONFIG.general);
     //get filename, check for DMCA
     let mut dmca = false; // "succ." dmca -> file already downloaded
+    
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 

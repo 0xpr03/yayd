@@ -50,7 +50,7 @@ impl<'a> Downloader<'a>{
     ///download_audio: ignore quality & download config set audio for split containers
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
-        let curr_quality = if ( &self.ddb.quality == &self.ddb.codecs.audio_mp3_alias ) {
+        let curr_quality = if &self.ddb.quality == &self.ddb.codecs.audio_mp3_alias {
             &self.ddb.codecs.audio_mp3_source
         }else{
             &self.ddb.quality
@@ -231,6 +231,7 @@ impl<'a> Downloader<'a>{
         }
     }
     
+    ///Return wether the audio file is m4a or not
     pub fn is_m4a(&self) -> bool {
         match self.ddb.quality {
             k if(k == self.ddb.codecs.audio_mp3_alias) => false,
