@@ -25,6 +25,7 @@ pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
     pub codecs: ConfigCodecs,
+    pub extensions: Extensions,
 }
 
 #[derive(Debug, RustcDecodable)]
@@ -42,17 +43,22 @@ pub struct ConfigGen{
     pub download_dir: String, // folder to which the files should be moved
     pub jar_folder: String, // DMCA lib
     pub jar_cmd: String, // command for the DMCA lib
-    pub mp3_bitrate: u16,
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
     pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
 }
 
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct ConfigCodecs {
-    pub audio_raw_mq: i16,
-    pub audio_raw_hq: i16,
-    pub audio_mp3_alias: i16,
-    pub audio_mp3_source: i16,
+    pub audio_raw: i16,
+    pub audio_source_hq: i16,
+}
+
+#[derive(Debug, RustcDecodable,Clone)]
+pub struct Extensions {
+    pub aac: Vec<i16>,
+    pub m4a: Vec<i16>,
+    pub mp4: Vec<i16>,
+    pub flv: Vec<i16>,
 }
 
 /// create PathBuf by getting the current working dir
@@ -97,14 +103,19 @@ download_dir = "/home/dev/downloads"
 jar_folder = "/home/dev/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin"
 download_mbps = 6
-mp3_bitrate = 180
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
+#see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
 [codecs]
-audio_raw_mq = 140
-audio_raw_hq = 141
-audio_mp3_alias = 1
-audio_mp3_source = 141
+audio_raw = 140
+audio_source_hq = 22
+
+[extensions]
+aac = [140,22]
+m4a = []
+mp4 = [299,298,137,136,135,134,133,22,18]
+flv = [5]
+
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {

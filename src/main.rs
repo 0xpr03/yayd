@@ -245,6 +245,7 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                     quality: from_value::<i16>(&result[3]),
                                     qid: from_value::<i64>(&result[0]),
                                     codecs: &CONFIG.codecs,
+                                    extensions: &CONFIG.extensions,
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: false, //TEMP
