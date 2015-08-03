@@ -26,6 +26,8 @@ macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {prin
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
+static CODE_FAILED: i8 = 3;
+static CODE_SUCCESS: i8 = 2;
 
 lazy_static! {
     static ref CONFIG: config::Config = {
@@ -59,16 +61,33 @@ fn main() {
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             lib::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             lib::set_query_state(&pool.clone(),&qid, "started", false);
-            let succes = match handle_download(result, None, &converter) {
-                Ok(v) => v,
-                Err(e) => {println!("Error: {:?}", e); false }
-            };
-            let code = if succes {
-                2//QueryCodes::Finished as i32
+            
+            let succes;
+            {
+                let mut left_files: Vec<String> = Vec::with_capacity(2);
+                succes = match handle_download(result, None, &converter,&mut left_files) {
+                    Ok(v) => v,
+                    Err(e) => {println!("Error: {:?}", e); false }
+                };
+            
+            
+                if !left_files.is_empty() {
+                    for i in &left_files {
+                        match remove_file(&i) {
+                            Ok(_) => (),
+                            Err(e) => println!("unable to remove file {}",e),
+                        }
+                    }
+                }
+            }
+            
+            let code: i8 = if succes {
+                CODE_SUCCESS//QueryCode
             } else {
-                3//QueryCodes::Failed as i32
+                CODE_FAILED//QueryCode
             };
             lib::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
+            
             let state = if code == 2 {
                 "finished"
             } else {
@@ -94,7 +113,7 @@ fn main() {
 ///If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode'd name of the file is stored in the DB
-fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Converter) -> Result<bool,DownloadError>{
+fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool,DownloadError>{
     //update progress
     let is_zipped = match folder {
         Some(_) => true,
@@ -123,6 +142,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
     let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
 
     let file_path = format_file_path(&downl_db.qid, folder.clone());
+    file_db.push(file_path.clone());
     let save_path = &format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     println!("Filename: {}", name);
@@ -146,6 +166,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
             lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps);
 
             let audio_path = format_audio_path(&downl_db.qid, folder.clone());
+            file_db.push(audio_path.clone());
             
             println!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
@@ -158,6 +179,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
             }
 
             try!(remove_file(&audio_path));
+            file_db.pop();
 
         }else{ // we're already done, only need to copy / convert to mp3 if requested
             if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
@@ -167,6 +189,7 @@ fn handle_download(downl_db: DownloadDB, folder: Option<String>, converter: &Con
             }
         }
         try!(remove_file(&file_path));
+        file_db.pop();
     }else{
         try!(lib::move_file(&file_path, &save_path));
     }
