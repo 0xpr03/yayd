@@ -52,15 +52,12 @@ impl<'a> Downloader<'a>{
     ///download_audio: ignore quality & download audio_raw codec for split containers
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
-        let curr_quality = if &self.ddb.quality == &self.ddb.codecs.audio_mp3_alias {
-            &self.ddb.codecs.audio_mp3_source
+        
+        if download_audio {
+            &self.ddb.codecs.audio_raw
         }else{
-            if download_audio {
-                &self.ddb.codecs.audio_raw
-            }else{
-                &self.ddb.quality
-            }
-        };
+            &self.ddb.quality
+        }
         
         println!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));

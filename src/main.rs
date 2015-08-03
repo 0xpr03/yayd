@@ -155,7 +155,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         let is_splitted_video = lib::is_split_container(&downl_db.quality);
         let total_steps = if is_splitted_video {
             4
-        } else if download.is_audio() && !download.is_m4a() {
+        } else if download.is_audio() {
             3
         } else {
             2
