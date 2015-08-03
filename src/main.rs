@@ -49,7 +49,7 @@ fn main() {
     
     let pool = lib::db_connect(mysql_options(), SLEEP_MS);
     
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, &CONFIG.general.mp3_bitrate , pool.clone());
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, pool.clone());
     let mut print_pause = true;
     loop {
         if let Some(result) = request_entry(& pool) {
@@ -186,7 +186,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
         }else{ // we're already done, only need to copy / convert to mp3 if requested
             if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-                
+                try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
             }else{
                 try!(lib::move_file(&file_path, &save_path));
             }

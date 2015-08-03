@@ -18,13 +18,12 @@ macro_rules! regex(
 
 pub struct Converter<'a> {
     pub ffmpeg_cmd: &'a str,
-    pub mp3_bitrate: &'a u16,
     pub pool: MyPool,
 }
 
 impl<'a> Converter<'a> {
-    pub fn new(ffmpeg_cmd: &'a str, mp3_bitrate: &'a u16, pool: MyPool) -> Converter<'a> {
-        Converter{ffmpeg_cmd: ffmpeg_cmd, mp3_bitrate: mp3_bitrate, pool: pool}
+    pub fn new(ffmpeg_cmd: &'a str, pool: MyPool) -> Converter<'a> {
+        Converter{ffmpeg_cmd: ffmpeg_cmd, pool: pool}
     }
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
@@ -47,7 +46,45 @@ impl<'a> Converter<'a> {
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
                             println!("frame: {}", cap.at(1).unwrap());
-                            try!(self.update_progress(&mut statement, self.caclulate_progress(&max_frames, &cap.at(1).unwrap()).to_string(), qid));
+                            try!(self.update_progress(&mut statement,
+                                    self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
+                                );
+                        }
+                    },
+            }
+        }
+
+        try!(child.wait());
+
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+        println!("Stderr: {}", stderr);
+
+        Ok(())
+    }
+    
+    pub fn extract_audio(&self, qid: &i64, video_file: &'a str, output_file: &'a str) -> Result<(), DownloadError> {
+        let max_frames: i64 = try!(self.get_max_frames(video_file));
+        println!("Total frames: {}", max_frames);
+        
+        let mut child = try!(self.create_audio_extract_cmd(video_file, output_file));
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+
+        let mut conn = self.pool.get_conn().unwrap();
+        let mut statement = self.prepare_progress_updater(&mut conn);
+        let re = regex!(r"frame=\s*(\d+)");
+
+        for line in stdout.lines(){
+            match line{
+                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Ok(text) => {
+                        if re.is_match(&text) {
+                            let cap = re.captures(&text).unwrap();
+                            println!("frame: {}", cap.at(1).unwrap());
+                            try!(self.update_progress(&mut statement,
+                                    self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
+                                );
                         }
                     },
             }
@@ -98,12 +135,17 @@ impl<'a> Converter<'a> {
     ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
     ///This removes the option to use .arg() -> params must be handled carefully
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        self.create_bash_cmd(self.format_ffmpeg_cmd(audio_file, video_file, output_file))
+        self.create_bash_cmd(self.format_merge_cmd(audio_file, video_file, output_file))
     }
 
     ///Creates a cmd to gain the amount of frames in a video, for progress calculation
     fn create_fps_get_cmd(&self, video_file: &str) -> Result<Child, DownloadError> {
         self.create_bash_cmd(self.format_frame_get_cmd(video_file))
+    }
+    
+    ///Create a ffmpeg instance with the audio extract cmd
+    fn create_audio_extract_cmd(&self, video_file: &str, output_file: &str) -> Result<Child, DownloadError> {
+        self.create_bash_cmd(self.format_extract_audio_cmd(video_file, output_file))
     }
 
     ///Create an bash cmd
@@ -130,13 +172,23 @@ impl<'a> Converter<'a> {
 
     ///Creates a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
-    fn format_ffmpeg_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
+    fn format_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
         let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             audio_file,
             output_file);
         println!("ffmpeg cmd: {}", a);
+        a
+    }
+    
+    ///Create ffmpeg cmd to extract raw audio from a video file
+    fn format_extract_audio_cmd(&self, video_file: &str, output_file: &str) -> String {
+        let a = format!(r#"{}ffmpeg -i {} -vn -acodec 'copy' {}"#,
+            self.ffmpeg_cmd,
+            video_file,
+            output_file);
+        println!("ffmpeg cmd: {}",a);
         a
     }
 

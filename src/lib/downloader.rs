@@ -53,11 +53,11 @@ impl<'a> Downloader<'a>{
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
         
-        if download_audio {
+        let curr_quality = if download_audio {
             &self.ddb.codecs.audio_raw
         }else{
             &self.ddb.quality
-        }
+        };
         
         println!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));
