@@ -11,6 +11,7 @@ use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
 use lib::config::ConfigCodecs;
+use lib::config::Extensions;
 
 use lib::DownloadError;
 
@@ -25,6 +26,7 @@ pub struct DownloadDB<'a> {
     pub playlist: bool,
     pub compress: bool,
     pub codecs: &'a ConfigCodecs,
+    pub extensions: &'a Extensions,
     pub qid: i64,
     pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
@@ -47,13 +49,17 @@ impl<'a> Downloader<'a>{
     ///TODO: get the sql statements out of the class
     ///TODO: wrap errors
     ///Doesn't care about DMCAs, will emit errors on them
-    ///download_audio: ignore quality & download config set audio for split containers
+    ///download_audio: ignore quality & download audio_raw codec for split containers
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
         let curr_quality = if &self.ddb.quality == &self.ddb.codecs.audio_mp3_alias {
             &self.ddb.codecs.audio_mp3_source
         }else{
-            &self.ddb.quality
+            if download_audio {
+                &self.ddb.codecs.audio_raw
+            }else{
+                &self.ddb.quality
+            }
         };
         
         println!("quality: {}",curr_quality);
@@ -223,19 +229,12 @@ impl<'a> Downloader<'a>{
 
     ///Check if the quality is 141, standing for audio or not
     pub fn is_audio(&self) -> bool {
-        match self.ddb.quality {
-            k if(k == self.ddb.codecs.audio_raw_hq) => true,
-            k if(k == self.ddb.codecs.audio_raw_mq) => true,
-            k if(k == self.ddb.codecs.audio_mp3_alias) => true,
-            _ => false,
-        }
-    }
-    
-    ///Return wether the audio file is m4a or not
-    pub fn is_m4a(&self) -> bool {
-        match self.ddb.quality {
-            k if(k == self.ddb.codecs.audio_mp3_alias) => false,
-            _ => true,
+        if self.ddb.quality == self.ddb.codecs.audio_raw {
+            true
+        } else if self.ddb.quality == self.ddb.codecs.audio_source_hq {
+            true
+        }else {
+            false
         }
     }
 }
