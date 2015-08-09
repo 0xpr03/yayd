@@ -217,7 +217,7 @@ impl<'a> Downloader<'a>{
 
     ///Generate -a or -v, based on if an audio or video quality is requested
     fn gen_request_str(&self) -> &'a str{
-        if self.is_audio() {
+        if self.is_audio() && !self.is_aac() {
             "-a"
         } else {
             "-v"
@@ -233,6 +233,11 @@ impl<'a> Downloader<'a>{
         }else {
             false
         }
+    }
+    
+    ///Check if is AAC file
+    fn is_aac(&self) -> bool {
+        self.ddb.extensions.aac.contains(&self.ddb.quality)
     }
 }
 

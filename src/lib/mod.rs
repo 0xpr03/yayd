@@ -54,7 +54,7 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
 ///as specified in the docs
 pub fn is_split_container(quality: &i16) -> bool {
     match *quality {
-        141 | 83 | 82 | 84 | 85 => false,
+        140 | 83 | 82 | 84 | 85 | 22 => false,
         _ => true,
     }
 }

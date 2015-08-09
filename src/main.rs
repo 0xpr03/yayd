@@ -73,8 +73,8 @@ fn main() {
                 if !left_files.is_empty() {
                     for i in &left_files {
                         match remove_file(&i) {
-                            Ok(_) => (),
-                            Err(e) => println!("unable to remove file {}",e),
+                            Ok(_) => (println!("cleaning up {}",i)),
+                            Err(e) => println!("unable to remove file '{}' {}",i,e),
                         }
                     }
                 }
@@ -184,18 +184,20 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
             try!(remove_file(&audio_path));
             file_db.pop();
 
-        }else{ // we're already done, only need to copy / convert to mp3 if requested
-            if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-                try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
-            }else{
+        }else{ // we're already done, only need to copy
+            if !download.is_audio() {
                 try!(lib::move_file(&file_path, &save_path));
             }
         }
-        try!(remove_file(&file_path));
-        file_db.pop();
+    }
+    if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+        try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
     }else{
         try!(lib::move_file(&file_path, &save_path));
     }
+    
+    try!(remove_file(&file_path));
+    file_db.pop();
 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
