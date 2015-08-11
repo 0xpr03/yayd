@@ -197,7 +197,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
         try!(remove_file(&file_path));
     }else{
-        if !is_splitted_video {
+        if is_splitted_video {
+            try!(remove_file(&file_path));
+        }else{
             try!(lib::move_file(&file_path, &save_path));
         }
     }
