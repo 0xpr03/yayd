@@ -71,6 +71,7 @@ fn main() {
                 };
             
                 if !left_files.is_empty() {
+                    println!("cleaning up files");
                     for i in &left_files {
                         match remove_file(&i) {
                             Ok(_) => (println!("cleaning up {}",i)),
@@ -147,12 +148,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     let save_path = &format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     println!("Filename: {}", name);
+    
+    let mut is_splitted_video = false;
 
     if !dmca {
         //TODO: insert title name for file,
         //copy file to download folder
     
-        let is_splitted_video = lib::is_split_container(&downl_db.quality);
+        is_splitted_video = lib::is_split_container(&downl_db.quality);
         let total_steps = if is_splitted_video {
             4
         } else if download.is_audio() {
@@ -192,12 +195,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     }
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
         try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
+        try!(remove_file(&file_path));
     }else{
-        try!(lib::move_file(&file_path, &save_path));
+        if !is_splitted_video {
+            try!(lib::move_file(&file_path, &save_path));
+        }
     }
-    
-    try!(remove_file(&file_path));
     file_db.pop();
+    
 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
