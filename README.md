@@ -15,7 +15,8 @@ qid | url | type | quality | created | uid
 	quality:
 		1: mp3
 		140,22 AAC extraction (mq,hq)
-		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - encoded
+		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - video only
+		cut together with 140 (which is aac mp4 with very low video quality)
 
 url: utf8_bin
 
