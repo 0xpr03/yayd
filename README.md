@@ -13,9 +13,10 @@ qid | url | type | quality | created | uid
 		1: playlist
 		
 	quality:
-		141: mp3
-		83,82,84,85: [240 360 720 1080 @30]youtube - original
+		1: mp3
+		140,22 AAC extraction (mq,hq)
 		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - encoded
+
 url: utf8_bin
 
 	
