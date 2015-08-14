@@ -3,7 +3,7 @@
 Supports playlists & mass downloads as zip
 And is my personal entry into rust as a language
 (Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)
-[GUI Example](http://prog.proctet.net/yayd_gui.png)
+[GUI Example](***REMOVED***)
 
 # DB-Backend:
 ## queries
