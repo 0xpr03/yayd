@@ -230,7 +230,9 @@ impl<'a> Downloader<'a>{
             true
         } else if self.ddb.quality == self.ddb.codecs.audio_source_hq {
             true
-        }else {
+        } else if self.ddb.quality == self.ddb.codecs.audio_mp3 {
+            true
+        } else {
             false
         }
     }

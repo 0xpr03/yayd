@@ -5,7 +5,7 @@ pub mod converter;
 use mysql::conn::MyOpts;
 use mysql::conn::pool;
 use mysql::conn::pool::{MyPooledConn,MyPool};
-use lib::downloader::Downloader;
+use lib::downloader::{DownloadDB,Downloader};
 
 use mysql::error::MyError;
 use std::error::Error;
@@ -42,7 +42,7 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
     loop {
         match pool::MyPool::new(opts.clone()) {
             Ok(conn) => {return conn;},
-            Err(err) => println!("Unable to establish a connection!\n{}",err),
+            Err(err) => println!("Unable to establish a connection:\n{}",err),
         };
         sleep_ms(sleep_time);
     }
@@ -50,10 +50,15 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
 
 ///Return whether the quality is a split container or not: video only
 ///as specified in the docs
-pub fn is_split_container(quality: &i16) -> bool {
-    match *quality {
-        140 | 83 | 82 | 84 | 85 | 22 => false,
-        _ => true,
+pub fn is_split_container(download_db: &DownloadDB, quality: &i16) -> bool {
+    if download_db.extensions.mp3.contains(quality) {
+        false
+    } else if download_db.extensions.aac.contains(quality) {
+        false
+    } else if download_db.extensions.m4a.contains(quality) {
+        false
+    } else {
+        true
     }
 }
 
@@ -116,12 +121,14 @@ pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     if download.is_audio() {
         if download.ddb.extensions.aac.contains(&download.ddb.quality) {
             "aac"
+        }else if download.ddb.extensions.mp3.contains(&download.ddb.quality) {
+            "mp3"
         }else{
             "unknown"
         }
     }else{
         if download.ddb.extensions.mp4.contains(&download.ddb.quality) {
-                "mp4"
+            "mp4"
         } else if download.ddb.extensions.flv.contains(&download.ddb.quality) {
             "flv"
         } else {

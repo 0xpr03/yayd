@@ -149,19 +149,24 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
     println!("Filename: {}", name);
     
-    let mut is_splitted_video = false;
-    let convert_audio = downl_db.codecs.audio_mp3 == downl_db.quality;
-
-    if !dmca {
+    let is_splitted_video = if dmca {
+        false
+    } else {
+        lib::is_split_container(&downl_db,&downl_db.quality)
+    };
+    let convert_audio = downl_db.extensions.mp3.contains(&downl_db.quality);
     
-        is_splitted_video = lib::is_split_container(&downl_db.quality);
-        let total_steps = if is_splitted_video {
-            4
-        } else if download.is_audio() {
-            3
-        } else {
-            2
-        };
+    let total_steps = if dmca {
+        2
+    } else if is_splitted_video {
+        4
+    } else if download.is_audio() {
+        3
+    } else {
+        2
+    };
+    
+    if !dmca {
         
         lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
 
@@ -196,6 +201,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     }
     
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
         try!(converter.extract_audio(&downl_db.qid,&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
     }else{
@@ -207,7 +213,6 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     }
     file_db.pop();
     
-
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }

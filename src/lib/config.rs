@@ -58,6 +58,7 @@ pub struct ConfigCodecs {
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct Extensions {
     pub aac: Vec<i16>,
+    pub mp3: Vec<i16>,
     pub m4a: Vec<i16>,
     pub mp4: Vec<i16>,
     pub flv: Vec<i16>,
@@ -117,6 +118,7 @@ audio_source_hq = 22
 
 [extensions]
 aac = [140,22]
+mp3 = [1]
 m4a = []
 mp4 = [299,298,137,136,135,134,133,22,18]
 flv = [5]
