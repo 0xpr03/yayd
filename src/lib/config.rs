@@ -97,12 +97,14 @@ db = "ytdownl"
 port = 3306
 ip = "127.0.0.1"
 
+#these values need to be changed, example values of my dev setup
 [general]
 save_dir = "/home/dev/downloads/temp"
 download_dir = "/home/dev/downloads"
 jar_folder = "/home/dev/yayd"
 jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin"
-download_mbps = 6
+download_mbps = 6 #mb/s limit
+mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 #see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats

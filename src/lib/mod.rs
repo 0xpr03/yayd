@@ -1,7 +1,5 @@
 pub mod config;
 pub mod downloader;
-//pub mod socket;
-pub mod database;
 pub mod converter;
 
 use mysql::conn::MyOpts;

@@ -6,6 +6,7 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::convert::Into;
+use main;
 
 use lib::DownloadError;
 
@@ -17,13 +18,14 @@ macro_rules! regex(
 );
 
 pub struct Converter<'a> {
-    pub ffmpeg_cmd: &'a str,
-    pub pool: MyPool,
+    ffmpeg_cmd: &'a str,
+    mp3_quality: &'a i16,
+    pool: MyPool,
 }
 
 impl<'a> Converter<'a> {
-    pub fn new(ffmpeg_cmd: &'a str, pool: MyPool) -> Converter<'a> {
-        Converter{ffmpeg_cmd: ffmpeg_cmd, pool: pool}
+    pub fn new(ffmpeg_cmd: &'a str,mp3_quality: &'a i16, pool: MyPool) -> Converter<'a> {
+        Converter{ffmpeg_cmd: ffmpeg_cmd,mp3_quality: mp3_quality, pool: pool}
     }
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
@@ -189,6 +191,16 @@ impl<'a> Converter<'a> {
             video_file,
             output_file);
         println!("ffmpeg cmd: {}",a);
+        a
+    }
+    
+    ///Create ffmpeg cmd to extract audio from a video file & convert it directly to mp3
+    fn format_convert_audio_mp3_cmd(&self, video_file: &str, output_file: &str) -> String {
+        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a 2 "{}" 2>&1 |& tr '\r' '\n'"#,
+            self.ffmpeg_cmd,
+            video_file,
+            output_file);
+        println!("ffmpeg cmd: {}", a);
         a
     }
 
