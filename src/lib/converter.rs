@@ -6,7 +6,6 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::convert::Into;
-use main;
 
 use lib::DownloadError;
 
@@ -65,11 +64,16 @@ impl<'a> Converter<'a> {
         Ok(())
     }
     
-    pub fn extract_audio(&self, qid: &i64, video_file: &'a str, output_file: &'a str) -> Result<(), DownloadError> {
+    pub fn extract_audio(&self, qid: &i64, video_file: &'a str, output_file: &'a str, convert_mp3: bool) -> Result<(), DownloadError> {
         //let max_frames: i64 = try!(self.get_max_frames(video_file));
         //println!("Total frames: {}", max_frames);
+        let mut child;
+        if convert_mp3 {
+            child = try!(self.create_audio_extrac_mp3_convert_cmd(video_file, output_file));
+        }else {
+            child = try!(self.create_audio_extract_cmd(video_file, output_file));
+        }
         
-        let mut child = try!(self.create_audio_extract_cmd(video_file, output_file));
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
@@ -149,6 +153,10 @@ impl<'a> Converter<'a> {
     fn create_audio_extract_cmd(&self, video_file: &str, output_file: &str) -> Result<Child, DownloadError> {
         self.create_bash_cmd(self.format_extract_audio_cmd(video_file, output_file))
     }
+    
+    fn create_audio_extrac_mp3_convert_cmd(&self, video_file: &str, output_file: &str) -> Result<Child, DownloadError> {
+        self.create_bash_cmd(self.format_convert_audio_mp3_cmd(video_file,output_file))
+    }
 
     ///Create an bash cmd
     fn create_bash_cmd(&self, cmd: String) -> Result<Child, DownloadError> {
@@ -196,9 +204,10 @@ impl<'a> Converter<'a> {
     
     ///Create ffmpeg cmd to extract audio from a video file & convert it directly to mp3
     fn format_convert_audio_mp3_cmd(&self, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a 2 "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a {} "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
+            self.mp3_quality,
             output_file);
         println!("ffmpeg cmd: {}", a);
         a

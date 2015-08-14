@@ -43,6 +43,7 @@ pub struct ConfigGen{
     pub download_dir: String, // folder to which the files should be moved
     pub jar_folder: String, // DMCA lib
     pub jar_cmd: String, // command for the DMCA lib
+    pub mp3_quality: i16,
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
     pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
 }
@@ -51,6 +52,7 @@ pub struct ConfigGen{
 pub struct ConfigCodecs {
     pub audio_raw: i16,
     pub audio_source_hq: i16,
+    pub audio_mp3: i16,
 }
 
 #[derive(Debug, RustcDecodable,Clone)]
@@ -109,6 +111,7 @@ ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 #see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
 [codecs]
+audio_mp3 = 1
 audio_raw = 140
 audio_source_hq = 22
 

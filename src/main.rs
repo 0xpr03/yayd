@@ -49,7 +49,7 @@ fn main() {
     
     let pool = lib::db_connect(mysql_options(), SLEEP_MS);
     
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin, pool.clone());
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
         if let Some(result) = request_entry(& pool) {
@@ -150,10 +150,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     println!("Filename: {}", name);
     
     let mut is_splitted_video = false;
+    let convert_audio = downl_db.codecs.audio_mp3 == downl_db.quality;
 
     if !dmca {
-        //TODO: insert title name for file,
-        //copy file to download folder
     
         is_splitted_video = lib::is_split_container(&downl_db.quality);
         let total_steps = if is_splitted_video {
@@ -163,12 +162,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         } else {
             2
         };
+        
         lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
 
-        //download video, which is video/audio(m4a)
-        try!(download.download_file(&file_path, false));
+        //download first file, download audio raw source if specified or video
+        try!(download.download_file(&file_path, convert_audio));
 
-        if is_splitted_video { // download audio file & convert together
+        if is_splitted_video {
+            // download audio file & convert together
             lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps);
 
             let audio_path = format_audio_path(&downl_db.qid, folder.clone());
@@ -187,14 +188,15 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
             try!(remove_file(&audio_path));
             file_db.pop();
 
-        }else{ // we're already done, only need to copy
+        }else{ // we're already done, only need to copy if it's not raw audio source
             if !download.is_audio() {
                 try!(lib::move_file(&file_path, &save_path));
             }
         }
     }
+    
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-        try!(converter.extract_audio(&downl_db.qid, &file_path, &save_path));
+        try!(converter.extract_audio(&downl_db.qid,&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
     }else{
         if is_splitted_video {

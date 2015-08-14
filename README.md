@@ -1,10 +1,10 @@
 # yayd-backend
-Yet another youtube downloader-backend for the query & proxy downloading.  
-Supports playlists & mass downloads as zip  
-Using threads to split up the convertion - download work (planned)
+### Yet another youtube downloader-backend for the query & proxy downloading.  
+Supports playlists & mass downloads as zip
+And is my personal entry into rust as a language
+(Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)
+[GUI Example](http://prog.proctet.net/yayd_gui.png)
 
-*And my personal entry into rust*  
-  
 # DB-Backend:
 ## queries
 qid | url | type | quality | created | uid
