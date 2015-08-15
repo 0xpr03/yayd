@@ -135,7 +135,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
                 Ok(v) => { dmca = true; v },
             }
         },
-        Err(e) => { // unknown error / video private etc.. abort
+        Err(e) => { // unknown error / restricted source etc.. abort
             println!("Unknown error: {:?}", e);
             return Err(e);
         },
@@ -201,8 +201,8 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     }
     
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
-        try!(converter.extract_audio(&downl_db.qid,&file_path, &save_path,convert_audio));
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps);
+        try!(converter.extract_audio(&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
     }else{
         if is_splitted_video {
@@ -217,7 +217,6 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
     
-    //TODO: download file, convert if audio ?!
     Ok(true)
 }
 

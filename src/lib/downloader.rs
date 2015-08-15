@@ -65,13 +65,13 @@ impl<'a> Downloader<'a>{
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"\d+\.\d");
+        let re = regex!(r"\d+\.\d%");
 
         for line in stdout.lines(){
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
-                        //println!("Out: {}",text);
+                        println!("Out: {}",text);
                         match re.find(&text) {
                             Some(s) => { //println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!

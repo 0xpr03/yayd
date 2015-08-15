@@ -64,9 +64,7 @@ impl<'a> Converter<'a> {
         Ok(())
     }
     
-    pub fn extract_audio(&self, qid: &i64, video_file: &'a str, output_file: &'a str, convert_mp3: bool) -> Result<(), DownloadError> {
-        //let max_frames: i64 = try!(self.get_max_frames(video_file));
-        //println!("Total frames: {}", max_frames);
+    pub fn extract_audio(&self, video_file: &'a str, output_file: &'a str, convert_mp3: bool) -> Result<(), DownloadError> {
         let mut child;
         if convert_mp3 {
             child = try!(self.create_audio_extrac_mp3_convert_cmd(video_file, output_file));
@@ -74,32 +72,16 @@ impl<'a> Converter<'a> {
             child = try!(self.create_audio_extract_cmd(video_file, output_file));
         }
         
-        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
-        //let mut conn = self.pool.get_conn().unwrap();
-        //let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"frame=\s*(\d+)");
-
-        for line in stdout.lines(){
-            match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
-                Ok(text) => {
-                        if re.is_match(&text) {
-//                            let cap = re.captures(&text).unwrap();
-//                            println!("frame: {}", cap.at(1).unwrap());
-//                            try!(self.update_progress(&mut statement,
-//                                    self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
-//                                );
-                        }
-                    },
-            }
-        }
+        //let mut stdout: String = String::new();
+        //try!(stdout_buffer.read_to_string(&mut stdout));
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
 
         try!(child.wait());
 
-        let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
         println!("Stderr: {}", stderr);
 
         Ok(())
