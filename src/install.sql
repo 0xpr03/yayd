@@ -1,6 +1,10 @@
+/*
+Required table file format barracuda for compression & strict mode to sensure the correct creation of it
+*/
+
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `crQuery`$$
-CREATE DEFINER=`root`@`localhost` PROCEDURE `crQuery`(IN `parameter_url` VARCHAR(90) CHARSET utf8, /* paramter */
+CREATE DEFINER=`root`@`localhost` PROCEDURE `crQuery`(IN `parameter_url` VARCHAR(100) CHARSET utf8, /* paramter */
 	IN `parameter_user` VARCHAR(12) CHARSET utf8,
 	IN `parameter_type` TINYINT,
 	IN `parameter_quality` INTEGER,
@@ -59,17 +63,17 @@ CREATE TABLE `querydetails` (
  `status` varchar(10) NOT NULL,
  `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 CREATE TABLE `files` (
  `fid` int(10) unsigned NOT NULL,
- `name` varchar(60) CHARACTER SET ascii NOT NULL,
- `rname` varchar(60) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+ `name` varchar(100) CHARACTER SET ascii NOT NULL,
+ `rname` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
  `valid` int(11) NOT NULL,
  PRIMARY KEY (`fid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 CREATE TABLE `queries` (
  `qid` int(10) unsigned NOT NULL AUTO_INCREMENT,
- `url` varchar(90) NOT NULL,
+ `url` varchar(100) NOT NULL,
  `type` tinyint(4) NOT NULL,
  `quality` smallint(6) NOT NULL,
  `created` datetime NOT NULL,
@@ -77,4 +81,4 @@ CREATE TABLE `queries` (
  `playlistid` int(11) DEFAULT NULL,
  PRIMARY KEY (`qid`),
  KEY `playlistid` (`playlistid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
