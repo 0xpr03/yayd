@@ -5,11 +5,12 @@ pub mod converter;
 use mysql::conn::MyOpts;
 use mysql::conn::pool;
 use mysql::conn::pool::{MyPooledConn,MyPool};
-use lib::downloader::{DownloadDB,Downloader};
+use lib::downloader::{Downloader};
 
 use mysql::error::MyError;
 use std::error::Error;
 use std::io;
+use CONFIG;
 
 use std::thread::sleep_ms;
 
@@ -50,12 +51,12 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
 
 ///Return whether the quality is a split container or not: video only
 ///as specified in the docs
-pub fn is_split_container(download_db: &DownloadDB, quality: &i16) -> bool {
-    if download_db.extensions.mp3.contains(quality) {
+pub fn is_split_container(quality: &i16) -> bool {
+    if CONFIG.extensions.mp3.contains(quality) {
         false
-    } else if download_db.extensions.aac.contains(quality) {
+    } else if CONFIG.extensions.aac.contains(quality) {
         false
-    } else if download_db.extensions.m4a.contains(quality) {
+    } else if CONFIG.extensions.m4a.contains(quality) {
         false
     } else {
         true
@@ -119,17 +120,17 @@ pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> 
 ///Returns the file extension
 pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     if download.is_audio() {
-        if download.ddb.extensions.aac.contains(&download.ddb.quality) {
+        if CONFIG.extensions.aac.contains(&download.ddb.quality) {
             "aac"
-        }else if download.ddb.extensions.mp3.contains(&download.ddb.quality) {
+        }else if CONFIG.extensions.mp3.contains(&download.ddb.quality) {
             "mp3"
         }else{
             "unknown"
         }
     }else{
-        if download.ddb.extensions.mp4.contains(&download.ddb.quality) {
+        if CONFIG.extensions.mp4.contains(&download.ddb.quality) {
             "mp4"
-        } else if download.ddb.extensions.flv.contains(&download.ddb.quality) {
+        } else if CONFIG.extensions.flv.contains(&download.ddb.quality) {
             "flv"
         } else {
             "unknown"

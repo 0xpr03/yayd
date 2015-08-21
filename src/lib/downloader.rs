@@ -10,36 +10,34 @@ use std::io::BufReader;
 use std::path::Path;
 use lib::config::ConfigGen;
 use std::convert::Into;
-use lib::config::ConfigCodecs;
-use lib::config::Extensions;
 
 use lib::DownloadError;
+
+use CONFIG;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
 #[derive(Clone)]
-pub struct DownloadDB<'a> {
+pub struct DownloadDB {
     pub url: String,
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
-    pub codecs: &'a ConfigCodecs,
-    pub extensions: &'a Extensions,
     pub qid: i64,
     pub folder: String, // download folder, changes for playlists
     pub pool: MyPool,
 }
 
 pub struct Downloader<'a> {
-    pub ddb: &'a DownloadDB<'a>,
+    pub ddb: &'a DownloadDB,
     defaults: &'a ConfigGen,
     // pool: MyPool,
 }
 
 impl<'a> Downloader<'a>{
-    pub fn new(ddb: &'a DownloadDB<'a>, defaults: &'a ConfigGen) -> Downloader<'a>{
+    pub fn new(ddb: &'a DownloadDB, defaults: &'a ConfigGen) -> Downloader<'a>{
         Downloader {ddb: ddb, defaults: defaults}
     }
     
@@ -54,7 +52,7 @@ impl<'a> Downloader<'a>{
         println!("{:?}", self.ddb.url);
         
         let curr_quality = if download_audio {
-            &self.ddb.codecs.audio_raw
+            &CONFIG.codecs.audio_raw
         }else{
             &self.ddb.quality
         };
@@ -226,11 +224,11 @@ impl<'a> Downloader<'a>{
 
     ///Check if the quality is 141, standing for audio or not
     pub fn is_audio(&self) -> bool {
-        if self.ddb.quality == self.ddb.codecs.audio_raw {
+        if self.ddb.quality == CONFIG.codecs.audio_raw {
             true
-        } else if self.ddb.quality == self.ddb.codecs.audio_source_hq {
+        } else if self.ddb.quality == CONFIG.codecs.audio_source_hq {
             true
-        } else if self.ddb.quality == self.ddb.codecs.audio_mp3 {
+        } else if self.ddb.quality == CONFIG.codecs.audio_mp3 {
             true
         } else {
             false
@@ -239,7 +237,7 @@ impl<'a> Downloader<'a>{
     
     ///Check if is AAC file
     fn is_aac(&self) -> bool {
-        self.ddb.extensions.aac.contains(&self.ddb.quality)
+        CONFIG.extensions.aac.contains(&self.ddb.quality)
     }
 }
 

@@ -30,7 +30,7 @@ static CODE_FAILED: i8 = 3;
 static CODE_SUCCESS: i8 = 2;
 
 lazy_static! {
-    static ref CONFIG: config::Config = {
+    pub static ref CONFIG: config::Config = {
         println!("Starting yayd-backend v{}",&VERSION);
         config::init_config() //return
     };
@@ -152,9 +152,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     let is_splitted_video = if dmca {
         false
     } else {
-        lib::is_split_container(&downl_db,&downl_db.quality)
+        lib::is_split_container(&downl_db.quality)
     };
-    let convert_audio = downl_db.extensions.mp3.contains(&downl_db.quality);
+    let convert_audio = CONFIG.extensions.mp3.contains(&downl_db.quality);
     
     let total_steps = if dmca {
         2
@@ -261,8 +261,6 @@ fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                     quality: from_value::<i16>(&result[3]),
                                     qid: from_value::<i64>(&result[0]),
-                                    codecs: &CONFIG.codecs,
-                                    extensions: &CONFIG.extensions,
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: false, //TEMP
