@@ -17,7 +17,7 @@ lazy_static = "0.1.11"
 toml = "0.1.21"
 
 [dependencies.regex]
-regex = "0.1.40"
+regex = "0.1.41"
 regex_macros = "0.1.21"
 
 [dependencies.rustc-serialize]
