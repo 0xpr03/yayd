@@ -9,8 +9,10 @@ use mysql::value::from_value;
 use lib::downloader::{Downloader,DownloadDB};
 
 use mysql::error::MyError;
+use std::process::{Command,Output};
 use std::error::Error;
 use std::io;
+use std::str;
 use CONFIG;
 
 use std::thread::sleep_ms;
@@ -207,6 +209,21 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                     playlist: false, //TEMP
                                     compress: false };
     Some(download_db)
+}
+
+pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
+    let io = try!(create_zip_cmd(folder,zip_name));
+    if str::from_utf8(&io.stdout).unwrap().contains("error") {
+        return Err(DownloadError::DownloadError(format!("error: {:?}",&io.stdout)))
+    }
+    Ok(())
+}
+
+fn create_zip_cmd(folder: &str, zip_file: &str) -> Result<Output, DownloadError> {
+    match Command::new("tar").arg("zcvf").arg(folder).arg(zip_file).output() {
+                     Err(e) => Err(DownloadError::InternalError(format!("failed to zip: {}", e))),
+                     Ok(v) => Ok(v),
+    }
 }
 
 ///Set dbms connection settings
