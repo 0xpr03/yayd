@@ -120,7 +120,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         Some(_) => true,
         None => false,
     };
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0);
+    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0,false);
     
     let download = Downloader::new(&downl_db, &CONFIG.general);
     //get filename, check for DMCA
@@ -168,14 +168,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     
     if !dmca {
         
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps);
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
 
         //download first file, download audio raw source if specified or video
         try!(download.download_file(&file_path, convert_audio));
 
         if is_splitted_video {
             // download audio file & convert together
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps);
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
 
             let audio_path = format_audio_path(&downl_db.qid, folder.clone());
             file_db.push(audio_path.clone());
@@ -183,7 +183,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
             println!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
 
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps);
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
 
             match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path) {
                 Err(e) => {println!("merge error: {:?}",e); return Err(e);},
@@ -201,7 +201,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     }
     
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps);
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
         try!(converter.extract_audio(&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
     }else{
@@ -216,7 +216,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
-    
+    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
     Ok(true)
 }
 

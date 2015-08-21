@@ -90,12 +90,7 @@ pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<
 }
 
 ///Update progress steps for db entry
-pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32){
-    let finished = if max_steps == step {
-        true
-    }else{
-        false
-    };
+pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, finished: bool){
     set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 
