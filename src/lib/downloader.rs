@@ -123,30 +123,41 @@ impl<'a> Downloader<'a>{
     }
     
     ///Get playlist file ids
-    pub fn get_playlist(&self) -> Result<String,DownloadError> {
+    pub fn get_playlist_ids(&self) -> Result<Vec<String>,DownloadError> {
         let mut child = try!(self.run_playlist_extract());
-        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
-        let mut stdout: String = String::new();
-        try!(stdout_buffer.read_to_string(&mut stdout));
+        let re = regex!(r#""url": "([a-zA-Z0-9_-]+)""#);
+        
+        let mut id_list: Vec<String> = Vec::new();
+        for line in stdout.lines(){
+            match line{
+                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Ok(text) => {
+                        println!("Out: {}",text);
+                        match re.captures(&text) {
+                            Some(cap) => { //println!("Match at {}", s.0);
+                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        id_list.push(cap.at(1).unwrap().to_string());
+                                    },
+                            None => {},
+                        }
+                    },
+            }
+        }
+        
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
 
-
         try!(child.wait());
-        //println!("stderr: {:?}", stderr);
-        //println!("stdout: {:?}", stdout);
-        if stderr.is_empty() == true {
-            println!("get_playlist: {:?}", stdout);
-            Ok(stdout.trim().to_string())
-        }else{
-            if stderr.contains("not available in your country") || stderr.contains("contains content from") {
-                return Err(DownloadError::DMCAError);
-            }else{
-                return Err(DownloadError::DownloadError(stderr));
-            }
+        
+        if !stderr.is_empty() {
+            println!("stderr: {:?}", stderr);
+            return Err(DownloadError::InternalError(stderr));
         }
+        
+        Ok(id_list)
     }
     
     ///Retrive playlist name, will kill the process due to yt-dl starting detail retrieval
