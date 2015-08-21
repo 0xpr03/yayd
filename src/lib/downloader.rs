@@ -29,6 +29,13 @@ pub struct DownloadDB {
     pub pool: MyPool,
 }
 
+impl DownloadDB {
+    pub fn update_video(&mut self,url: String, qid: i64){
+        self.qid = qid;
+        self.url = url;
+    }
+}
+
 pub struct Downloader<'a> {
     pub ddb: &'a DownloadDB,
     defaults: &'a ConfigGen,
@@ -139,6 +146,36 @@ impl<'a> Downloader<'a>{
             }
         }
     }
+    
+    pub fn get_playlist_name(&self) -> Result<String,DownloadError> {
+        let mut child = try!(self.run_playlist_get_name());
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+
+        let re = regex!(r"[download] Downloading playlist: (.*)");
+        
+        let mut name: Option<String> = None;
+        for line in stdout.lines(){
+            match line{
+                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Ok(text) => {
+                        println!("Out: {}",text);
+                        if name.is_none() {
+                            match re.captures(&text) {
+                                Some(cap) => {
+                                            println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                            name = Some(cap.at(1).unwrap().to_string());
+                                        },
+                                None => {},
+                            }
+                        }
+                    },
+            }
+        }
+
+        try!(child.wait()); // waits for finish & then exists zombi process fixes #10
+        
+        name.ok_or(DownloadError::DownloadError("no playlist name".to_string()))
+    }
 
     fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
@@ -178,6 +215,19 @@ impl<'a> Downloader<'a>{
                                     .arg("-s")
                                     .arg("--print-json")
                                     .arg("--flat-playlist")
+                                    .arg(&self.ddb.url)
+                                    .stdin(Stdio::null())
+                                    .stdout(Stdio::piped())
+                                    .spawn() {
+            Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
+            Ok(process) => Ok(process),
+        }
+    }
+    
+    fn run_playlist_get_name(&self) -> Result<Child,DownloadError> {
+        match Command::new("youtube-dl")
+                                    .arg("-s")
+                                    .arg("--no-warnings")
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())

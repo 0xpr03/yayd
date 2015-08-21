@@ -224,6 +224,8 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 fn handle_playlist(downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, if downl_db.compress { 4 }else{ 3 },false);
     let download = Downloader::new(&downl_db, &CONFIG.general);
-    //let playlist_name = try!();
+    let playlist_name = try!(download.get_playlist_name());
+    
+    
     Ok(true)
 }
