@@ -34,6 +34,9 @@ impl DownloadDB {
         self.qid = qid;
         self.url = url;
     }
+    pub fn update_folder(&mut self, folder: String){
+        self.folder = folder;
+    }
 }
 
 pub struct Downloader<'a> {
@@ -103,7 +106,6 @@ impl<'a> Downloader<'a>{
         try!(stdout_buffer.read_to_string(&mut stdout));
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
-
 
         try!(child.wait());
         //println!("stderr: {:?}", stderr);

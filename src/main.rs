@@ -62,7 +62,6 @@ fn main() {
                         Err(e) => {println!("Download Error: {:?}", e); false }
                     };
                 }
-                
             
                 if !left_files.is_empty() {
                     println!("cleaning up files");
@@ -221,10 +220,22 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 ///Handles a playlist request
 ///If zipping isn't requested the downloads will be split up,
 ///so for each video in the playlist an own query entry will be created
-fn handle_playlist(downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, if downl_db.compress { 4 }else{ 3 },false);
+fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
+    let mut max_steps = if downl_db.compress { 4 } else { 3 };
+    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
+    
+    let pl_id: i64 = downl_db.qid;
+    downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
+    
     let download = Downloader::new(&downl_db, &CONFIG.general);
-    let playlist_name = try!(download.get_playlist_name());
+    
+    let playlist_name;
+    if downl_db.compress {
+        playlist_name = try!(download.get_playlist_name());
+        try!(std::fs::create_dir(&downl_db.folder));
+    }
+    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
+    
     
     
     Ok(true)
