@@ -233,15 +233,21 @@ impl<'a> Downloader<'a>{
     }
     
     fn run_playlist_extract(&self) -> Result<Child,DownloadError> {
-        match Command::new("youtube-dl")
-                                    .arg("-s")
-                                    .arg("--dump-json")
-                                    .arg("--flat-playlist")
-                                    .arg(&self.ddb.url)
-                                    .stdin(Stdio::null())
-                                    .stdout(Stdio::piped())
-                                    .stderr(Stdio::piped())
-                                    .spawn() {
+        let mut cmd = Command::new("youtube-dl");
+        cmd.arg("-s").arg("--dump-json").arg("--flat-playlist");
+        if self.ddb.from > 0 {
+            cmd.arg("--playlist-start");
+            cmd.arg(self.ddb.from.to_string());
+        }
+        if self.ddb.to > 0 {
+            cmd.arg("--playlist-end");
+            cmd.arg(self.ddb.to.to_string());
+        }
+        match cmd.arg(&self.ddb.url)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
