@@ -239,7 +239,7 @@ pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
 }
 
 fn create_zip_cmd(folder: &str, zip_file: &str) -> Result<Output, DownloadError> {
-    match Command::new("tar").arg("-zcvf").arg(folder).arg(zip_file).output() {
+    match Command::new("tar").arg("-zcvf").arg(zip_file).arg(folder).output() {
                      Err(e) => Err(DownloadError::InternalError(format!("failed to zip: {}", e))),
                      Ok(v) => Ok(v),
     }
