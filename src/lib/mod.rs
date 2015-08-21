@@ -191,9 +191,10 @@ pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Do
 ///Request an entry from the DB to handle
 pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut conn = try_reoption!(pool.get_conn());
-    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,`type`,quality,zip,`from`,`to` FROM querydetails \
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
+                    LEFT JOIN playlists ON queries.qid = playlists.qid \
                     WHERE querydetails.code = 0 \
                     ORDER BY queries.created \
                     LIMIT 1"));
@@ -202,13 +203,28 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     
     println!("Result: {:?}", result[0]);
     println!("result str: {}", result[1].into_str());
+    let from;
+    let to;
+    let compress;
+    let playlist = from_value::<Option<i16>>(&result[4]).is_some();
+    if playlist {
+        compress = from_value::<Option<i16>>(&result[4]).unwrap() == 1;
+        from = from_value::<Option<i32>>(&result[5]).unwrap();
+        to = from_value::<Option<i32>>(&result[6]).unwrap();
+    } else {
+        from = 0;
+        to = 0;
+        compress = false;
+    }
     let download_db = DownloadDB { url: from_value::<String>(&result[1]),
                                     quality: from_value::<i16>(&result[3]),
                                     qid: from_value::<i64>(&result[0]),
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
-                                    playlist: false, //TEMP
-                                    compress: false };
+                                    playlist: playlist,
+                                    compress: compress,
+                                    to: to,
+                                    from: from };
     Some(download_db)
 }
 
