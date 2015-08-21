@@ -231,7 +231,8 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
 ///Zip folder to file
 pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
     let io = try!(create_zip_cmd(folder,zip_name));
-    if str::from_utf8(&io.stdout).unwrap().contains("error") {
+    println!("zip stdout: {}\nzip stderr: {}", str::from_utf8(&io.stdout).unwrap(),str::from_utf8(&io.stderr).unwrap());
+    if str::from_utf8(&io.stderr).unwrap().contains("error") {
         return Err(DownloadError::DownloadError(format!("error: {:?}",&io.stdout)))
     }
     Ok(())

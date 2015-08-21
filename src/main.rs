@@ -290,7 +290,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     if downl_db.compress { // zip to file, add to db & remove all sources
         let zip_name = format!("{}.zip",playlist_name);
         let zip_file = format!("{}/{}",&CONFIG.general.save_dir,zip_name);
-        println!("zip file: {}",zip_file);
+        println!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
         lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
         try!(lib::delete_files(file_delete_list));
