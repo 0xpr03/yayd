@@ -12,7 +12,7 @@ use lib::downloader::Downloader;
 use lib::DownloadError;
 use lib::converter::Converter;
 
-use std::fs::{remove_file};
+use std::fs::{remove_file,remove_dir};
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -53,13 +53,13 @@ fn main() {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
                 if result.playlist {
                     succes = match handle_playlist(result, &converter,&mut left_files) {
-                        Ok(v) => v,
-                        Err(e) => {println!("Playlist Error: {:?}", e); false }
+                        Ok(v) => Ok(v),
+                        Err(e) => {println!("Playlist Error: {:?}", e); Err(e) }
                     };
                 }else{
                     succes = match handle_download(result, None, &converter,&mut left_files) {
-                        Ok(v) => v,
-                        Err(e) => {println!("Download Error: {:?}", e); false }
+                        Ok(v) => Ok(v),
+                        Err(e) => {println!("Download Error: {:?}", e); Err(e) }
                     };
                 }
             
@@ -74,7 +74,7 @@ fn main() {
                 }
             }
             
-            let code: i8 = if succes {
+            let code: i8 = if succes.is_ok() {
                 CODE_SUCCESS//QueryCode
             } else {
                 CODE_FAILED//QueryCode
@@ -107,7 +107,7 @@ fn main() {
 ///If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode'd name of the file is stored in the DB
-fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool,DownloadError>{
+fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Option<String>,DownloadError>{
     //update progress
     let is_zipped = match folder {
         Some(_) => true,
@@ -138,7 +138,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
     let file_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     file_db.push(file_path.clone());
-    let save_path = &lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
+    let save_path = lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     println!("Filename: {}", name);
     
@@ -214,24 +214,32 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
-    Ok(true)
+    
+    if folder.is_some() {
+        Ok(Some(save_path))
+    } else {
+        Ok(None)
+    }
 }
 
 ///Handles a playlist request
 ///If zipping isn't requested the downloads will be split up,
 ///so for each video in the playlist an own query entry will be created
-fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
+fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Option<String>, DownloadError>{
     let mut max_steps = if downl_db.compress { 4 } else { 3 };
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
     let pl_id: i64 = downl_db.qid;
     downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
+    println!("Folder:  {}",downl_db.folder);
     
     let download = Downloader::new(&downl_db, &CONFIG.general);
     
     let playlist_name;
     if downl_db.compress {
-        playlist_name = lib::url_encode(try!(download.get_playlist_name()));
+        playlist_name = lib::url_encode(
+            &try!(download.get_playlist_name())
+            );
         try!(std::fs::create_dir(&downl_db.folder));
     }
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
@@ -243,22 +251,32 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     }else {
         None
     };
+    
     let mut current_url;
+    let mut file_delete_list: Vec<String>;
+    if downl_db.compress { // we'll store all files and delete em later, so we don't need rm -rf
+        file_delete_list = Vec::with_capacity(file_ids.len());
+    }
     for id in file_ids.iter() {
         downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), pl_id);
         println!("id: {}",id);
         match handle_download(downl_db, handler_folder, converter, &mut file_db) {
             Err(e) => println!("error downloading {}: {:?}",id,e),
-            Ok(_) => {},
+            Ok(e) => {  if downl_db.compress {
+                            file_delete_list.push(e.unwrap());
+                        }
+                },
         }
     }
     
-    if downl_db.compress {
+    if downl_db.compress { // zip to file, add to db & remove all sources
         let zip_name = format!("{}.zip",playlist_name);
         let zip_file = format!("{}/{}",&CONFIG.general.save_dir,zip_name);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
         lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
+        try!(lib::delete_files(file_delete_list));
+        try!(remove_dir(downl_db.folder));
     }
     
-    Ok(true)
+    Ok(None)
 }

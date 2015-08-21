@@ -12,6 +12,7 @@ use mysql::error::MyError;
 use std::process::{Command,Output};
 use std::error::Error;
 use std::io;
+use std::fs::remove_file;
 use std::str;
 use CONFIG;
 
@@ -211,6 +212,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     Some(download_db)
 }
 
+///Zip folder to file
 pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
     let io = try!(create_zip_cmd(folder,zip_name));
     if str::from_utf8(&io.stdout).unwrap().contains("error") {
@@ -224,6 +226,14 @@ fn create_zip_cmd(folder: &str, zip_file: &str) -> Result<Output, DownloadError>
                      Err(e) => Err(DownloadError::InternalError(format!("failed to zip: {}", e))),
                      Ok(v) => Ok(v),
     }
+}
+
+///Delete all files in the list
+pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
+    for file in files.iter() {
+        try!(remove_file(file));
+    }
+    Ok(())
 }
 
 ///Set dbms connection settings
