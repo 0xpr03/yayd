@@ -44,10 +44,6 @@ fn main() {
     loop {
         if let Some(result) = lib::request_entry(& pool) {
             print_pause = true;
-            if result.playlist {
-                println!("Playlist not supported atm!");
-                //TODO: set playlist entry to errg
-            }
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             lib::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             lib::set_query_state(&pool.clone(),&qid, "started", false);
@@ -55,10 +51,18 @@ fn main() {
             let succes;
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
-                succes = match handle_download(result, None, &converter,&mut left_files) {
-                    Ok(v) => v,
-                    Err(e) => {println!("Error: {:?}", e); false }
-                };
+                if result.playlist {
+                    succes = match handle_playlist(result, &converter,&mut left_files) {
+                        Ok(v) => v,
+                        Err(e) => {println!("Error: {:?}", e); false }
+                    };
+                }else{
+                    succes = match handle_download(result, None, &converter,&mut left_files) {
+                        Ok(v) => v,
+                        Err(e) => {println!("Error: {:?}", e); false }
+                    };
+                }
+                
             
                 if !left_files.is_empty() {
                     println!("cleaning up files");
@@ -210,3 +214,10 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     Ok(true)
 }
 
+///Handles a playlist request
+///If zipping isn't requested the downloads will be split up,
+///so for each video in the playlist an own query entry will be created
+fn handle_playlist(downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
+    
+    Ok(true)
+}
