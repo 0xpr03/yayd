@@ -151,7 +151,11 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     let convert_audio = CONFIG.extensions.mp3.contains(&downl_db.quality);
     
     let total_steps = if dmca {
-        2
+        if download.is_audio() {
+            3
+        } else {
+            2
+        }
     } else if is_splitted_video {
         4
     } else if download.is_audio() {

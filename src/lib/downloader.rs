@@ -75,7 +75,7 @@ impl<'a> Downloader<'a>{
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                         try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                     },
-                            None => {/*println!("Detected no % match.")*/},
+                            None => {},
                         }
                     },
             }
@@ -167,23 +167,42 @@ impl<'a> Downloader<'a>{
     pub fn lib_request_video(&self) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd());
         println!("Requesting video via lib..");
-        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
-        let mut stdout: String = String::new();
-        try!(stdout_buffer.read_to_string(&mut stdout));
+        let mut conn = self.ddb.pool.get_conn().unwrap();
+        let mut statement = self.prepare_progress_updater(&mut conn);
+        let re = regex!(r"step (\d)");
+        
+        let mut last_line = String::new();
+        for line in stdout.lines(){
+            match line{
+                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Ok(text) => {
+                        println!("Out: {}",text);
+                        match re.captures(&text) {
+                            Some(cap) => { //println!("Match at {}", s.0);
+                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        try!(self.update_progress(&mut statement, &cap.at(1).unwrap().to_string()));
+                                    },
+                            None => {last_line = text.clone()},
+                        }
+                    },
+            }
+        }
+        
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
+        
 
         try!(child.wait());
         
         if !stderr.is_empty() {
             println!("stderr: {:?}", stderr);
-            println!("stdout: {}",stdout);
             return Err(DownloadError::InternalError(stderr));
         }
         //this ONLY works because `filename ` is ascii..
-        let out = stdout[stdout.find("filename ").unwrap()+9..].trim().to_string();
+        let out = last_line[last_line.find("filename ").unwrap()+9..].trim().to_string();
         //stdout.trim();
         
         Ok(out)
@@ -239,9 +258,4 @@ impl<'a> Downloader<'a>{
     fn is_aac(&self) -> bool {
         CONFIG.extensions.aac.contains(&self.ddb.quality)
     }
-}
-
-#[test]
-fn conversion(){
-
 }
