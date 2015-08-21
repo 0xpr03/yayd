@@ -125,7 +125,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             println!("DMCA error!");
-            match download.lib_request_video() {
+            match download.lib_request_video(1,0) {
                 Err(err) => { println!("Offliberty-call error {:?}", err); return Err(err); },
                 Ok(v) => { dmca = true; v },
             }

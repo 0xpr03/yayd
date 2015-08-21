@@ -13,6 +13,7 @@ use std::convert::Into;
 use lib::DownloadError;
 
 use CONFIG;
+use lib;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -82,7 +83,7 @@ impl<'a> Downloader<'a>{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
                         println!("Out: {}",text);
-                        if(!self.ddb.playlist) {
+                        if !self.ddb.playlist {
                         match re.find(&text) {
                             Some(s) => { //println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
@@ -283,7 +284,7 @@ impl<'a> Downloader<'a>{
     ///lib
     ///The returned value contains the original video name, the lib downloads & saves
     ///the file at the given folder under the given name
-    pub fn lib_request_video(&self) -> Result<String,DownloadError> {
+    pub fn lib_request_video(&self, current_steps: i32,max_steps: i32) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd());
         println!("Requesting video via lib..");
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -302,7 +303,9 @@ impl<'a> Downloader<'a>{
                         match re.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
                                         println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        try!(self.update_progress(&mut statement, &cap.at(1).unwrap().to_string()));
+                                        if(!self.ddb.playlist) {
+                                            lib::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
+                                        }
                                     },
                             None => {last_line = text.clone()},
                         }
