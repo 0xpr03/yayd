@@ -175,7 +175,7 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
         ""
     };
     match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
+        Some(v) => format!("{}/{}/{}{}", &CONFIG.general.save_dir, v, qid,suffix),
         None => format!("{}/{}{}", &CONFIG.general.save_dir, qid,suffix),
     }
 }
