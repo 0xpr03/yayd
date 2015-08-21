@@ -272,9 +272,9 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     for id in file_ids.iter() {
         current_step += 1;
         if downl_db.compress {
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, current_step, max_steps,false);
         }
-        downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), current_step);
+        downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), current_step as i64);
         println!("id: {}",id);
         let db_copy = downl_db.clone();
         match handle_download(db_copy, &handler_folder, converter, file_db) {
