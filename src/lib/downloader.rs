@@ -149,6 +149,7 @@ impl<'a> Downloader<'a>{
         }
     }
     
+    ///Retrive playlist name, will kill the process due to yt-dl starting detail retrieval
     pub fn get_playlist_name(&self) -> Result<String,DownloadError> {
         let mut child = try!(self.run_playlist_get_name());
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -166,6 +167,7 @@ impl<'a> Downloader<'a>{
                                 Some(cap) => {
                                             println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                             name = Some(cap.at(1).unwrap().to_string());
+                                            try!(child.kill());
                                         },
                                 None => {},
                             }
@@ -173,7 +175,7 @@ impl<'a> Downloader<'a>{
                     },
             }
         }
-
+        
         try!(child.wait()); // waits for finish & then exists zombi process fixes #10
         
         name.ok_or(DownloadError::DownloadError("no playlist name".to_string()))
