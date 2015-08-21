@@ -291,7 +291,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         max_steps += 1;
         lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         let zip_name = format!("{}.zip",playlist_name);
-        let zip_file = format!("{}/{}",&CONFIG.general.save_dir,zip_name);
+        let zip_file = format!("{}/{}",&CONFIG.general.download_dir,zip_name);
         println!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
         lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
