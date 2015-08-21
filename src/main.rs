@@ -225,7 +225,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
     let pl_id: i64 = downl_db.qid;
-    downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
+    //downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
     
     let download = Downloader::new(&downl_db, &CONFIG.general);
     
@@ -239,9 +239,24 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     let file_ids: Vec<String> = try!(download.get_playlist_ids());
     
     let mut current_url;
+    let mut left_files: Vec<String> = Vec::with_capacity(file_ids.len*2);
     for id in file_ids.iter() {
         downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), pl_id);
         println!("id: {}",id);
+        match handle_download(downl_db, Some(pl_id.to_string()), converter, &mut left_files) {
+            Err(e) => println!("error downloading {}: {:?}",id,e),
+            Ok(_) => {},
+        }
+    }
+    
+    if !left_files.is_empty() {
+        println!("cleaning up files");
+        for i in &left_files {
+            match remove_file(&i) {
+                Ok(_) => (println!("cleaning up {}",i)),
+                Err(e) => println!("unable to remove file '{}' {}",i,e),
+            }
+        }
     }
     
     Ok(true)
