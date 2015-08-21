@@ -30,9 +30,10 @@ pub struct DownloadDB {
 }
 
 impl DownloadDB {
-    pub fn update_video(&mut self,url: String, qid: i64){
+    pub fn update_video(&mut self,url: String, qid: i64) -> &mut DownloadDB{
         self.qid = qid;
         self.url = url;
+        self
     }
     pub fn update_folder(&mut self, folder: String){
         self.folder = folder;

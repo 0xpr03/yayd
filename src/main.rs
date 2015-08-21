@@ -57,7 +57,7 @@ fn main() {
                         Err(e) => {println!("Playlist Error: {:?}", e); Err(e) }
                     };
                 }else{
-                    succes = match handle_download(result, None, &converter,&mut left_files) {
+                    succes = match handle_download(result, &None, &converter,&mut left_files) {
                         Ok(v) => Ok(v),
                         Err(e) => {println!("Download Error: {:?}", e); Err(e) }
                     };
@@ -107,9 +107,9 @@ fn main() {
 ///If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 ///main folder from which it should be downloadable.
 ///The original non-ascii & url_encode'd name of the file is stored in the DB
-fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Option<String>,DownloadError>{
+fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Option<String>,DownloadError>{
     //update progress
-    let is_zipped = match folder {
+    let is_zipped = match *folder {
         Some(_) => true,
         None => false,
     };
@@ -233,13 +233,13 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
     println!("Folder:  {}",downl_db.folder);
     
-    let download = Downloader::new(&downl_db, &CONFIG.general);
+    let db_copy = downl_db.clone();
+    let download = Downloader::new(&db_copy, &CONFIG.general);
     
-    let playlist_name;
+    let mut playlist_name = String::new();
     if downl_db.compress {
-        playlist_name = lib::url_encode(
-            &try!(download.get_playlist_name())
-            );
+        playlist_name = try!(download.get_playlist_name());
+        playlist_name = lib::url_encode(&playlist_name);
         try!(std::fs::create_dir(&downl_db.folder));
     }
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
@@ -252,15 +252,14 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         None
     };
     
-    let mut current_url;
-    let mut file_delete_list: Vec<String>;
-    if downl_db.compress { // we'll store all files and delete em later, so we don't need rm -rf
-        file_delete_list = Vec::with_capacity(file_ids.len());
-    }
+    let mut current_url: String;
+    // we'll store all files and delete em later, so we don't need rm -rf
+    let mut file_delete_list: Vec<String> = Vec::with_capacity(if downl_db.compress { file_ids.len() } else { 0 });
     for id in file_ids.iter() {
         downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), pl_id);
         println!("id: {}",id);
-        match handle_download(downl_db, handler_folder, converter, &mut file_db) {
+        let db_copy = downl_db.clone();
+        match handle_download(db_copy, &handler_folder, converter, file_db) {
             Err(e) => println!("error downloading {}: {:?}",id,e),
             Ok(e) => {  if downl_db.compress {
                             file_delete_list.push(e.unwrap());
