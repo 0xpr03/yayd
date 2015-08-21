@@ -1,4 +1,3 @@
-
 extern crate regex;
 use mysql::conn::pool::{MyPool,MyPooledConn};
 use mysql::conn::Stmt;
@@ -113,6 +112,33 @@ impl<'a> Downloader<'a>{
             }
         }
     }
+    
+    ///Get playlist file ids
+    pub fn get_playlist(&self) -> Result<String,DownloadError> {
+        let mut child = try!(self.run_playlist_extract());
+        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+
+        let mut stdout: String = String::new();
+        try!(stdout_buffer.read_to_string(&mut stdout));
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+
+
+        try!(child.wait());
+        //println!("stderr: {:?}", stderr);
+        //println!("stdout: {:?}", stdout);
+        if stderr.is_empty() == true {
+            println!("get_playlist: {:?}", stdout);
+            Ok(stdout.trim().to_string())
+        }else{
+            if stderr.contains("not available in your country") || stderr.contains("contains content from") {
+                return Err(DownloadError::DMCAError);
+            }else{
+                return Err(DownloadError::DownloadError(stderr));
+            }
+        }
+    }
 
     fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
@@ -141,6 +167,20 @@ impl<'a> Downloader<'a>{
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
                                     .stderr(Stdio::piped())
+                                    .spawn() {
+            Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
+            Ok(process) => Ok(process),
+        }
+    }
+    
+    fn run_playlist_extract(&self) -> Result<Child,DownloadError> {
+        match Command::new("youtube-dl")
+                                    .arg("-s")
+                                    .arg("--print-json")
+                                    .arg("--flat-playlist")
+                                    .arg(&self.ddb.url)
+                                    .stdin(Stdio::null())
+                                    .stdout(Stdio::piped())
                                     .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),

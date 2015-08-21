@@ -52,7 +52,7 @@ fn main() {
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
                 if result.playlist {
-                    succes = match handle_playlist(result, &converter,&mut left_files, ) {
+                    succes = match handle_playlist(result, &converter,&mut left_files) {
                         Ok(v) => v,
                         Err(e) => {println!("Playlist Error: {:?}", e); false }
                     };
@@ -221,7 +221,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 ///Handles a playlist request
 ///If zipping isn't requested the downloads will be split up,
 ///so for each video in the playlist an own query entry will be created
-fn handle_playlist(downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>, folder: bool) -> Result<bool, DownloadError>{
+fn handle_playlist(downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<bool, DownloadError>{
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, if downl_db.compress { 4 }else{ 3 },false);
     let download = Downloader::new(&downl_db, &CONFIG.general);
     //let playlist_name = try!();
