@@ -113,7 +113,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         Some(_) => true,
         None => false,
     };
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0,false);
+    if !downl_db.compress {
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0,false);
+    }
     
     let download = Downloader::new(&downl_db, &CONFIG.general);
     //get filename, check for DMCA
@@ -164,8 +166,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     };
     
     if !dmca {
-        
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
+        if !downl_db.compress {
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
+        }
 
         //download first file, download audio raw source if specified or video
         try!(download.download_file(&file_path, convert_audio));
@@ -179,10 +182,12 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
             
             println!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
+            
+            if !downl_db.compress {
+                lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
+            }
 
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
-
-            match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path) {
+            match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path, !downl_db.compress) {
                 Err(e) => {println!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
@@ -198,7 +203,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     }
     
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
+        if !downl_db.compress {
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
+        }
         try!(converter.extract_audio(&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
     }else{
@@ -213,7 +220,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
         lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
+    if !downl_db.compress {
+        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
+    }
     
     if folder.is_some() {
         Ok(Some(save_path))
@@ -226,7 +235,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 ///If zipping isn't requested the downloads will be split up,
 ///so for each video in the playlist an own query entry will be created
 fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Option<String>, DownloadError>{
-    let mut max_steps = if downl_db.compress { 4 } else { 3 };
+    let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
     let pl_id: i64 = downl_db.qid;
@@ -240,10 +249,12 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     if downl_db.compress {
         playlist_name = try!(download.get_playlist_name());
         playlist_name = lib::url_encode(&playlist_name);
+        println!("pl name {}",playlist_name);
         try!(std::fs::create_dir(&downl_db.folder));
+        file_db.push(downl_db.folder.clone());
     }
     lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
-    
+    println!("retriving playlist videos..");
     let file_ids: Vec<String> = try!(download.get_playlist_ids());
     
     let handler_folder = if downl_db.compress {
@@ -252,11 +263,18 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         None
     };
     
+    println!("got em");
+    max_steps += file_ids.len() as i32;
+    let mut current_step = 2;
     let mut current_url: String;
     // we'll store all files and delete em later, so we don't need rm -rf
     let mut file_delete_list: Vec<String> = Vec::with_capacity(if downl_db.compress { file_ids.len() } else { 0 });
     for id in file_ids.iter() {
-        downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), pl_id);
+        current_step += 1;
+        if downl_db.compress {
+            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
+        }
+        downl_db.update_video(format!("https://wwww.youtube.com/watch?v={}",id), current_step);
         println!("id: {}",id);
         let db_copy = downl_db.clone();
         match handle_download(db_copy, &handler_folder, converter, file_db) {
@@ -268,6 +286,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         }
     }
     
+    println!("downloaded all videos");
     if downl_db.compress { // zip to file, add to db & remove all sources
         let zip_name = format!("{}.zip",playlist_name);
         let zip_file = format!("{}/{}",&CONFIG.general.save_dir,zip_name);
@@ -275,6 +294,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
         try!(lib::delete_files(file_delete_list));
         try!(remove_dir(downl_db.folder));
+        file_db.pop();
     }
     
     Ok(None)

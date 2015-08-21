@@ -82,12 +82,14 @@ impl<'a> Downloader<'a>{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
                         println!("Out: {}",text);
+                        if(!self.ddb.playlist) {
                         match re.find(&text) {
                             Some(s) => { //println!("Match at {}", s.0);
                                         println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                         try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                     },
                             None => {},
+                        }
                         }
                     },
             }
@@ -128,6 +130,7 @@ impl<'a> Downloader<'a>{
     ///Get playlist file ids
     pub fn get_playlist_ids(&self) -> Result<Vec<String>,DownloadError> {
         let mut child = try!(self.run_playlist_extract());
+        println!("retrieving playlist ids");
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
@@ -168,23 +171,24 @@ impl<'a> Downloader<'a>{
         let mut child = try!(self.run_playlist_get_name());
         let stdout = BufReader::new(child.stdout.take().unwrap());
 
-        let re = regex!(r"[download] Downloading playlist: (.*)");
+        let re = regex!(r"\[download\] Downloading playlist: (.*)");
         
-        let mut name: Option<String> = None;
+        let mut name: String;
         for line in stdout.lines(){
+            
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
                         println!("Out: {}",text);
-                        if name.is_none() {
-                            match re.captures(&text) {
-                                Some(cap) => {
-                                            println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                            name = Some(cap.at(1).unwrap().to_string());
-                                            try!(child.kill());
-                                        },
-                                None => {},
-                            }
+                        match re.captures(&text) {
+                            Some(cap) => {
+                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        name = cap.at(1).unwrap().to_string();
+                                        try!(child.kill());
+                                        println!("killed it");
+                                        return Ok(name);
+                                    },
+                            None => {},
                         }
                     },
             }
@@ -192,7 +196,7 @@ impl<'a> Downloader<'a>{
         
         try!(child.wait()); // waits for finish & then exists zombi process fixes #10
         
-        name.ok_or(DownloadError::DownloadError("no playlist name".to_string()))
+        Err(DownloadError::DownloadError("no playlist name".to_string()))
     }
 
     fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
@@ -231,11 +235,12 @@ impl<'a> Downloader<'a>{
     fn run_playlist_extract(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("-s")
-                                    .arg("--print-json")
+                                    .arg("--dump-json")
                                     .arg("--flat-playlist")
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
+                                    .stderr(Stdio::piped())
                                     .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),

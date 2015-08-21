@@ -28,7 +28,8 @@ impl<'a> Converter<'a> {
     }
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
-    pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str) -> Result<(), DownloadError>{
+    pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
+        
         let max_frames: i64 = try!(self.get_max_frames(video_file));
         println!("Total frames: {}",max_frames);
 
@@ -44,6 +45,7 @@ impl<'a> Converter<'a> {
             match line{
                 Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
                 Ok(text) => {
+                    if show_progress {
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
                             println!("frame: {}", cap.at(1).unwrap());
@@ -51,7 +53,8 @@ impl<'a> Converter<'a> {
                                     self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
                                 );
                         }
-                    },
+                    }
+                },
             }
         }
 
