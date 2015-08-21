@@ -5,7 +5,8 @@ pub mod converter;
 use mysql::conn::MyOpts;
 use mysql::conn::pool;
 use mysql::conn::pool::{MyPooledConn,MyPool};
-use lib::downloader::{Downloader};
+use mysql::value::from_value;
+use lib::downloader::{Downloader,DownloadDB};
 
 use mysql::error::MyError;
 use std::error::Error;
@@ -17,6 +18,12 @@ use std::thread::sleep_ms;
 use std::ascii::AsciiExt;
 
 use std::fs::{rename};
+
+macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
+
+///Move result value out, return with none on err & print
+macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
+
 
 #[derive(Debug)]
 pub enum DownloadError{
@@ -156,3 +163,60 @@ pub fn url_encode(input: &str) -> String {
     // into container FromIterator
 }
 
+///Format save location for file, zip dependent
+///audio files get an 'a' as suffix
+pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
+    let suffix = if audio {
+        "a"
+    }else {
+        ""
+    };
+    match folder {
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
+        None => format!("{}/{}{}", &CONFIG.general.save_dir, qid,suffix),
+    }
+}
+
+///Format save path, dependent on zip option.
+pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
+    match folder {
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(name,download,qid)),
+        None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(name,download,qid)),
+    }
+}
+
+///Request an entry from the DB to handle
+pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
+    let mut conn = try_reoption!(pool.get_conn());
+    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
+                    INNER JOIN queries \
+                    ON querydetails.qid = queries.qid \
+                    WHERE querydetails.code = 0 \
+                    ORDER BY queries.created \
+                    LIMIT 1"));
+    let mut result = try_reoption!(stmt.execute(&[]));
+    let result = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
+    
+    println!("Result: {:?}", result[0]);
+    println!("result str: {}", result[1].into_str());
+    let download_db = DownloadDB { url: from_value::<String>(&result[1]),
+                                    quality: from_value::<i16>(&result[3]),
+                                    qid: from_value::<i64>(&result[0]),
+                                    folder: CONFIG.general.save_dir.clone(),
+                                    pool: pool.clone(),
+                                    playlist: false, //TEMP
+                                    compress: false };
+    Some(download_db)
+}
+
+///Set dbms connection settings
+pub fn mysql_options() -> MyOpts {
+    MyOpts {
+        tcp_addr: Some(CONFIG.db.ip.clone()),
+        tcp_port: CONFIG.db.port,
+        user: Some(CONFIG.db.user.clone()),
+        pass: Some(CONFIG.db.password.clone()),
+        db_name: Some(CONFIG.db.db.clone()),
+        ..Default::default() // set others to default
+    }
+}

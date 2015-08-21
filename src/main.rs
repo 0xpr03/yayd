@@ -6,11 +6,6 @@ extern crate lazy_static;
 
 mod lib;
 
-use mysql::conn::MyOpts;
-use std::default::Default;
-use mysql::conn::pool;
-use mysql::value::from_value;
-
 use lib::config;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
@@ -18,11 +13,6 @@ use lib::DownloadError;
 use lib::converter::Converter;
 
 use std::fs::{remove_file};
-
-macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
-
-///Move result value out, return with none on err & print
-macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
 
 static VERSION : &'static str = "0.1"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -47,12 +37,12 @@ lazy_static! {
 
 fn main() {
     
-    let pool = lib::db_connect(mysql_options(), SLEEP_MS);
+    let pool = lib::db_connect(lib::mysql_options(), SLEEP_MS);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
-        if let Some(result) = request_entry(& pool) {
+        if let Some(result) = lib::request_entry(& pool) {
             print_pause = true;
             if result.playlist {
                 println!("Playlist not supported atm!");
@@ -143,9 +133,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
     let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
 
-    let file_path = format_file_path(&downl_db.qid, folder.clone(), false);
+    let file_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     file_db.push(file_path.clone());
-    let save_path = &format_save_path(folder.clone(),&name, &download, &downl_db.qid);
+    let save_path = &lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     println!("Filename: {}", name);
     
@@ -177,7 +167,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
             // download audio file & convert together
             lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
 
-            let audio_path = format_file_path(&downl_db.qid, folder.clone(), true);
+            let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
             file_db.push(audio_path.clone());
             
             println!("Downloading audio.. {}", audio_path);
@@ -220,60 +210,3 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
     Ok(true)
 }
 
-///Format save location for file, zip dependent
-///audio files get an 'a' as suffix
-fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
-    let suffix = if audio {
-        "a"
-    }else {
-        ""
-    };
-    match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
-        None => format!("{}/{}{}", &CONFIG.general.save_dir, qid,suffix),
-    }
-}
-
-///Format save path, dependent on zip option.
-fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
-    match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, lib::format_file_name(name,download,qid)),
-        None => format!("{}/{}", &CONFIG.general.download_dir, lib::format_file_name(name,download,qid)),
-    }
-}
-
-///Request an entry from the DB to handle
-fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
-    let mut conn = try_reoption!(pool.get_conn());
-    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,type,quality FROM querydetails \
-                    INNER JOIN queries \
-                    ON querydetails.qid = queries.qid \
-                    WHERE querydetails.code = 0 \
-                    ORDER BY queries.created \
-                    LIMIT 1"));
-    let mut result = try_reoption!(stmt.execute(&[]));
-    let result = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
-    
-    println!("Result: {:?}", result[0]);
-    println!("result str: {}", result[1].into_str());
-    let download_db = DownloadDB { url: from_value::<String>(&result[1]),
-                                    quality: from_value::<i16>(&result[3]),
-                                    qid: from_value::<i64>(&result[0]),
-                                    folder: CONFIG.general.save_dir.clone(),
-                                    pool: pool.clone(),
-                                    playlist: false, //TEMP
-                                    compress: false };
-    Some(download_db)
-}
-
-///Set dbms connection settings
-fn mysql_options() -> MyOpts {
-    MyOpts {
-        tcp_addr: Some(CONFIG.db.ip.clone()),
-        tcp_port: CONFIG.db.port,
-        user: Some(CONFIG.db.user.clone()),
-        pass: Some(CONFIG.db.password.clone()),
-        db_name: Some(CONFIG.db.db.clone()),
-        ..Default::default() // set others to default
-    }
-}
