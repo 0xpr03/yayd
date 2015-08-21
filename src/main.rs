@@ -143,7 +143,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 
     let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
 
-    let file_path = format_file_path(&downl_db.qid, folder.clone());
+    let file_path = format_file_path(&downl_db.qid, folder.clone(), false);
     file_db.push(file_path.clone());
     let save_path = &format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
@@ -177,7 +177,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
             // download audio file & convert together
             lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
 
-            let audio_path = format_audio_path(&downl_db.qid, folder.clone());
+            let audio_path = format_file_path(&downl_db.qid, folder.clone(), true);
             file_db.push(audio_path.clone());
             
             println!("Downloading audio.. {}", audio_path);
@@ -221,18 +221,16 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: Option<String>, converter: 
 }
 
 ///Format save location for file, zip dependent
-fn format_file_path(qid: &i64, folder: Option<String>) -> String {
+///audio files get an 'a' as suffix
+fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
+    let suffix = if audio {
+        "a"
+    }else {
+        ""
+    };
     match folder {
         Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, qid),
-        None => format!("{}/{}", &CONFIG.general.save_dir, qid),
-    }
-}
-
-///Formats the audio path, based on the qid & optional folders
-fn format_audio_path(qid: &i64, folder: Option<String>) -> String {
-    match folder {
-        Some(v) => format!("{}/{}/{}a", &CONFIG.general.save_dir, v, qid),
-        None => format!("{}/{}a", &CONFIG.general.save_dir, qid),
+        None => format!("{}/{}{}", &CONFIG.general.save_dir, qid,suffix),
     }
 }
 
