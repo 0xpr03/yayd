@@ -14,7 +14,7 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir};
 
-static VERSION : &'static str = "0.1"; // String not valid
+static VERSION : &'static str = "0.2"; // String not valid
 static SLEEP_MS: u32 = 5000;
 static CODE_FAILED: i8 = 3;
 static CODE_SUCCESS: i8 = 2;
@@ -175,7 +175,9 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 
         if is_splitted_video {
             // download audio file & convert together
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
+			if !downl_db.compress {
+                lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
+			}
 
             let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
             file_db.push(audio_path.clone());
