@@ -114,9 +114,7 @@ impl<'a> Downloader<'a>{
         try!(stderr_buffer.read_to_string(&mut stderr));
 
         try!(child.wait());
-        //println!("stderr: {:?}", stderr);
-        //println!("stdout: {:?}", stdout);
-        if stderr.is_empty() == true {
+        if stderr.is_empty() {
             println!("get_file_name: {:?}", stdout);
             Ok(stdout.trim().to_string())
         }else{
@@ -324,8 +322,8 @@ impl<'a> Downloader<'a>{
             return Err(DownloadError::InternalError(stderr));
         }
         //this ONLY works because `filename ` is ascii..
-        let out = last_line[last_line.find("filename ").unwrap()+9..].trim().to_string();
-        //stdout.trim();
+        let mut out = last_line[last_line.find("filename ").unwrap()+9..].trim().to_string();
+        out = lib::url_encode(&out);//stdout.trim();
         
         Ok(out)
     }
