@@ -120,7 +120,7 @@ impl<'a> Downloader<'a>{
             println!("get_file_name: {:?}", stdout);
             Ok(stdout.trim().to_string())
         }else{
-            if stderr.contains("not available in your country") || stderr.contains("contains content from") {
+            if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
                 return Err(DownloadError::DMCAError);
             }else{
                 return Err(DownloadError::DownloadError(stderr));
@@ -303,7 +303,7 @@ impl<'a> Downloader<'a>{
                         match re.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
                                         println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        if(!self.ddb.playlist) {
+                                        if !self.ddb.playlist {
                                             lib::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
                                         }
                                     },
