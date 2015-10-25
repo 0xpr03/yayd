@@ -33,6 +33,8 @@ pub enum DownloadError{
     DownloadError(String),
     FFMPEGError(String),
     DMCAError,
+    NotAvailable,
+    QualityNotAvailable,
     InternalError(String),
     DBError(String),
 }
