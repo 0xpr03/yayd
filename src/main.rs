@@ -284,7 +284,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
             Ok(e) => {  if downl_db.compress {
                             file_delete_list.push(e.unwrap());
                         }
-                },
+                    },
         }
     }
     
@@ -297,6 +297,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         println!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
         lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
+        
         current_step += 1;
         lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         try!(lib::delete_files(file_delete_list));

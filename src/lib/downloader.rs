@@ -86,15 +86,15 @@ impl<'a> Downloader<'a>{
                 Ok(text) => {
                         println!("Out: {}",text);
                         if !self.ddb.playlist {
-                        match re.find(&text) {
-                            Some(s) => { //println!("Match at {}", s.0);
-                                        println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
-                                        try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
-                                    },
-                            None => {},
+                            match re.find(&text) {
+                                Some(s) => { //println!("Match at {}", s.0);
+                                            println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
+                                            try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
+                                        },
+                                None => {},
+                            }
                         }
-                        }
-                    },
+                },
             }
         }
 
@@ -112,6 +112,7 @@ impl<'a> Downloader<'a>{
         } else {
             Err(DownloadError::InternalError(stderr))
         }
+
     }
 
     ///Trys to get the original name of a file, while checking for availability
