@@ -73,6 +73,8 @@ impl<'a> Downloader<'a>{
         println!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));
         let stdout = BufReader::new(child.stdout.take().unwrap());
+        
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
@@ -96,9 +98,20 @@ impl<'a> Downloader<'a>{
             }
         }
 
-        try!(child.wait()); // waits for finish & then exists zombi process fixes #10
-
-        Ok(true)
+        try!(child.wait()); // waits for finish & then exists zombi process, fixes #10
+        
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+        
+        if stderr.is_empty() {
+            Ok(true)
+        } else if stderr.contains("requested format not available") {
+            Err(DownloadError::QualityNotAvailable)
+        } else if stderr.contains("") {
+            Err(DownloadError::NotAvailable)
+        } else {
+            Err(DownloadError::InternalError(stderr))
+        }
     }
 
     ///Trys to get the original name of a file, while checking for availability
@@ -119,9 +132,9 @@ impl<'a> Downloader<'a>{
             Ok(stdout.trim().to_string())
         }else{
             if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
-                return Err(DownloadError::DMCAError);
+                Err(DownloadError::DMCAError)
             }else{
-                return Err(DownloadError::DownloadError(stderr));
+                Err(DownloadError::DownloadError(stderr))
             }
         }
     }
