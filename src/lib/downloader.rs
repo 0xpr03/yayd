@@ -107,8 +107,8 @@ impl<'a> Downloader<'a>{
             Ok(true)
         } else if stderr.contains("requested format not available") {
             Err(DownloadError::QualityNotAvailable)
-        } else if stderr.contains("") {
-            Err(DownloadError::NotAvailable)
+        /*} else if stderr.contains("") {   
+            Err(DownloadError::NotAvailable) */
         } else {
             Err(DownloadError::InternalError(stderr))
         }
@@ -186,7 +186,7 @@ impl<'a> Downloader<'a>{
 
         let re = regex!(r"\[download\] Downloading playlist: (.*)");
         
-        let mut name: String;
+        let name: String;
         for line in stdout.lines(){
             
             match line{

@@ -16,8 +16,10 @@ use std::fs::{remove_file,remove_dir};
 
 static VERSION : &'static str = "0.2"; // String not valid
 static SLEEP_MS: u32 = 5000;
-static CODE_FAILED: i8 = 3;
 static CODE_SUCCESS: i8 = 2;
+static CODE_FAILED_INTERNAL: i8 = 10; // internal error
+static CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
+static CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {
@@ -48,19 +50,13 @@ fn main() {
             lib::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             lib::set_query_state(&pool.clone(),&qid, "started", false);
             
-            let succes;
+            let action_result: Result<_,DownloadError>;
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
                 if result.playlist {
-                    succes = match handle_playlist(result, &converter,&mut left_files) {
-                        Ok(v) => Ok(v),
-                        Err(e) => {println!("Playlist Error: {:?}", e); Err(e) }
-                    };
+                    action_result = handle_playlist(result, &converter,&mut left_files);
                 }else{
-                    succes = match handle_download(result, &None, &converter,&mut left_files) {
-                        Ok(v) => Ok(v),
-                        Err(e) => {println!("Download Error: {:?}", e); Err(e) }
-                    };
+                    action_result = handle_download(result, &None, &converter,&mut left_files);
                 }
             
                 if !left_files.is_empty() {
@@ -74,10 +70,16 @@ fn main() {
                 }
             }
             
-            let code: i8 = if succes.is_ok() {
-                CODE_SUCCESS//QueryCode
-            } else {
-                CODE_FAILED//QueryCode
+            let code: i8 = match action_result {
+                    Ok(_) => CODE_SUCCESS,
+                    Err(e) => {
+                        println!("Error: {:?}", e);
+                        match e {
+                            DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
+                            DownloadError::QualityNotAvailable => CODE_FAILED_QUALITY,
+                            _ => CODE_FAILED_INTERNAL,
+                        }
+                    }
             };
             lib::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
             
