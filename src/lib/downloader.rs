@@ -135,6 +135,8 @@ impl<'a> Downloader<'a>{
             }else{
                 if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
                     return Err(DownloadError::DMCAError);
+                } else if stderr.contains("Please sign in to view this video") {
+                    return Err(DownloadError::NotAvailable);
                 } else if stderr.contains("ExtractorError") { // #11
                     println!("ExtractorError on attempt {}", attempts +1);
                 } else {
