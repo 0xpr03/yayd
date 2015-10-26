@@ -27,7 +27,6 @@ macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return 
 ///Move result value out, return with none on err & print
 macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
 
-
 #[derive(Debug)]
 pub enum DownloadError{
     DownloadError(String),
@@ -35,6 +34,7 @@ pub enum DownloadError{
     DMCAError,
     NotAvailable,
     QualityNotAvailable,
+    ExtractorError,
     InternalError(String),
     DBError(String),
 }

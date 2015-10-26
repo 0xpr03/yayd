@@ -76,6 +76,7 @@ fn main() {
                         println!("Error: {:?}", e);
                         match e {
                             DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
+                            DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,
                             DownloadError::QualityNotAvailable => CODE_FAILED_QUALITY,
                             _ => CODE_FAILED_INTERNAL,
                         }
@@ -83,11 +84,14 @@ fn main() {
             };
             lib::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
             
-            let state = if code == 2 {
-                "finished"
-            } else {
-                "failed"
+            let state = match code {
+                2 => "finished",
+                10 => "internal error",
+                11 => "quality not available",
+                12 => "source unavailable",
+                _ => "unknown"
             };
+
             lib::set_query_state(&pool.clone(),&qid, state, true);
             
         } else {

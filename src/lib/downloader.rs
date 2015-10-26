@@ -114,30 +114,35 @@ impl<'a> Downloader<'a>{
         }
 
     }
-
+    
     ///Trys to get the original name of a file, while checking for availability
-    ///
+    ///As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
     pub fn get_file_name(&self) -> Result<String,DownloadError> {
-        let mut child = try!(self.run_filename_process());
-        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
-
-        let mut stdout: String = String::new();
-        try!(stdout_buffer.read_to_string(&mut stdout));
-        let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
-
-        try!(child.wait());
-        if stderr.is_empty() {
-            println!("get_file_name: {:?}", stdout);
-            Ok(stdout.trim().to_string())
-        }else{
-            if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
-                Err(DownloadError::DMCAError)
+        for attempts in 0..2 {
+            let mut child = try!(self.run_filename_process());
+            let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+            let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+    
+            let mut stdout: String = String::new();
+            try!(stdout_buffer.read_to_string(&mut stdout));
+            let mut stderr: String = String::new();
+            try!(stderr_buffer.read_to_string(&mut stderr));
+    
+            try!(child.wait());
+            if stderr.is_empty() {
+                println!("get_file_name: {:?}", stdout);
+                return Ok(stdout.trim().to_string());
             }else{
-                Err(DownloadError::DownloadError(stderr))
+                if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
+                    return Err(DownloadError::DMCAError);
+                } else if stderr.contains("ExtractorError") { // #11
+                    println!("ExtractorError on attempt {}", attempts +1);
+                } else {
+                    return Err(DownloadError::DownloadError(stderr));
+                }
             }
         }
+        Err(DownloadError::ExtractorError)
     }
     
     ///Get playlist file ids
