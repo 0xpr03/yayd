@@ -82,3 +82,8 @@ CREATE TABLE `queries` (
  PRIMARY KEY (`qid`),
  KEY `playlistid` (`playlistid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+CREATE TABLE `querystatus` (
+ `qid` int(10) unsigned NOT NULL,
+ `info` text NOT NULL,
+ PRIMARY KEY (`qid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
