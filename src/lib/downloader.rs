@@ -309,8 +309,6 @@ impl<'a> Downloader<'a>{
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
-        let mut conn = self.ddb.pool.get_conn().unwrap();
-        let mut statement = self.prepare_progress_updater(&mut conn);
         let re = regex!(r"step (\d)");
         
         let mut last_line = String::new();
@@ -320,7 +318,7 @@ impl<'a> Downloader<'a>{
                 Ok(text) => {
                         println!("Out: {}",text);
                         match re.captures(&text) {
-                            Some(cap) => { //println!("Match at {}", s.0);
+                            Some(cap) => { print!("Match ");
                                         println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         if !self.ddb.playlist {
                                             lib::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
@@ -331,6 +329,8 @@ impl<'a> Downloader<'a>{
                     },
             }
         }
+        
+        println!("reading stderr");
         
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
