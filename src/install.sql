@@ -17,7 +17,7 @@ BEGIN
 		DECLARE `var_uID` INTEGER;
 		DECLARE `var_qID` INTEGER;
 		
-		SET @default_code = 0;
+		SET @default_code = -1;
 		SET @playlist_code = 1;
 		SET @default_status = 'waiting';
 		SET @datetime = NOW();
@@ -84,6 +84,6 @@ CREATE TABLE `queries` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 CREATE TABLE `querystatus` (
  `qid` int(10) unsigned NOT NULL,
- `info` text NOT NULL,
+ `msg` text NOT NULL,
  PRIMARY KEY (`qid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;

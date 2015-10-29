@@ -197,7 +197,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
                     LEFT JOIN playlists ON queries.qid = playlists.qid \
-                    WHERE querydetails.code = 0 \
+                    WHERE querydetails.code = -1 \
                     ORDER BY queries.created \
                     LIMIT 1"));
     let mut result = try_reoption!(stmt.execute(&[]));

@@ -69,7 +69,7 @@ pub fn init_config() -> Config {
     let mut path = current_dir().unwrap(); // PathBuf
     path.set_file_name("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
     println!("{:?}",path );
-    let mut config : Option<Config>;
+    let config : Option<Config>;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
         println!("Config file found.");
         config = read_config(&path.to_str().unwrap()).ok(); //result to option
