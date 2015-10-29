@@ -118,6 +118,18 @@ pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &s
     }
 }
 
+///add file to db including it's name & fid based on qid
+pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
+    println!("status: {}",status);
+    let mut conn = pool.get_conn().unwrap();
+    let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
+    let result = stmt.execute(&[qid,&status]);
+    match result {
+        Ok(_) => (),
+        Err(why) => println!("Error inserting querystatus: {}",why),
+    }
+}
+
 ///Format file name for 
 pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
     println!("Fileextension: {:?}", get_file_ext(download));
