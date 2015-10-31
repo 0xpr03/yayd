@@ -74,23 +74,33 @@ fn main() {
             }
             
             let code: i8 = match action_result {
-                    Ok(t) => {
-                        match t {
-                            Thing::Bool(b) => {
-                                if b { CODE_SUCCESS_WARNINGS } else { CODE_SUCCESS }
-                            }
-                            _ => CODE_SUCCESS,
+                Ok(t) => {
+                    match t {
+                        Thing::Bool(b) => {
+                            if b { CODE_SUCCESS_WARNINGS } else { CODE_SUCCESS }
                         }
-                    },
-                    Err(e) => {
-                        println!("Error: {:?}", e);
-                        match e {
-                            DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
-                            DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,
-                            DownloadError::QualityNotAvailable => CODE_FAILED_QUALITY,
-                            _ => CODE_FAILED_INTERNAL,
-                        }
+                        _ => CODE_SUCCESS,
                     }
+                },
+                Err(e) => {
+                    println!("Error: {:?}", e);
+                    match e {
+                        DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
+                        DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,
+                        DownloadError::QualityNotAvailable => CODE_FAILED_QUALITY,
+                        _ => {
+                            let details = match e {
+                                DownloadError::DBError(s) => s,
+                                DownloadError::DownloadError(s) => s,
+                                DownloadError::FFMPEGError(s) => s,
+                                DownloadError::InternalError(s) => s,
+                                _ => unreachable!(),
+                            };
+                            lib::add_query_status(&pool.clone(),&qid, &details);
+                            CODE_FAILED_INTERNAL
+                        },
+                    }
+                }
             };
             lib::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
             
@@ -188,7 +198,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 
         //download first file, download audio raw source if specified or video
         try!(download.download_file(&file_path, convert_audio));
-
+        
         if is_splitted_video {
             // download audio file & convert together
 			if !downl_db.compress {
