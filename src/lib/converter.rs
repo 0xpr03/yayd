@@ -29,7 +29,7 @@ impl<'a> Converter<'a> {
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
     pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
-        
+        println!("progress {}",show_progress);
         let max_frames: i64 = try!(self.get_max_frames(video_file));
         println!("Total frames: {}",max_frames);
 
@@ -75,7 +75,7 @@ impl<'a> Converter<'a> {
             child = try!(self.create_audio_extract_cmd(video_file, output_file));
         }
         
-        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        //let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         //let mut stdout: String = String::new();
