@@ -107,8 +107,8 @@ impl<'a> Downloader<'a>{
             Ok(true)
         } else if stderr.contains("requested format not available") {
             Err(DownloadError::QualityNotAvailable)
-        /*} else if stderr.contains("") {   
-            Err(DownloadError::NotAvailable) */
+        } else if stderr.contains("ExtractorError") {   
+            Err(DownloadError::ExtractorError)
         } else {
             Err(DownloadError::InternalError(stderr))
         }
@@ -231,6 +231,7 @@ impl<'a> Downloader<'a>{
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
+                                    .stderr(Stdio::piped())
                                     .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
