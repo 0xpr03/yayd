@@ -61,7 +61,7 @@ impl<'a> Downloader<'a>{
     ///TODO: wrap errors
     ///Doesn't care about DMCAs, will emit errors on them
     ///download_audio: ignore quality & download audio_raw codec for split containers
-    pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
+    fn download_file_in(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         println!("{:?}", self.ddb.url);
         
         let curr_quality = if download_audio {
@@ -113,6 +113,22 @@ impl<'a> Downloader<'a>{
             Err(DownloadError::InternalError(stderr))
         }
 
+    }
+    
+    ///Wrapper for download_file_fn to retry on Extract Error, appearing randomly
+    pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
+        for attempts in 0..2 {
+            match self.download_file_in(file_path, download_audio) {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    match e {
+                        DownloadError::ExtractorError =>  { println!("download try no {}",attempts)},
+                        _ => return Err(e),
+                    }
+                },
+            }
+        }
+        Err(DownloadError::ExtractorError)
     }
     
     ///Trys to get the original name of a file, while checking for availability
