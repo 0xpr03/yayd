@@ -180,6 +180,16 @@ pub fn url_encode(input: &str) -> String {
     // into container FromIterator
 }
 
+///Removed file name invalid chars
+pub fn file_encode(input: &str) -> String {
+    input.chars().map(|char| {
+        match char {
+            '\\' | '/' | '\0' => '_',
+            c => c,
+        }
+    }).collect()
+}
+
 ///Format save location for file, zip dependent
 ///audio files get an 'a' as suffix
 pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
@@ -196,9 +206,10 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
 
 ///Format save path, dependent on zip option.
 pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
+    let clean_name = &file_encode(&name);
     match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(name,download,qid)),
-        None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(name,download,qid)),
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(clean_name,download,qid)),
+        None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(clean_name,download,qid)),
     }
 }
 

@@ -305,7 +305,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         if downl_db.compress {
             lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         }
-        current_url = format!("https://wwww.youtube.com/watch?v={}",id);
+        current_url = format!("https://www.youtube.com/watch?v={}",id);
         downl_db.update_video(current_url.clone(), current_step as i64);
         println!("id: {}",id);
         let db_copy = downl_db.clone();
