@@ -12,7 +12,7 @@ use lib::downloader::Downloader;
 use lib::DownloadError;
 use lib::converter::Converter;
 
-use std::fs::{remove_file,remove_dir};
+use std::fs::{remove_file,remove_dir_all};
 
 static VERSION : &'static str = "0.2"; // String not valid
 static SLEEP_MS: u32 = 5000;
@@ -341,7 +341,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         current_step += 1;
         lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         try!(lib::delete_files(file_delete_list));
-        try!(remove_dir(downl_db.folder));
+        try!(remove_dir_all(downl_db.folder));
         file_db.pop();
     }
     
