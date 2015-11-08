@@ -6,6 +6,9 @@ authors = ["Aron Heinecke <aron.heinecke@t-online.de"]
 [[bin]]
 name = "yayd-backend"
 
+#[profile.release]
+#lto = true
+
 [dependencies.mysql]
 mysql = "0.14.0"
 default-features = false

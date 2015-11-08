@@ -310,7 +310,7 @@ impl<'a> Downloader<'a>{
 
     ///updater called from the stdout progress
     fn update_progress(&self,stmt: &mut Stmt, progress: &String) -> Result<(),DownloadError>{
-        try!(stmt.execute(&[progress,&self.ddb.qid]).map(|_| Ok(())))
+        try!(stmt.execute((progress,&self.ddb.qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }
 

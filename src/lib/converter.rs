@@ -206,6 +206,6 @@ impl<'a> Converter<'a> {
 
     ///updater called from the stdout progress
     fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64) -> Result<(),DownloadError>{
-        try!(stmt.execute(&[&progress,qid]).map(|_| Ok(())))
+        try!(stmt.execute((&progress,qid)).map(|_| Ok(())))
     }
 }

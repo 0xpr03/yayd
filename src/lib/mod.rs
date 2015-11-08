@@ -84,7 +84,7 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
         0
     };
     let mut stmt = conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?").unwrap();
-    let result = stmt.execute(&[&state,&progress,qid]); // why is this var needed ?!
+    let result = stmt.execute((&state,&progress,qid)); // why is this var needed ?!
     match result {
         Ok(_) => (),
         Err(why) => println!("Error setting query state: {}",why),
@@ -94,7 +94,7 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
 ///Update status code for query entry
 pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
     let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
-    let result = stmt.execute(&[code,qid]);
+    let result = stmt.execute((&code,&qid));
     match result {
         Ok(_) => Ok(()),
         Err(why) => Err(DownloadError::DBError(why.description().into())),
@@ -111,7 +111,7 @@ pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &s
     println!("name: {}",name);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO files (fid,name,rname,valid) VALUES (?,?,?,?)").unwrap();
-    let result = stmt.execute(&[fid,&real_name,&name,&1]); // why is this var needed ?!
+    let result = stmt.execute((fid,&real_name,&name,&1)); // why is this var needed ?!
     match result {
         Ok(_) => (),
         Err(why) => println!("Error adding file: {}",why),
@@ -123,7 +123,7 @@ pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
     println!("status: {}",status);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
-    let result = stmt.execute(&[qid,&status]);
+    let result = stmt.execute((&qid,&status));
     match result {
         Ok(_) => (),
         Err(why) => println!("Error inserting querystatus: {}",why),
@@ -223,7 +223,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                     WHERE querydetails.code = -1 \
                     ORDER BY queries.created \
                     LIMIT 1"));
-    let mut result = try_reoption!(stmt.execute(&[]));
+    let mut result = try_reoption!(stmt.execute(()));
     let result = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
     
     println!("Result: {:?}", result[0]);
@@ -231,19 +231,19 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let from;
     let to;
     let compress;
-    let playlist = from_value::<Option<i16>>(&result[4]).is_some();
+    let playlist = from_value::<Option<i16>>(result[4].clone()).is_some();
     if playlist {
-        compress = from_value::<Option<i16>>(&result[4]).unwrap() == 1;
-        from = from_value::<Option<i32>>(&result[5]).unwrap();
-        to = from_value::<Option<i32>>(&result[6]).unwrap();
+        compress = from_value::<Option<i16>>(result[4].clone()).unwrap() == 1;
+        from = from_value::<Option<i32>>(result[5].clone()).unwrap();
+        to = from_value::<Option<i32>>(result[6].clone()).unwrap();
     } else {
         from = 0;
         to = 0;
         compress = false;
     }
-    let download_db = DownloadDB { url: from_value::<String>(&result[1]),
-                                    quality: from_value::<i16>(&result[3]),
-                                    qid: from_value::<i64>(&result[0]),
+    let download_db = DownloadDB { url: from_value::<String>(result[1].clone()),
+                                    quality: from_value::<i16>(result[3].clone()),
+                                    qid: from_value::<i64>(result[0].clone()),
                                     folder: CONFIG.general.save_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: playlist,
