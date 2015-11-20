@@ -3,11 +3,10 @@ use toml::decode_str;
 use std::io::Write;
 use std::io::Read;
 
-use std::env::current_dir;
 use std::fs::metadata;
 use std::fs::File;
 
-
+use lib;
 
 // pub mod config;
 // Config section
@@ -66,7 +65,7 @@ pub struct Extensions {
 
 /// create PathBuf by getting the current working dir
 pub fn init_config() -> Config {
-    let mut path = current_dir().unwrap(); // PathBuf
+    let mut path = lib::get_executable_folder(); // PathBuf
     path.set_file_name("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
     println!("{:?}",path );
     let config : Option<Config>;

@@ -9,11 +9,11 @@ use mysql::value::from_value;
 use lib::downloader::{Downloader,DownloadDB};
 
 use mysql::error::MyError;
+use std::env::current_exe;
 use std::process::{Command,Output};
 use std::error::Error;
-use std::io;
+use std::{self,io,str};
 use std::fs::remove_file;
-use std::str;
 use CONFIG;
 
 use std::thread::sleep_ms;
@@ -277,6 +277,14 @@ pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
         try!(remove_file(file));
     }
     Ok(())
+}
+
+pub fn get_executable_folder() -> std::path::PathBuf {
+	let mut folder = current_exe().unwrap_or(
+		{error!("no exec path in get_executable_folder!"); panic!();}
+	);
+	folder.pop();
+	folder
 }
 
 ///Set dbms connection settings
