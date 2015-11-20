@@ -2,6 +2,9 @@ extern crate mysql;
 extern crate toml;
 extern crate rustc_serialize;
 #[macro_use]
+extern crate log;
+extern crate fern;
+#[macro_use]
 extern crate lazy_static;
 
 mod lib;
@@ -14,7 +17,7 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir_all};
 
-static VERSION : &'static str = "0.2"; // String not valid
+static VERSION : &'static str = "0.3"; // String not valid
 static SLEEP_MS: u32 = 5000;
 static CODE_SUCCESS: i8 = 2;
 static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
