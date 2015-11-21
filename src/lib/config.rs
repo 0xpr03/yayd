@@ -66,8 +66,8 @@ pub struct Extensions {
 /// create PathBuf by getting the current working dir
 pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
-    path.set_file_name("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
-    trace!("{:?}",path );
+    path.push("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
+    trace!("config path {:?}",path );
     let config : Option<Config>;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
         info!("Config file found.");

@@ -30,13 +30,13 @@ fn init_file() {
 }
 
 fn init_config() {
-	let root = log4rs::config::Root::builder(log::LogLevelFilter::Trace)
+	let root = log4rs::config::Root::builder(log::LogLevelFilter::max())
 		.appender("console".to_string())
 		.appender("file".to_string());
 	let console = Box::new(log4rs::appender::ConsoleAppender::builder()
 		.pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
 		.build());
-	let file = Box::new(log4rs::appender::FileAppender::builder("hc_log.log")
+	let file = Box::new(log4rs::appender::FileAppender::builder("log/hc_log.log")
 		.pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
 		.build().unwrap());
 	let config = log4rs::config::Config::builder(root.build())
@@ -44,4 +44,5 @@ fn init_config() {
 		.appender(log4rs::config::Appender::builder("file".to_string(), file).build());
 	println!("{:?}",log4rs::init_config(config.build().unwrap()));
 	warn!("No log config file found, please create file {}",LOG_CONFIG);
+	info!("Using internal logging configuration on most verbose level.");
 }
