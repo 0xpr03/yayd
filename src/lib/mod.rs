@@ -41,6 +41,18 @@ impl From<io::Error> for DownloadError {
     }
 }
 
+///Custom expect function logging the error and a msg when panicing
+///&'static str to prevent the usage of format!(), which would result in overhead
+#[inline]
+pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) -> T {
+	match result {
+		Ok(v) => v,
+		Err(e) => {error!("{}: {:?}",msg,e);
+				panic!();
+		}
+	}
+}
+
 ///Return whether the quality is a split container or not: video only
 ///as specified in the docs
 pub fn is_split_container(quality: &i16) -> bool {
