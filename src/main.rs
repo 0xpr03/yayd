@@ -71,11 +71,11 @@ fn main() {
                 }
             
                 if !left_files.is_empty() {
-                    println!("cleaning up files");
+                    trace!("cleaning up files");
                     for i in &left_files {
                         match remove_file(&i) {
-                            Ok(_) => (println!("cleaning up {}",i)),
-                            Err(e) => println!("unable to remove file '{}' {}",i,e),
+                            Ok(_) => (trace!("cleaning up {}",i)),
+                            Err(e) => warn!("unable to remove file '{}' {}",i,e),
                         }
                     }
                 }
@@ -91,7 +91,7 @@ fn main() {
                     }
                 },
                 Err(e) => {
-                    println!("Error: {:?}", e);
+                    warn!("Error: {:?}", e);
                     match e {
                         DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
                         DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,
@@ -123,7 +123,7 @@ fn main() {
             db::set_query_state(&pool.clone(),&qid, state, true);
             
         } else {
-            if print_pause { println!("Pausing.."); print_pause = false; }
+            if print_pause { trace!("Pausing.."); print_pause = false; }
             std::thread::sleep_ms(SLEEP_MS);
         }
     }
@@ -158,14 +158,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
-            println!("DMCA error!");
+            trace!("DMCA error!");
             match download.lib_request_video(1,0) {
-                Err(err) => { println!("Offliberty-call error {:?}", err); return Err(err); },
+                Err(err) => { warn!("Offliberty-call error {:?}", err); return Err(err); },
                 Ok(v) => { dmca = true; v },
             }
         },
         Err(e) => { // unknown error / restricted source etc.. abort
-            println!("Unknown error: {:?}", e);
+            error!("Unknown error: {:?}", e);
             return Err(e);
         },
     };
@@ -176,7 +176,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     file_db.push(file_path.clone());
     let save_path = lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
-    println!("Filename: {}", name);
+    trace!("Filename: {}", name);
     
     let is_splitted_video = if dmca {
         false
@@ -216,7 +216,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
             let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
             file_db.push(audio_path.clone());
             
-            println!("Downloading audio.. {}", audio_path);
+            trace!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
             
             if !downl_db.compress {
@@ -277,7 +277,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     
     let pl_id: i64 = downl_db.qid;
     downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
-    println!("Folder:  {}",downl_db.folder);
+    trace!("Folder:  {}",downl_db.folder);
     
     let db_copy = downl_db.clone();
     let download = Downloader::new(&db_copy, &CONFIG.general);
@@ -291,7 +291,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         file_db.push(downl_db.folder.clone());
     }
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
-    println!("retriving playlist videos..");
+    trace!("retriving playlist videos..");
     let file_ids: Vec<String> = try!(download.get_playlist_ids());
     
     let handler_folder = if downl_db.compress {
@@ -300,7 +300,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         None
     };
     
-    println!("got em");
+    trace!("got em");
     max_steps += file_ids.len() as i32;
     let mut current_step = 2;
     let mut warnings = false;
@@ -315,17 +315,17 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         }
         current_url = format!("https://www.youtube.com/watch?v={}",id);
         downl_db.update_video(current_url.clone(), current_step as i64);
-        println!("id: {}",id);
+        trace!("id: {}",id);
         let db_copy = downl_db.clone();
         match handle_download(db_copy, &handler_folder, converter, file_db) {
-            Err(e) => { println!("error downloading {}: {:?}",id,e);
+            Err(e) => { warn!("error downloading {}: {:?}",id,e);
                         failed_log.push_str(&format!("{} {:?}\n", current_url, e));
                         warnings = true;
             },
             Ok(e) => {  if downl_db.compress {
                             match e {
                                 Thing::String(v) => file_delete_list.push(v),
-                                _ => panic!("handle_download not returning a filename"),
+                                _ => {error!("handle_download not returning a filename"); panic!();},
                             }
                         }
             },
@@ -336,13 +336,13 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         db::add_query_status(&downl_db.pool.clone(),&pl_id, &failed_log);
     }
     
-    println!("downloaded all videos");
+    trace!("downloaded all videos");
     if downl_db.compress { // zip to file, add to db & remove all sources
         current_step += 1;
         db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         let zip_name = format!("{}.zip",playlist_name);
         let zip_file = format!("{}/{}",&CONFIG.general.download_dir,zip_name);
-        println!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
+        trace!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
         db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
         

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
 
-use lib;
+use lib::{self,l_expect};
 
 // pub mod config;
 // Config section
@@ -65,15 +65,15 @@ pub struct Extensions {
 
 /// create PathBuf by getting the current working dir
 pub fn init_config() -> Config {
-    let mut path = lib::get_executable_folder(); // PathBuf
+    let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
     path.set_file_name("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
-    println!("{:?}",path );
+    trace!("{:?}",path );
     let config : Option<Config>;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
-        println!("Config file found.");
+        info!("Config file found.");
         config = read_config(&path.to_str().unwrap()).ok(); //result to option
     }else{
-        println!("Config file not found.");
+        info!("Config file not found.");
         config = create_config(&path.to_str().unwrap()).ok();
     }
     config.unwrap()
@@ -128,7 +128,7 @@ flv = [5]
         None => return Err(ConfigError::ParseError),
         Some(dconfig) => dconfig,
     };
-    println!("Raw new config: {:?}", config);
+    trace!("Raw new config: {:?}", config);
     try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));
     Ok(config)
 }

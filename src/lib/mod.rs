@@ -2,6 +2,7 @@ pub mod config;
 pub mod downloader;
 pub mod converter;
 pub mod db;
+pub mod logger;
 
 use lib::downloader::{Downloader};
 
@@ -69,7 +70,7 @@ pub fn is_split_container(quality: &i16) -> bool {
 
 ///Format file name for 
 pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
-    println!("Fileextension: {:?}", get_file_ext(download));
+    trace!("Fileextension: {:?}", get_file_ext(download));
     format!("{}-{}.{}",url_encode(name), qid, get_file_ext(download))
 }
 
@@ -153,7 +154,7 @@ pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Do
 ///Zip folder to file
 pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
     let io = try!(create_zip_cmd(folder,zip_name));
-    println!("zip stdout: {}\nzip stderr: {}", str::from_utf8(&io.stdout).unwrap(),str::from_utf8(&io.stderr).unwrap());
+    trace!("zip stdout: {}\nzip stderr: {}", str::from_utf8(&io.stdout).unwrap(),str::from_utf8(&io.stderr).unwrap());
     if str::from_utf8(&io.stderr).unwrap().contains("error") {
         return Err(DownloadError::DownloadError(format!("error: {:?}",&io.stdout)))
     }
@@ -170,7 +171,7 @@ fn create_zip_cmd(folder: &str, zip_file: &str) -> Result<Output, DownloadError>
 ///Delete all files in the list
 pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
     for file in files.iter() {
-        println!("deleting {}",file);
+        trace!("deleting {}",file);
         try!(remove_file(file));
     }
     Ok(())

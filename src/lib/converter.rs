@@ -29,9 +29,9 @@ impl<'a> Converter<'a> {
 
     ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
     pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
-        println!("progress {}",show_progress);
+        trace!("progress {}",show_progress);
         let max_frames: i64 = try!(self.get_max_frames(video_file));
-        println!("Total frames: {}",max_frames);
+        trace!("Total frames: {}",max_frames);
 
         let mut child = try!(self.create_merge_cmd(audio_file, video_file, output_file));
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -43,12 +43,12 @@ impl<'a> Converter<'a> {
 
         for line in stdout.lines(){
             match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
                 Ok(text) => {
                     if show_progress {
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
-                            println!("frame: {}", cap.at(1).unwrap());
+                            trace!("frame: {}", cap.at(1).unwrap());
                             try!(self.update_progress(&mut statement,
                                     self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
                                 );
@@ -62,7 +62,7 @@ impl<'a> Converter<'a> {
 
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
-        println!("Stderr: {}", stderr);
+        trace!("Stderr: {}", stderr);
 
         Ok(())
     }
@@ -85,7 +85,7 @@ impl<'a> Converter<'a> {
 
         try!(child.wait());
 
-        println!("Stderr: {}", stderr);
+        trace!("Stderr: {}", stderr);
 
         Ok(())
     }
@@ -111,7 +111,7 @@ impl<'a> Converter<'a> {
             let cap_fps = regex_fps.captures(&stdout).unwrap();
             
             let cap_duration = regex_duration.captures(&stdout).unwrap();
-            println!("Found duration: {}",cap_duration.at(0).unwrap());
+            trace!("Found duration: {}",cap_duration.at(0).unwrap());
             let fps = cap_fps.at(1).unwrap().parse::<i64>().unwrap();
             let mut seconds = cap_duration.at(4).unwrap().parse::<i64>().unwrap();
             seconds += cap_duration.at(3).unwrap().parse::<i64>().unwrap() * 60;
@@ -161,7 +161,7 @@ impl<'a> Converter<'a> {
     ///which will be used for the progress calculation
     fn format_frame_get_cmd(&self, video_file: &str) -> String {
         let a = format!(r#"{}ffprobe -i {} 2>&1"#,self.ffmpeg_cmd, video_file);
-        println!("ffmpeg-fps cmd: {}", a);
+        trace!("ffmpeg-fps cmd: {}", a);
         a
     }
 
@@ -173,7 +173,7 @@ impl<'a> Converter<'a> {
             video_file,
             audio_file,
             output_file);
-        println!("ffmpeg cmd: {}", a);
+        trace!("ffmpeg cmd: {}", a);
         a
     }
     
@@ -183,7 +183,7 @@ impl<'a> Converter<'a> {
             self.ffmpeg_cmd,
             video_file,
             output_file);
-        println!("ffmpeg cmd: {}",a);
+        trace!("ffmpeg cmd: {}",a);
         a
     }
     
@@ -194,7 +194,7 @@ impl<'a> Converter<'a> {
             video_file,
             self.mp3_quality,
             output_file);
-        println!("ffmpeg cmd: {}", a);
+        trace!("ffmpeg cmd: {}", a);
         a
     }
 

@@ -11,7 +11,7 @@ use lib::downloader::DownloadDB;
 use CONFIG;
 
 ///Move result value out, return with none on err & print
-macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {println!("{}",e);return None }}) }
+macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return None }}) }
 
 macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
 
@@ -20,7 +20,7 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
     loop {
         match pool::MyPool::new(opts.clone()) {
             Ok(conn) => {return conn;},
-            Err(err) => println!("Unable to establish a connection:\n{}",err),
+            Err(err) => error!("Unable to establish a connection: {}",err),
         };
         sleep_ms(sleep_time);
     }
@@ -38,7 +38,7 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
     let result = stmt.execute((&state,&progress,qid)); // why is this var needed ?!
     match result {
         Ok(_) => (),
-        Err(why) => println!("Error setting query state: {}",why),
+        Err(why) => error!("Error setting query state: {}",why),
     }
 }
 
@@ -59,25 +59,25 @@ pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, 
 
 ///add file to db including it's name & fid based on qid
 pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
-    println!("name: {}",name);
+    trace!("name: {}",name);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO files (fid,name,rname,valid) VALUES (?,?,?,?)").unwrap();
     let result = stmt.execute((fid,&real_name,&name,&1)); // why is this var needed ?!
     match result {
         Ok(_) => (),
-        Err(why) => println!("Error adding file: {}",why),
+        Err(why) => error!("Error adding file: {}",why),
     }
 }
 
 //add query status msg for error reporting
 pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
-    println!("status: {}",status);
+    trace!("status: {}",status);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
     let result = stmt.execute((&qid,&status));
     match result {
         Ok(_) => (),
-        Err(why) => println!("Error inserting querystatus: {}",why),
+        Err(why) => error!("Error inserting querystatus: {}",why),
     }
 }
 
@@ -94,8 +94,8 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut result = try_reoption!(stmt.execute(()));
     let result = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
     
-    println!("Result: {:?}", result[0]);
-    println!("result str: {}", result[1].into_str());
+    trace!("Result: {:?}", result[0]);
+    trace!("result str: {}", result[1].into_str());
     let from;
     let to;
     let compress;

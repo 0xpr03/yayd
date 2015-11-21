@@ -62,7 +62,7 @@ impl<'a> Downloader<'a>{
     ///Doesn't care about DMCAs, will emit errors on them
     ///download_audio: ignore quality & download audio_raw codec for split containers
     fn download_file_in(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
-        println!("{:?}", self.ddb.url);
+        trace!("{:?}", self.ddb.url);
         
         let curr_quality = if download_audio {
             &CONFIG.codecs.audio_raw
@@ -70,7 +70,7 @@ impl<'a> Downloader<'a>{
             &self.ddb.quality
         };
         
-        println!("quality: {}",curr_quality);
+        trace!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));
         let stdout = BufReader::new(child.stdout.take().unwrap());
         
@@ -82,13 +82,13 @@ impl<'a> Downloader<'a>{
 
         for line in stdout.lines(){
             match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
                 Ok(text) => {
-                        println!("Out: {}",text);
+                        trace!("Out: {}",text);
                         if !self.ddb.playlist {
                             match re.find(&text) {
                                 Some(s) => { //println!("Match at {}", s.0);
-                                            println!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
+                                            trace!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                             try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                         },
                                 None => {},
@@ -146,7 +146,7 @@ impl<'a> Downloader<'a>{
     
             try!(child.wait());
             if stderr.is_empty() {
-                println!("get_file_name: {:?}", stdout);
+                trace!("get_file_name: {:?}", stdout);
                 return Ok(stdout.trim().to_string());
             }else{
                 if stderr.contains("not available in your country") || stderr.contains("contains content from") || stderr.contains("This video is available in") {
@@ -154,7 +154,7 @@ impl<'a> Downloader<'a>{
                 } else if stderr.contains("Please sign in to view this video") {
                     return Err(DownloadError::NotAvailable);
                 } else if stderr.contains("ExtractorError") { // #11
-                    println!("ExtractorError on attempt {}", attempts +1);
+                    info!("ExtractorError on attempt {}", attempts +1);
                 } else {
                     return Err(DownloadError::DownloadError(stderr));
                 }
@@ -166,7 +166,7 @@ impl<'a> Downloader<'a>{
     ///Get playlist file ids
     pub fn get_playlist_ids(&self) -> Result<Vec<String>,DownloadError> {
         let mut child = try!(self.run_playlist_extract());
-        println!("retrieving playlist ids");
+        trace!("retrieving playlist ids");
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
@@ -175,12 +175,12 @@ impl<'a> Downloader<'a>{
         let mut id_list: Vec<String> = Vec::new();
         for line in stdout.lines(){
             match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
                 Ok(text) => {
-                        println!("Out: {}",text);
+                        trace!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
-                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         id_list.push(cap.at(1).unwrap().to_string());
                                     },
                             None => {},
@@ -195,7 +195,7 @@ impl<'a> Downloader<'a>{
         try!(child.wait());
         
         if !stderr.is_empty() {
-            println!("stderr: {:?}", stderr);
+            warn!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
         }
         
@@ -213,15 +213,15 @@ impl<'a> Downloader<'a>{
         for line in stdout.lines(){
             
             match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
                 Ok(text) => {
                         println!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => {
-                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         name = cap.at(1).unwrap().to_string();
                                         try!(child.kill());
-                                        println!("killed it");
+                                        trace!("killed it");
                                         return Ok(name);
                                     },
                             None => {},
@@ -322,7 +322,7 @@ impl<'a> Downloader<'a>{
     ///the file at the given folder under the given name
     pub fn lib_request_video(&self, current_steps: i32,max_steps: i32) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd());
-        println!("Requesting video via lib..");
+        trace!("Requesting video via lib..");
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
@@ -331,12 +331,12 @@ impl<'a> Downloader<'a>{
         let mut last_line = String::new();
         for line in stdout.lines(){
             match line{
-                Err(why) => panic!("couldn't read cmd stdout: {}", Error::description(&why)),
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why));panic!();},
                 Ok(text) => {
-                        println!("Out: {}",text);
+                        trace!("Out: {}",text);
                         match re.captures(&text) {
-                            Some(cap) => { print!("Match ");
-                                        println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                            Some(cap) => { trace!("Match ");
+                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         if !self.ddb.playlist {
                                             lib::db::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
                                         }
@@ -347,7 +347,7 @@ impl<'a> Downloader<'a>{
             }
         }
         
-        println!("reading stderr");
+        trace!("reading stderr");
         
         let mut stderr: String = String::new();
         try!(stderr_buffer.read_to_string(&mut stderr));
@@ -356,7 +356,7 @@ impl<'a> Downloader<'a>{
         try!(child.wait());
         
         if !stderr.is_empty() {
-            println!("stderr: {:?}", stderr);
+            warn!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
         }
         //this ONLY works because `filename ` is ascii..
@@ -369,7 +369,7 @@ impl<'a> Downloader<'a>{
     ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
     fn lib_request_video_cmd(&self) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.jar_cmd);
-        println!("{:?}", format!("{}/java -jar {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
+        trace!("{:?}", format!("{}/java -jar {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
         match Command::new("./java")
                                         .current_dir(java_path)
                                         .arg("-jar")
@@ -385,7 +385,7 @@ impl<'a> Downloader<'a>{
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
                                         .spawn() {
-                Err(why) => {println!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
+                Err(why) => {warn!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
                 Ok(process) => Ok(process),
             }
     }
