@@ -3,13 +3,14 @@ extern crate toml;
 extern crate rustc_serialize;
 #[macro_use]
 extern crate log;
-extern crate fern;
+extern crate log4rs;
 #[macro_use]
 extern crate lazy_static;
 
 mod lib;
 
 use lib::config;
+use lib::db;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::DownloadError;
@@ -45,16 +46,16 @@ enum Thing { String(String), Bool(bool), None }
 
 fn main() {
     
-    let pool = lib::db_connect(lib::mysql_options(), SLEEP_MS);
+    let pool = db::db_connect(db::mysql_options(), SLEEP_MS);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
-        if let Some(result) = lib::request_entry(& pool) {
+        if let Some(result) = db::request_entry(& pool) {
             print_pause = true;
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
-            lib::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
-            lib::set_query_state(&pool.clone(),&qid, "started", false);
+            db::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
+            db::set_query_state(&pool.clone(),&qid, "started", false);
             
             let action_result: Result<Thing,DownloadError>;
             {
@@ -99,13 +100,13 @@ fn main() {
                                 DownloadError::InternalError(s) => s,
                                 _ => unreachable!(),
                             };
-                            lib::add_query_status(&pool.clone(),&qid, &details);
+                            db::add_query_status(&pool.clone(),&qid, &details);
                             CODE_FAILED_INTERNAL
                         },
                     }
                 }
             };
-            lib::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
+            db::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
             
             let state = match code {
                 2 => "finished",
@@ -115,7 +116,7 @@ fn main() {
                 _ => "unknown"
             };
 
-            lib::set_query_state(&pool.clone(),&qid, state, true);
+            db::set_query_state(&pool.clone(),&qid, state, true);
             
         } else {
             if print_pause { println!("Pausing.."); print_pause = false; }
@@ -143,7 +144,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         None => false,
     };
     if !downl_db.compress {
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0,false);
+        db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, 0,false);
     }
     
     let download = Downloader::new(&downl_db, &CONFIG.general);
@@ -196,7 +197,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     
     if !dmca {
         if !downl_db.compress {
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
+            db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
         }
 
         //download first file, download audio raw source if specified or video
@@ -205,7 +206,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         if is_splitted_video {
             // download audio file & convert together
 			if !downl_db.compress {
-                lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
+                db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
 			}
 
             let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
@@ -215,7 +216,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
             try!(download.download_file(&audio_path, true));
             
             if !downl_db.compress {
-                lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
+                db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
             }
 
             match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path, !downl_db.compress) {
@@ -235,7 +236,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     
     if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
         if !downl_db.compress {
-            lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
+            db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
         }
         try!(converter.extract_audio(&file_path, &save_path,convert_audio));
         try!(remove_file(&file_path));
@@ -249,10 +250,10 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     file_db.pop();
     
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        lib::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
+        db::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
     }
     if !downl_db.compress {
-        lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
+        db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
     }
     
     if folder.is_some() {
@@ -268,7 +269,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 ///if warnings occured (unavailable video etc) the return will be true
 fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
     let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
+    db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
     let pl_id: i64 = downl_db.qid;
     downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
@@ -285,7 +286,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         try!(std::fs::create_dir(&downl_db.folder));
         file_db.push(downl_db.folder.clone());
     }
-    lib::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
+    db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
     println!("retriving playlist videos..");
     let file_ids: Vec<String> = try!(download.get_playlist_ids());
     
@@ -306,7 +307,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     for id in file_ids.iter() {
         current_step += 1;
         if downl_db.compress {
-            lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
+            db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         }
         current_url = format!("https://www.youtube.com/watch?v={}",id);
         downl_db.update_video(current_url.clone(), current_step as i64);
@@ -328,21 +329,21 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     }
     
     if warnings {
-        lib::add_query_status(&downl_db.pool.clone(),&pl_id, &failed_log);
+        db::add_query_status(&downl_db.pool.clone(),&pl_id, &failed_log);
     }
     
     println!("downloaded all videos");
     if downl_db.compress { // zip to file, add to db & remove all sources
         current_step += 1;
-        lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
+        db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         let zip_name = format!("{}.zip",playlist_name);
         let zip_file = format!("{}/{}",&CONFIG.general.download_dir,zip_name);
         println!("zip file: {} \n zip source {}",zip_file, &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, &zip_file));
-        lib::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
+        db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
         
         current_step += 1;
-        lib::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
+        db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         try!(lib::delete_files(file_delete_list));
         try!(remove_dir_all(downl_db.folder));
         file_db.pop();

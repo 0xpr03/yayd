@@ -338,7 +338,7 @@ impl<'a> Downloader<'a>{
                             Some(cap) => { print!("Match ");
                                         println!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         if !self.ddb.playlist {
-                                            lib::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
+                                            lib::db::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
                                         }
                                     },
                             None => {last_line = text.clone()},
