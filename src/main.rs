@@ -11,6 +11,7 @@ mod lib;
 
 use lib::config;
 use lib::db;
+use lib::logger;
 use lib::downloader::DownloadDB;
 use lib::downloader::Downloader;
 use lib::DownloadError;
@@ -19,6 +20,8 @@ use lib::converter::Converter;
 use std::fs::{remove_file,remove_dir_all};
 
 static VERSION : &'static str = "0.3"; // String not valid
+static LOG_CONFIG: &'static str = "log.conf";
+static LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:\t%m";
 static SLEEP_MS: u32 = 5000;
 static CODE_SUCCESS: i8 = 2;
 static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
@@ -45,6 +48,7 @@ lazy_static! {
 enum Thing { String(String), Bool(bool), None }
 
 fn main() {
+    logger::initialize();
     
     let pool = db::db_connect(db::mysql_options(), SLEEP_MS);
     
