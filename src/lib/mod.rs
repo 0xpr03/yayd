@@ -164,10 +164,8 @@ pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
     Ok(())
 }
 
-pub fn get_executable_folder() -> std::path::PathBuf {
-	let mut folder = current_exe().unwrap_or(
-		{error!("no exec path in get_executable_folder!"); panic!();}
-	);
+pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
+	let mut folder = try!(current_exe());
 	folder.pop();
-	folder
+	Ok(folder)
 }
