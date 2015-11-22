@@ -88,7 +88,7 @@ impl<'a> Downloader<'a>{
                         if !self.ddb.playlist {
                             match re.find(&text) {
                                 Some(s) => { //println!("Match at {}", s.0);
-                                            trace!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
+                                            debug!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
                                             try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
                                         },
                                 None => {},
@@ -122,7 +122,7 @@ impl<'a> Downloader<'a>{
                 Ok(v) => return Ok(v),
                 Err(e) => {
                     match e {
-                        DownloadError::ExtractorError =>  { println!("download try no {}",attempts)},
+                        DownloadError::ExtractorError =>  { warn!("download try no {}",attempts)},
                         _ => return Err(e),
                     }
                 },
@@ -180,7 +180,7 @@ impl<'a> Downloader<'a>{
                         trace!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
-                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        debug!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         id_list.push(cap.at(1).unwrap().to_string());
                                     },
                             None => {},
@@ -335,8 +335,8 @@ impl<'a> Downloader<'a>{
                 Ok(text) => {
                         trace!("Out: {}",text);
                         match re.captures(&text) {
-                            Some(cap) => { trace!("Match ");
-                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                            Some(cap) => {
+                                        debug!("Match: {}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         if !self.ddb.playlist {
                                             lib::db::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
                                         }

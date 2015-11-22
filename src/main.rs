@@ -123,7 +123,7 @@ fn main() {
             db::set_query_state(&pool.clone(),&qid, state, true);
             
         } else {
-            if print_pause { trace!("Pausing.."); print_pause = false; }
+            if print_pause { debug!("Pausing.."); print_pause = false; }
             std::thread::sleep_ms(SLEEP_MS);
         }
     }
@@ -315,7 +315,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         }
         current_url = format!("https://www.youtube.com/watch?v={}",id);
         downl_db.update_video(current_url.clone(), current_step as i64);
-        trace!("id: {}",id);
+        debug!("id: {}",id);
         let db_copy = downl_db.clone();
         match handle_download(db_copy, &handler_folder, converter, file_db) {
             Err(e) => { warn!("error downloading {}: {:?}",id,e);

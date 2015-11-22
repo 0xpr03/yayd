@@ -48,7 +48,7 @@ impl<'a> Converter<'a> {
                     if show_progress {
                         if re.is_match(&text) {
                             let cap = re.captures(&text).unwrap();
-                            trace!("frame: {}", cap.at(1).unwrap());
+                            debug!("frame: {}", cap.at(1).unwrap());
                             try!(self.update_progress(&mut statement,
                                     self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
                                 );
