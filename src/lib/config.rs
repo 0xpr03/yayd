@@ -6,6 +6,7 @@ use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
 
+use CONFIG_PATH;
 use lib::{self,l_expect};
 
 // pub mod config;
@@ -66,7 +67,7 @@ pub struct Extensions {
 /// create PathBuf by getting the current working dir
 pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
-    path.push("config.cfg"); // set_file_name doesn't return smth -> needs to be run on mut path
+    path.push(CONFIG_PATH); // set_file_name doesn't return smth -> needs to be run on mut path
     trace!("config path {:?}",path );
     let config : Option<Config>;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
