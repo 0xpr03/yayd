@@ -160,41 +160,41 @@ impl<'a> Converter<'a> {
     ///Formats a command to gain the total amount of frames in a video file
     ///which will be used for the progress calculation
     fn format_frame_get_cmd(&self, video_file: &str) -> String {
-        let a = format!(r#"{}ffprobe -i {} 2>&1"#,self.ffmpeg_cmd, video_file);
-        trace!("ffmpeg-fps cmd: {}", a);
+        let a = format!(r#"{}/ffprobe -i {} 2>&1"#,self.ffmpeg_cmd, video_file);
+        debug!("ffmpeg-fps cmd: {}", a);
         a
     }
 
     ///Creates a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
     ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
     fn format_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             audio_file,
             output_file);
-        trace!("ffmpeg cmd: {}", a);
+        debug!("ffmpeg cmd: {}", a);
         a
     }
     
     ///Create ffmpeg cmd to extract raw audio from a video file
     fn format_extract_audio_cmd(&self, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -vn -acodec 'copy' "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -vn -acodec 'copy' "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             output_file);
-        trace!("ffmpeg cmd: {}",a);
+        debug!("ffmpeg cmd: {}",a);
         a
     }
     
     ///Create ffmpeg cmd to extract audio from a video file & convert it directly to mp3
     fn format_convert_audio_mp3_cmd(&self, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a {} "{}" 2>&1 |& tr '\r' '\n'"#,
+        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a {} "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
             video_file,
             self.mp3_quality,
             output_file);
-        trace!("ffmpeg cmd: {}", a);
+        debug!("ffmpeg cmd: {}", a);
         a
     }
 

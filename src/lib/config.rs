@@ -47,7 +47,7 @@ pub struct ConfigGen{
     pub lib_use: bool,
     pub lib_dir: String,
     pub lib_bin: String,
-    pub lib_args: String,
+    pub lib_args: Vec<String>,
 }
 
 #[derive(Debug, RustcDecodable,Clone)]
@@ -103,7 +103,6 @@ db = "ytdownl"
 port = 3306
 ip = "127.0.0.1"
 
-#these values need to be changed
 [general]
 
 #temporary dir for downloads before the conversion etc
@@ -118,12 +117,12 @@ mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 #additional lib callable in case of country-locks
-#will be called with -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
+#will be called with {[optional arguments]} -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
 #the lib's return after 'name: ' will be taken as the name of the video/file to use
 lib_use = true
 lib_bin = "/binary" #path to binary
-lib_args = "" #additional arguments
-lib_folder = "/" #working dir to use
+lib_args = ["arg1", "arg2"] #additional arguments
+lib_dir = "/" #working dir to use
 
 #see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
 #the individual values for video-downloads are set by the db-entry

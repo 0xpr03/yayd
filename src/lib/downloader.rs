@@ -366,9 +366,11 @@ impl<'a> Downloader<'a>{
     ///Generate the lib-cmd
     fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.lib_dir);
-        debug!("{} {}", self.defaults.lib_bin, self.defaults.lib_args);
+        
+        debug!("{} {:?} -q {} -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality, file_path, !self.is_audio(), self.ddb.url);
         match Command::new(&self.defaults.lib_bin)
                                         .current_dir(&java_path)
+                                        .args(&self.defaults.lib_args)
                                         .arg("-q")
                                         .arg(&self.ddb.quality.to_string())
                                         .arg("-f")
