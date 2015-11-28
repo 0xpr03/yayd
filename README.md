@@ -26,44 +26,44 @@ lib_dir = "/path/to/jar"
 # DB-Backend:
 See install.sql for a complete db-setup
 ## queries
-qid | url | type | quality | created | uid
-	type: -1 : nothing
-		0: yt-video
-		1: playlist
+qid | url | type | quality | created | uid   
+	type:   
+		0: yt-video  
+		1: playlist  
 		
-	quality:
-		1: mp3
-		140,22 AAC extraction (mq,hq)
-		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - video only
-		cut together with 140 (which is aac mp4 with very low video quality)
+	quality:  
+		1: mp3  
+		140,22 AAC extraction (mq,hq)  
+		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - video only  
+		cut together with 140 (which is aac mp4 with very low video quality)  
 
 url: utf8_bin
 
 	
 ## querydetails
-qid | code | status | luc
+qid | code | status | luc  
 	please see codes.md for a complete list of status codes
 
 ## playlists
-qid | from | to | zip
+qid | from | to | zip  
 
 ## files
-file id | name | rname | valid
+file id | name | rname | valid  
 
-rname:utf8_general
-name:utf8_unicode
+rname:utf8_general  
+name:utf8_unicode  
 
 query id == file id
 
 ## users
-uid | name
+uid | name  
 
-insert:
-insert in query ids, insert in querydetails
-using users uid
--> store it in a stored procedure
+insert:  
+insert in query ids, insert in querydetails  
+using users uid  
+-> store it in a stored procedure  
 
 ## querystatus
-qid | msg
+qid | msg  
 
 All errors occouring during downloads are stored in here
