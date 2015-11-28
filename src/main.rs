@@ -53,7 +53,7 @@ fn main() {
     
     let pool = db::db_connect(db::mysql_options(), SLEEP_MS);
     
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin,&CONFIG.general.mp3_quality , pool.clone());
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
         if let Some(result) = db::request_entry(& pool) {
@@ -61,7 +61,6 @@ fn main() {
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             db::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
             db::set_query_state(&pool.clone(),&qid, "started", false);
-            
             let action_result: Result<Thing,DownloadError>;
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
@@ -156,12 +155,13 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     //get filename, check for DMCA
     let mut dmca = false; // "succ." dmca -> file already downloaded
     
+    let file_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             trace!("DMCA error!");
-            match download.lib_request_video(1,0) {
-                Err(err) => { warn!("Offliberty-call error {:?}", err); return Err(err); },
+            match download.lib_request_video(1,0, &file_path) {
+                Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
                 Ok(v) => { dmca = true; v },
             }
         },
@@ -173,7 +173,6 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 
     let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
 
-    let file_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     file_db.push(file_path.clone());
     let save_path = lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
@@ -277,7 +276,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
     let pl_id: i64 = downl_db.qid;
-    downl_db.update_folder(format!("{}/{}",&CONFIG.general.save_dir,pl_id));
+    downl_db.update_folder(format!("{}/{}",&CONFIG.general.temp_dir,pl_id));
     trace!("Folder:  {}",downl_db.folder);
     
     let db_copy = downl_db.clone();

@@ -39,13 +39,15 @@ pub struct ConfigDB {
 
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct ConfigGen{
-    pub save_dir: String, // folder to temp. save the raw files
+    pub temp_dir: String, // folder to temp. save the raw files
     pub download_dir: String, // folder to which the files should be moved
-    pub jar_folder: String, // DMCA lib
-    pub jar_cmd: String, // command for the DMCA lib
     pub mp3_quality: i16,
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
-    pub ffmpeg_bin: String, // path to ffmpeg binary, which can be another dir for non-free mp3
+    pub ffmpeg_bin_dir: String, // path to ffmpeg binary, which can be another dir for non-free mp3
+    pub lib_use: bool,
+    pub lib_dir: String,
+    pub lib_bin: String,
+    pub lib_args: String,
 }
 
 #[derive(Debug, RustcDecodable,Clone)]
@@ -100,22 +102,37 @@ db = "ytdownl"
 port = 3306
 ip = "127.0.0.1"
 
-#these values need to be changed, example values of my dev setup
+#these values need to be changed
 [general]
-save_dir = "/home/dev/downloads/temp"
-download_dir = "/home/dev/downloads"
-jar_folder = "/home/dev/yayd"
-jar_cmd = "/home/dev/Downloads/jdk1.7.0_75/jre/bin"
+
+#temporary dir for downloads before the conversion etc
+temp_dir = "/downloads/temp"
+
+#final destination of downloaded files / playlists
+download_dir = "/downloads"
 download_mbps = 6 #mb/s limit
 mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
-ffmpeg_bin = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
+
+#folder in which the ffmpeg binary lies
+ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
+
+#additional lib callable in case of country-locks
+#will be called with -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
+#the lib's return after 'name: ' will be taken as the name of the video/file to use
+lib_use = true
+lib_bin = "/binary" #path to binary
+lib_args = "" #additional arguments
+lib_folder = "/" #working dir to use
 
 #see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
+#the individual values for video-downloads are set by the db-entry
+#these values here are for music/mp3 extract/conversion
 [codecs]
 audio_mp3 = 1
 audio_raw = 140
 audio_source_hq = 22
 
+#quality codes listes here and which file ending should be used for them
 [extensions]
 aac = [140,22]
 mp3 = [1]

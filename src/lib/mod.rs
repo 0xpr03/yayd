@@ -137,8 +137,8 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
         ""
     };
     match folder {
-        Some(v) => format!("{}/{}/{}{}", &CONFIG.general.save_dir, v, qid,suffix),
-        None => format!("{}/{}{}", &CONFIG.general.save_dir, qid,suffix),
+        Some(v) => format!("{}/{}/{}{}", &CONFIG.general.temp_dir, v, qid,suffix),
+        None => format!("{}/{}{}", &CONFIG.general.temp_dir, qid,suffix),
     }
 }
 
@@ -146,7 +146,7 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
 pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
     let clean_name = &file_encode(&name);
     match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.save_dir, v, format_file_name(clean_name,download,qid)),
+        Some(v) => format!("{}/{}/{}", &CONFIG.general.temp_dir, v, format_file_name(clean_name,download,qid)),
         None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(clean_name,download,qid)),
     }
 }

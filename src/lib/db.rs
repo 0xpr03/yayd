@@ -112,7 +112,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let download_db = DownloadDB { url: from_value::<String>(result[1].clone()),
                                     quality: from_value::<i16>(result[3].clone()),
                                     qid: from_value::<i64>(result[0].clone()),
-                                    folder: CONFIG.general.save_dir.clone(),
+                                    folder: CONFIG.general.temp_dir.clone(),
                                     pool: pool.clone(),
                                     playlist: playlist,
                                     compress: compress,

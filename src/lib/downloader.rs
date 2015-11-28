@@ -46,7 +46,6 @@ impl DownloadDB {
 pub struct Downloader<'a> {
     pub ddb: &'a DownloadDB,
     defaults: &'a ConfigGen,
-    // pool: MyPool,
 }
 
 impl<'a> Downloader<'a>{
@@ -316,12 +315,10 @@ impl<'a> Downloader<'a>{
 
     ///This function does a 3rd party binding in case it's needed
     ///due to the country restrictions
-    ///Because hyper doesn't support timeout settings atm, we're calling an external
-    ///lib
-    ///The returned value contains the original video name, the lib downloads & saves
-    ///the file at the given folder under the given name
-    pub fn lib_request_video(&self, current_steps: i32,max_steps: i32) -> Result<String,DownloadError> {
-        let mut child = try!(self.lib_request_video_cmd());
+    ///The returned value has to contain the original video name, the lib has to download & save
+    ///the file to the given location
+    pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &String) -> Result<String,DownloadError> {
+        let mut child = try!(self.lib_request_video_cmd(file_path));
         trace!("Requesting video via lib..");
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
@@ -360,27 +357,25 @@ impl<'a> Downloader<'a>{
             return Err(DownloadError::InternalError(stderr));
         }
         //this ONLY works because `filename ` is ascii..
-        let mut out = last_line[last_line.find("filename ").unwrap()+9..].trim().to_string();
+        let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
         out = lib::url_encode(&out);//stdout.trim();
         
         Ok(out)
     }
 
-    ///Generate the lib-cmd `request [..]?v=asdf -folder /downloads -a -name testfile`
-    fn lib_request_video_cmd(&self) -> Result<Child,DownloadError> {
-        let java_path = Path::new(&self.defaults.jar_cmd);
-        trace!("{:?}", format!("{}/java -jar {}/offliberty.jar",self.defaults.jar_cmd,self.defaults.jar_folder));
-        match Command::new("./java")
-                                        .current_dir(java_path)
-                                        .arg("-jar")
-                                        .arg(format!("{}/offliberty.jar",&self.defaults.jar_folder))
-                                        .arg("request")
+    ///Generate the lib-cmd
+    fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
+        let java_path = Path::new(&self.defaults.lib_dir);
+        debug!("{} {}", self.defaults.lib_bin, self.defaults.lib_args);
+        match Command::new(&self.defaults.lib_bin)
+                                        .current_dir(&java_path)
+                                        .arg("-q")
+                                        .arg(&self.ddb.quality.to_string())
+                                        .arg("-f")
+                                        .arg(file_path)
+                                        .arg("-v")
+                                        .arg((!self.is_audio()).to_string())
                                         .arg(&self.ddb.url)
-                                        .arg("-folder")
-                                        .arg(&self.ddb.folder)
-                                        .arg(self.gen_request_str())
-                                        .arg("-name")
-                                        .arg(self.ddb.qid.to_string()) //eq. format! https://botbot.me/mozilla/rust/msg/37524131/
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::piped())
                                         .stderr(Stdio::piped())
@@ -388,15 +383,6 @@ impl<'a> Downloader<'a>{
                 Err(why) => {warn!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
                 Ok(process) => Ok(process),
             }
-    }
-
-    ///Generate -a or -v, based on if an audio or video quality is requested
-    fn gen_request_str(&self) -> &'a str{
-        if self.is_audio() && !self.is_aac() {
-            "-a"
-        } else {
-            "-v"
-        }
     }
 
     ///Check if the quality is 141, standing for audio or not
