@@ -71,15 +71,15 @@ pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
     path.push(CONFIG_PATH); // set_file_name doesn't return smth -> needs to be run on mut path
     trace!("config path {:?}",path );
-    let config : Option<Config>;
+    let config : Config;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
         info!("Config file found.");
-        config = read_config(&path.to_str().unwrap()).ok(); //result to option
+        config = l_expect(read_config(&path.to_str().unwrap()),"config read");
     }else{
         info!("Config file not found.");
-        config = create_config(&path.to_str().unwrap()).ok();
+        config = l_expect(create_config(&path.to_str().unwrap()), "config creation");
     }
-    config.unwrap()
+    config
 }
 
 pub fn read_config(file: &str) -> Result<Config,ConfigError> {
@@ -95,6 +95,7 @@ pub fn read_config(file: &str) -> Result<Config,ConfigError> {
 
 pub fn create_config(path: &str) -> Result<Config,ConfigError> {
     //TODO: replace with import_string
+    trace!("Creating config..");
     let toml = r#"[db]
 user = "root"
 password = ""
