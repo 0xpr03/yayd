@@ -400,9 +400,4 @@ impl<'a> Downloader<'a>{
             false
         }
     }
-    
-    ///Check if is AAC file
-    fn is_aac(&self) -> bool {
-        CONFIG.extensions.aac.contains(&self.ddb.quality)
-    }
 }

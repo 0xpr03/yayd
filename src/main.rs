@@ -22,7 +22,7 @@ use std::fs::{remove_file,remove_dir_all};
 static VERSION : &'static str = "0.3"; // String not valid
 static CONFIG_PATH : &'static str = "config.cfg";
 static LOG_CONFIG: &'static str = "log.conf";
-static LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:\t%m";
+static LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
 static SLEEP_MS: u32 = 5000;
 static CODE_SUCCESS: i8 = 2;
 static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
@@ -114,9 +114,9 @@ fn main() {
             
             let state = match code {
                 2 => "finished",
-                10 => "internal error",
-                11 => "quality not available",
-                12 => "source unavailable",
+                10 => "int err",
+                11 => "qual unavail",
+                12 => "source unavail",
                 _ => "unknown"
             };
 

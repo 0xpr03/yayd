@@ -71,7 +71,6 @@ pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &s
 
 //add query status msg for error reporting
 pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
-    trace!("status: {}",status);
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
     let result = stmt.execute((&qid,&status));
