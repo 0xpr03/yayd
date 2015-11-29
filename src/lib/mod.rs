@@ -11,12 +11,12 @@ use std::env::current_exe;
 use std::process::{Command,Output};
 use std::error::Error;
 use std::{self,io,str};
-use std::fs::remove_file;
+use std::fs::{remove_file,rename, metadata};
+use std::path::{Path, PathBuf};
+
 use CONFIG;
 
 use std::ascii::AsciiExt;
-
-use std::fs::{rename};
 
 #[derive(Debug)]
 pub enum DownloadError{
@@ -32,7 +32,7 @@ pub enum DownloadError{
 
 impl From<MyError> for DownloadError {
     fn from(err: MyError) -> DownloadError {
-        DownloadError::DBError(err.description().into())
+        DownloadError::DBError(format!("{:?}",err))
     }
 }
 
@@ -68,12 +68,6 @@ pub fn is_split_container(quality: &i16) -> bool {
     }
 }
 
-///Format file name
-pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
-    trace!("Fileextension: {:?}", get_file_ext(download));
-    format!("{}-{}.{}",url_encode(name), qid, get_file_ext(download))
-}
-
 ///Returns the file extension
 pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     if download.is_audio() {
@@ -96,7 +90,7 @@ pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
 }
 
 ///Move file to location
-pub fn move_file(original: &str, destination: &str) -> Result<(),DownloadError> {
+pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<(),DownloadError> {
     match rename(original, destination) { // no try possible..
         Err(v) => Err(v.into()),
         Ok(_) => Ok(()),
@@ -142,15 +136,33 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
     }
 }
 
-///Format save path, dependent on zip option.
-pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader, qid: &i64) -> String {
+///Return valid path for the file cache
+///Checking for doubles, making the path unique
+///If there should be files up till file_name-100.extension it will fail using the same name again!
+pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader) -> PathBuf {
     let clean_name = &file_encode(&name);
-    match folder {
-        Some(v) => format!("{}/{}/{}", &CONFIG.general.temp_dir, v, format_file_name(clean_name,download,qid)),
-        None => format!("{}/{}", &CONFIG.general.download_dir, format_file_name(clean_name,download,qid)),
-    }
+    let extension = get_file_ext(download);
+    let mut path = PathBuf::from(&CONFIG.general.download_dir);
+	match folder {
+	    Some(v) => path.push(v),
+		None => {},
+	}
+	path.push(format!("{}.{}",clean_name,extension));
+	if metadata(path.as_path()).is_ok() { // 90% of the time we don't need this
+    	for i in 1..100 {
+    	    if metadata(path.as_path()).is_ok() {
+    	        debug!("Path exists: {}",path.to_string_lossy());
+    	        path.pop(); // we can't use set_file_name, as some extensions will overwrite the name
+    	        path.push(format!("{}-{}.{}",clean_name,i,extension));
+    	    }else{
+    	        break;
+    	    }
+    	}
+	}
+	debug!("Path: {}",path.to_string_lossy());
+    path
 }
-
+    
 ///Zip folder to file
 pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
     let io = try!(create_zip_cmd(folder,zip_name));

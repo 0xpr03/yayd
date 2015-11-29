@@ -171,10 +171,8 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         },
     };
 
-    let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
-    
     file_db.push(temp_path.clone());
-    let save_path = lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
+    let save_path = lib::format_save_path(folder.clone(),&name, &download);
 
     trace!("Filename: {}", name);
     
@@ -223,7 +221,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
             }
 
-            match converter.merge_files(&downl_db.qid,&temp_path, &audio_path,&save_path, !downl_db.compress) {
+            match converter.merge_files(&downl_db.qid,&temp_path, &audio_path,&save_path.to_string_lossy(), !downl_db.compress) {
                 Err(e) => {println!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
@@ -242,7 +240,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         if !downl_db.compress {
             db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
         }
-        try!(converter.extract_audio(&temp_path, &save_path,convert_audio));
+        try!(converter.extract_audio(&temp_path, &save_path.to_string_lossy(), convert_audio));
         try!(remove_file(&temp_path));
     }else{
         if is_splitted_video {
@@ -254,14 +252,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     file_db.pop();
     
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        db::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&name_http_valid, &name);
+        db::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&save_path.file_name().unwrap().to_string_lossy(), &name);
     }
     if !downl_db.compress {
         db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
     }
     
     if folder.is_some() {
-        Ok(Thing::String(save_path))
+        Ok(Thing::String(save_path.to_string_lossy().into_owned()))
     } else {
         Ok(Thing::None)
     }
