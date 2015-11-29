@@ -46,12 +46,12 @@ impl From<io::Error> for DownloadError {
 ///&'static str to prevent the usage of format!(), which would result in overhead
 #[inline]
 pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) -> T {
-	match result {
-		Ok(v) => v,
-		Err(e) => {error!("{}: {:?}",msg,e);
-				panic!();
-		}
-	}
+    match result {
+        Ok(v) => v,
+        Err(e) => {error!("{}: {:?}",msg,e);
+                panic!();
+        }
+    }
 }
 
 ///Return whether the quality is a split container or not: video only
@@ -68,7 +68,7 @@ pub fn is_split_container(quality: &i16) -> bool {
     }
 }
 
-///Format file name for 
+///Format file name
 pub fn format_file_name<'a>(name: &str, download: &'a Downloader, qid: &i64) -> String {
     trace!("Fileextension: {:?}", get_file_ext(download));
     format!("{}-{}.{}",url_encode(name), qid, get_file_ext(download))
@@ -118,7 +118,7 @@ pub fn url_encode(input: &str) -> String {
     // into container FromIterator
 }
 
-///Removed file name invalid chars
+///Removes file name invalid chars
 pub fn file_encode(input: &str) -> String {
     input.chars().map(|char| {
         match char {
@@ -178,7 +178,7 @@ pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
 }
 
 pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
-	let mut folder = try!(current_exe());
-	folder.pop();
-	Ok(folder)
+    let mut folder = try!(current_exe());
+    folder.pop();
+    Ok(folder)
 }

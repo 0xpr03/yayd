@@ -155,12 +155,12 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     //get filename, check for DMCA
     let mut dmca = false; // "succ." dmca -> file already downloaded
     
-    let file_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
+    let temp_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             trace!("DMCA error!");
-            match download.lib_request_video(1,0, &file_path) {
+            match download.lib_request_video(1,0, &temp_path) {
                 Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
                 Ok(v) => { dmca = true; v },
             }
@@ -172,8 +172,8 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     };
 
     let name_http_valid = lib::format_file_name(&name, &download, &downl_db.qid);
-
-    file_db.push(file_path.clone());
+    
+    file_db.push(temp_path.clone());
     let save_path = lib::format_save_path(folder.clone(),&name, &download, &downl_db.qid);
 
     trace!("Filename: {}", name);
@@ -203,15 +203,15 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         if !downl_db.compress {
             db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
         }
-
+        
         //download first file, download audio raw source if specified or video
-        try!(download.download_file(&file_path, convert_audio));
+        try!(download.download_file(&temp_path, convert_audio));
         
         if is_splitted_video {
             // download audio file & convert together
-			if !downl_db.compress {
+            if !downl_db.compress {
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
-			}
+            }
 
             let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
             file_db.push(audio_path.clone());
@@ -223,7 +223,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
             }
 
-            match converter.merge_files(&downl_db.qid,&file_path, &audio_path,&save_path, !downl_db.compress) {
+            match converter.merge_files(&downl_db.qid,&temp_path, &audio_path,&save_path, !downl_db.compress) {
                 Err(e) => {println!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
@@ -233,7 +233,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 
         }else{ // we're already done, only need to copy if it's not raw audio source
             if !download.is_audio() {
-                try!(lib::move_file(&file_path, &save_path));
+                try!(lib::move_file(&temp_path, &save_path));
             }
         }
     }
@@ -242,13 +242,13 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         if !downl_db.compress {
             db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
         }
-        try!(converter.extract_audio(&file_path, &save_path,convert_audio));
-        try!(remove_file(&file_path));
+        try!(converter.extract_audio(&temp_path, &save_path,convert_audio));
+        try!(remove_file(&temp_path));
     }else{
         if is_splitted_video {
-            try!(remove_file(&file_path));
+            try!(remove_file(&temp_path));
         }else{
-            try!(lib::move_file(&file_path, &save_path));
+            try!(lib::move_file(&temp_path, &save_path));
         }
     }
     file_db.pop();

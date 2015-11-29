@@ -6,6 +6,8 @@ use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
 
+use std::process::exit;
+
 use CONFIG_PATH;
 use lib::{self,l_expect};
 
@@ -77,7 +79,9 @@ pub fn init_config() -> Config {
         config = l_expect(read_config(&path.to_str().unwrap()),"config read");
     }else{
         info!("Config file not found.");
-        config = l_expect(create_config(&path.to_str().unwrap()), "config creation");
+        l_expect(create_config(&path.to_str().unwrap()), "config creation");
+        
+        exit(0);
     }
     config
 }
