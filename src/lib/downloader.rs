@@ -77,7 +77,7 @@ impl<'a> Downloader<'a>{
 
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
-        let re = regex!(r"\d+\.\d%");
+        let re = regex!(r"(\d+\.\d)%");
 
         for line in stdout.lines(){
             match line{
@@ -85,10 +85,10 @@ impl<'a> Downloader<'a>{
                 Ok(text) => {
                         trace!("Out: {}",text);
                         if !self.ddb.playlist {
-                            match re.find(&text) {
-                                Some(s) => { //println!("Match at {}", s.0);
-                                            debug!("{}", &text[s.0..s.1]); // ONLY with ASCII chars makeable!
-                                            try!(self.update_progress(&mut statement, &text[s.0..s.1].to_string()));
+                            match re.captures(&text) {
+                                Some(cap) => { //println!("Match at {}", s.0);
+                                            debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                            try!(self.update_progress(&mut statement, cap.at(1).unwrap()));
                                         },
                                 None => {},
                             }
@@ -237,6 +237,7 @@ impl<'a> Downloader<'a>{
     fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--newline")
+                                    .arg("--no-warnings")
                                     .arg("-r")
                                     .arg(format!("{}M",self.defaults.download_mbps))
                                     .arg("-f")
@@ -308,7 +309,7 @@ impl<'a> Downloader<'a>{
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self,stmt: &mut Stmt, progress: &String) -> Result<(),DownloadError>{
+    fn update_progress(&self,stmt: &mut Stmt, progress: &str) -> Result<(),DownloadError>{
         try!(stmt.execute((progress,&self.ddb.qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }
