@@ -10,8 +10,8 @@ This is the backend for the downloader
 ## About quality, queries & the config
 Each download is an entry in the DB, this query is containing the wished target, quality etc  
 Youtube-Videos are consisting of two DASH-Files. One is only Video, in the quality you want.
-The other one is a bad-video but audio containing DASH-File.  
-These two are merged by yayd, using ffmpeg, and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
+The other one is a bad quality video but audio containing DASH-File.  
+These two are merged by yayd and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
 in you query,
 the used audio-file is specified in the config of yayd and will be merged with the video.  
 For a personal list of recommended quality itags see queries: quality down below.  
