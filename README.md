@@ -21,7 +21,7 @@ WebM (303) doesn't have this problem.
   
 (WebM is using VP9 as codec, MP4 h264)
 
-### Persoanl recommended itags
+### Personal recommended itags
 140,251 AAC extraction (mq,hq)  
 133,134,135,136,137,298,303: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
 cut together with 140 (which is aac mp4 with very low video quality)  
