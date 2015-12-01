@@ -2,15 +2,26 @@
 See install.sql for a complete db-setup
 ## queries
 qid | url | type | quality | created | uid   
-	type:   
-		0: yt-video  
-		1: playlist  
-		
-	quality:  
-		1: mp3  
-		140,22 AAC extraction (mq,hq)  
-		133,134,135,136,137,298,299: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
-		cut together with 140 (which is aac mp4 with very low video quality)  
+
+| type | name |
+|---|---|
+| 0 | youtube |
+| 1 | yt-playlist |
+| 2 | twitch |
+| 3 | soundcloud |
+  
+  
+| id | quality |
+|---|---|
+| 0-500 | youtube itags reserved |
+| -1 | mp3 converted from source |
+| -2 | AAC MQ general |
+| -3 | AAC HQ general |
+| -10 | Twitch Mobile |
+| -11 | Twitch Low |
+| -12 | Twitch Medium |
+| -13 | Twitch High |
+| -14 | Twitch Source |
 
 url: utf8_bin
 
