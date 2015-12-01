@@ -101,8 +101,8 @@ pub fn create_config(path: &str) -> Result<Config,ConfigError> {
     //TODO: replace with import_string
     trace!("Creating config..");
     let toml = r#"[db]
-user = "root"
-password = ""
+user = "user"
+password = "password"
 db = "ytdownl"
 port = 3306
 ip = "127.0.0.1"
@@ -123,7 +123,7 @@ ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 #additional lib callable in case of country-locks
 #will be called with {[optional arguments]} -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
 #the lib's return after 'name: ' will be taken as the name of the video/file to use
-lib_use = true
+lib_use = false
 lib_bin = "/binary" #path to binary
 lib_args = ["arg1", "arg2"] #additional arguments
 lib_dir = "/" #working dir to use
@@ -136,7 +136,7 @@ audio_mp3 = 1
 audio_raw = 140
 audio_source_hq = 22
 
-#quality codes listes here and which file ending should be used for them
+#which file ending should be used for the quality codes from youtube
 [extensions]
 aac = [140,22]
 mp3 = [1]

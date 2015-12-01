@@ -23,6 +23,10 @@ lib_dir = "/path/to/jar"
 `audio_raw` quality file which should be used for the audio download  
 `audio_source_hq` same again for HQ audio downloads  
 
+# Notes
+Multithreading for downloads isn't planned as one-by-one is a natural limiter, preventing possible DDOS-Blocks & saving bandwidth  
+I'm open for other ideas or implementations but it's not my main goal at the moment.
+
 # DB-Backend:
 See install.sql for a complete db-setup
 ## queries
