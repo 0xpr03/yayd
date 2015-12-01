@@ -21,6 +21,10 @@ WebM (303) doesn't have this problem.
   
 (WebM is using VP9 as codec, MP4 h264)
 
+The quality column is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to
+static values like twitchs quality or the codec for internal music conversion. This gives you the option to choose by yourself which
+youtube quality you want to use.
+
 ### Personal recommended itags
 140,251 AAC extraction (mq,hq)  
 133,134,135,136,137,298,303: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
