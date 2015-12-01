@@ -14,12 +14,17 @@ The other one is a bad quality video but audio containing DASH-File.
 These two are merged by yayd and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
 in you query,
 the used audio-file is specified in the config of yayd and will be merged with the video.  
-For a personal list of recommended quality itags see queries: quality down below.  
+For a personal list of recommended quality itags see down below.
 As youtube changes the available codecs it is recommended to verify your setup from time to time.
 As an example the current 1080p@60fps, mp4 (itag 299) is pixellated in certain circumstances, while the recently added
 WebM (303) doesn't have this problem.  
   
 (WebM is using VP9 as codec, MP4 h264)
+
+### Persoanl recommended itags
+140,251 AAC extraction (mq,hq)  
+133,134,135,136,137,298,303: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
+cut together with 140 (which is aac mp4 with very low video quality)  
 
 # Config:
 ## db
@@ -37,4 +42,4 @@ lib_dir = "/path/to/jar"
 `audio_raw` quality file which should be used for the audio download  
 `audio_source_hq` same again for HQ audio downloads  
 
-## DB-Setup see db.md
+## DB-Setup & internal quality code explanations see db.md
