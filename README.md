@@ -21,7 +21,7 @@ WebM (303) doesn't have this problem.
   
 (WebM is using VP9 as codec, MP4 h264)
 
-The quality column is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to
+The quality column (see db.md -> quality) is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to
 static values like twitchs quality or the codec for internal music conversion. This gives you the option to choose by yourself which
 youtube quality you want to use.
 
