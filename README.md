@@ -7,6 +7,29 @@ This is the backend for the downloader
 (Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)  
 [GUI Example](***REMOVED***)
 
+## About quality, queries & the config
+Each download is an entry in the DB, this query is containing the wished target, quality etc  
+Youtube-Videos are consisting of two DASH-Files. One is only Video, in the quality you want.
+The other one is a bad quality video but audio containing DASH-File.  
+These two are merged by yayd and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
+in you query,
+the used audio-file is specified in the config of yayd and will be merged with the video.  
+For a personal list of recommended quality itags see down below.
+As youtube changes the available codecs it is recommended to verify your setup from time to time.
+As an example the current 1080p@60fps, mp4 (itag 299) is pixellated in certain circumstances, while the recently added
+WebM (303) doesn't have this problem.  
+  
+(WebM is using VP9 as codec, MP4 h264)
+
+The quality column (see db.md -> quality) is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to
+static values like twitchs quality or the codec for internal music conversion. This gives you the option to choose by yourself which
+youtube quality you want to use.
+
+### Personal recommended itags
+140,251 AAC extraction (mq,hq)  
+133,134,135,136,137,298,303: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
+cut together with 140 (which is aac mp4 with very low video quality)  
+
 # Config:
 ## db
 Specify the credentials for a maria/mysql db connection
@@ -27,47 +50,4 @@ lib_dir = "/path/to/jar"
 Multithreading for downloads isn't planned as one-by-one is a natural limiter, preventing possible DDOS-Blocks & saving bandwidth  
 I'm open for other ideas or implementations but it's not my main goal at the moment.
 
-# DB-Backend:
-See install.sql for a complete db-setup
-## queries
-qid | url | type | quality | created | uid   
-	type:   
-		0: yt-video  
-		1: playlist  
-		
-	quality:  
-		1: mp3  
-		140,22 AAC extraction (mq,hq)  
-		133,134,135,136,137,298,299: [240 360 480 720 1080 @30 720 1080 @60]youtube - video only  
-		cut together with 140 (which is aac mp4 with very low video quality)  
-
-url: utf8_bin
-
-	
-## querydetails
-qid | code | status | luc  
-	please see codes.md for a complete list of status codes
-
-## playlists
-qid | from | to | zip  
-
-## files
-file id | name | rname | valid  
-
-rname:utf8_general  
-name:utf8_unicode  
-
-query id == file id
-
-## users
-uid | name  
-
-insert:  
-insert in query ids, insert in querydetails  
-using users uid  
--> store it in a stored procedure  
-
-## querystatus
-qid | msg  
-
-All errors occouring during downloads are stored in here
+## DB-Setup & internal quality code explanations see db.md
