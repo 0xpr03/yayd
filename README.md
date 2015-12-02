@@ -2,7 +2,10 @@
 ### Yet another youtube downloader-backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
 This is the backend for the downloader  
-  
+
+The purpose is to provide a system allowing you to download files, 
+avoiding ISP related peering problems with youtube,
+and providing all this server side & in the quality you want.
 
 (Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)  
 [GUI Example](***REMOVED***)
@@ -27,7 +30,7 @@ youtube quality you want to use.
 
 ### Personal recommended itags
 140,251 AAC extraction (mq,hq)  
-133,134,135,136,137,298,303: [240, 360, 480, 720, 1080p @30; 720, 1080p @60fps]youtube - video only  
+133,134,135,136,137,298,303: 240, 360, 480, 720, 1080p @30; 720, 1080p @60fps  
 cut together with 140 (which is aac mp4 with very low video quality)  
 
 # Config:
@@ -35,7 +38,7 @@ cut together with 140 (which is aac mp4 with very low video quality)
 Specify the credentials for a maria/mysql db connection
 ## lib
 You can specify an executable/script which should be called, when the file is not available in your country  
-Example for calling a java application:  
+Example for calling a java application (`/path/to/jre/java -jar /path/to/jar/application.jar [..]`) :  
 ```toml
 lib_bin = "/path/to/jre/java"
 lib_args = ["-jar", "application.jar"]
@@ -47,7 +50,7 @@ lib_dir = "/path/to/jar"
 `audio_source_hq` same again for HQ audio downloads  
 
 # Notes
-Multithreading for downloads isn't planned as one-by-one is a natural limiter, preventing possible DDOS-Blocks & saving bandwidth  
+Multithreading for downloads isn't planned as the one-by-one system is a natural limiter, preventing possible DDOS-Blocks (captcha) & saving bandwidth  
 I'm open for other ideas or implementations but it's not my main goal at the moment.
 
 ## DB-Setup & internal quality code explanations see db.md
