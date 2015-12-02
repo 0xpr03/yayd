@@ -1,14 +1,15 @@
 # yayd-backend
 ### Yet another youtube downloader-backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
-This is the backend for the downloader  
-
-The purpose is to provide a system allowing you to download files, 
+This is only the backend.  
+  
+The purpose of this project is to provide a system allowing to download files, 
 avoiding ISP related peering problems with youtube,
 and providing all this server side & in the quality you want.
-
-(Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)  
+  
 [GUI Example](***REMOVED***)
+  
+(Thanks at this point to the people on #rust & #rust-offtopic @ mozilla IRC)
 
 ## About quality, queries & the config
 Each download is an entry in the DB, this query is containing the wished target, quality etc  
