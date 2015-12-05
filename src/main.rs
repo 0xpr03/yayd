@@ -150,10 +150,14 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     let name = match download.get_file_name() { // get filename
         Ok(v) => v,
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
-            trace!("DMCA error!");
-            match download.lib_request_video(1,0, &temp_path) {
-                Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
-                Ok(v) => { dmca = true; v },
+            info!("DMCA error!");
+            if CONFIG.general.lib_use {
+                match download.lib_request_video(1,0, &temp_path) {
+                    Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
+                    Ok(v) => { dmca = true; v },
+                }
+            } else {
+                return Err(DownloadError::NotAvailable);
             }
         },
         Err(e) => { // unknown error / restricted source etc.. abort
