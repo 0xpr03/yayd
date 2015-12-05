@@ -234,6 +234,7 @@ impl<'a> Downloader<'a>{
         Err(DownloadError::DownloadError("no playlist name".to_string()))
     }
 
+	/// Formats the download command.
     fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--newline")
@@ -244,6 +245,8 @@ impl<'a> Downloader<'a>{
                                     .arg(quality.to_string())
                                     .arg("-o")
                                     .arg(file_path)
+                                    .arg("--ffmpeg-location") // this is needed for twitch extraction
+                                    .arg(&CONFIG.general.ffmpeg_bin_dir)
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
@@ -253,7 +256,8 @@ impl<'a> Downloader<'a>{
             Ok(process) => Ok(process),
         }
     }
-
+	
+	/// Runs the filename retrival process.
     fn run_filename_process(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--get-filename")
