@@ -11,7 +11,8 @@ use lib::downloader::DownloadDB;
 use CONFIG;
 
 ///Move result value out, return with none on err & print
-macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return None }}) }
+macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return None; },}) }
+macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return; },}) }
 
 macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
 
@@ -34,12 +35,22 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
     }else{
         0
     };
-    let mut stmt = conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?").unwrap();
+    let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?"));
     let result = stmt.execute((&state,&progress,qid)); // why is this var needed ?!
     match result {
         Ok(_) => (),
         Err(why) => error!("Error setting query state: {}",why),
     }
+}
+
+pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
+	let mut conn = pool.get_conn().unwrap();
+	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL WHERE qid = ?"));
+	let result = stmt.execute((qid,));
+	match result {
+	    Ok(_) => (),
+	    Err(why) => error!("Error setting query sate: {}", why),
+	}
 }
 
 ///Update status code for query entry

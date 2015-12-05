@@ -111,16 +111,7 @@ fn main() {
                 }
             };
             db::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
-            
-            let state = match code {
-                2 => "finished",
-                10 => "int err",
-                11 => "qual unavail",
-                12 => "source unavail",
-                _ => "unknown"
-            };
-
-            db::set_query_state(&pool.clone(),&qid, state, true);
+			db::set_null_state(&pool.clone(), &qid);
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }

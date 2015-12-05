@@ -60,7 +60,7 @@ CREATE TABLE `querydetails` (
  `qid` int(10) unsigned NOT NULL,
  `code` tinyint(4) NOT NULL,
  `progress` double DEFAULT NULL,
- `status` varchar(15) NOT NULL,
+ `status` varchar(10) DEFAULT NULL,
  `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY (`qid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
