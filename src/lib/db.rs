@@ -127,7 +127,8 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                     playlist: playlist,
                                     compress: compress,
                                     to: to,
-                                    from: from };
+                                    from: from,
+                                    source_type: from_value::<i16>(result[2].clone()) };
     Some(download_db)
 }
 

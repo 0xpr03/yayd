@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 
 use CONFIG;
 
+use QUALITY_CODE_YT_PLAYLIST;
+
 use std::ascii::AsciiExt;
 
 #[derive(Debug)]
@@ -56,15 +58,19 @@ pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) ->
 
 ///Return whether the quality is a split container or not: video only
 ///as specified in the docs
-pub fn is_split_container(quality: &i16) -> bool {
-    if CONFIG.extensions.mp3.contains(quality) {
-        false
-    } else if CONFIG.extensions.aac.contains(quality) {
-        false
-    } else if CONFIG.extensions.m4a.contains(quality) {
-        false
+pub fn is_split_container(quality: &i16, source_type: &i16) -> bool {
+    if *source_type <= QUALITY_CODE_YT_PLAYLIST {
+        if CONFIG.extensions.mp3.contains(quality) {
+            false
+        } else if CONFIG.extensions.aac.contains(quality) {
+            false
+        } else if CONFIG.extensions.m4a.contains(quality) {
+            false
+        } else {
+            true
+        }
     } else {
-        true
+        false
     }
 }
 

@@ -29,6 +29,7 @@ static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
 static CODE_FAILED_INTERNAL: i8 = 10; // internal error
 static CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
 static CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
+static QUALITY_CODE_YT_PLAYLIST: i16 = 1;
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {
@@ -174,7 +175,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     let is_splitted_video = if dmca {
         false
     } else {
-        lib::is_split_container(&downl_db.quality)
+        lib::is_split_container(&downl_db.quality, &downl_db.source_type)
     };
     let convert_audio = CONFIG.extensions.mp3.contains(&downl_db.quality);
     
