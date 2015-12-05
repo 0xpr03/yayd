@@ -216,8 +216,8 @@ impl<'a> Downloader<'a>{
                             Some(cap) => {
                                         trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         name = cap.at(1).unwrap().to_string();
-                                        try!(child.kill());
-                                        trace!("killed it");
+                                        try!(child.wait());
+                                        trace!("done");
                                         return Ok(name);
                                     },
                             None => (),
@@ -371,6 +371,10 @@ impl<'a> Downloader<'a>{
         match Command::new("youtube-dl")
                                     .arg("-s")
                                     .arg("--no-warnings")
+                                    .arg("--playlist-start")
+                                    .arg("1")
+                                    .arg("--playlist-end")
+                                    .arg("1")
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
