@@ -20,7 +20,7 @@ pub fn initialize() {
 
 fn init_file() {
     match log4rs::init_file(LOG_CONFIG, Default::default()) {
-        Ok(_) => {},
+        Ok(_) => (),
         Err(e) => panic!("Log initialisation failed! {:?}",e),
     }
 }

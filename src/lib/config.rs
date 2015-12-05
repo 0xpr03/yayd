@@ -128,21 +128,35 @@ lib_bin = "/binary" #path to binary
 lib_args = ["arg1", "arg2"] #additional arguments
 lib_dir = "/" #working dir to use
 
+[codecs]
+#values used from external
+audio_mp3 = -1
+audio_raw = -2
+audio_source_hq = -3
+
 #see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
 #the individual values for video-downloads are set by the db-entry
 #these values here are for music/mp3 extract/conversion
-[codecs]
-audio_mp3 = 1
-audio_raw = 140
-audio_source_hq = 22
+[codecs.yt]
+audio_normal = 140
+audio_hq = 22
+
+#quality ids for twitch
+[codecs.twitch]
+-10 = Mobile
+-11 = Low
+-12 = Medium
+-13 = High
+-14 = Source
+
 
 #which file ending should be used for the quality codes from youtube
 [extensions]
-aac = [140,22]
-mp3 = [1]
+aac = [-2,-3]
+mp3 = [-1]
 m4a = []
 mp4 = [299,298,137,136,135,134,133,22,18]
-flv = [5]
+flv = []
 
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
