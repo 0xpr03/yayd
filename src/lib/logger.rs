@@ -26,18 +26,29 @@ fn init_file() {
 }
 
 fn init_config() {
-    let root = log4rs::config::Root::builder(log::LogLevelFilter::max())
-        .appender("console".to_string())
-        .appender("file".to_string());
     let console = Box::new(log4rs::appender::ConsoleAppender::builder()
         .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
         .build());
-    let file = Box::new(log4rs::appender::FileAppender::builder("log/hc_log.log")
-        .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
-        .build().unwrap()); // this needs to be catched, can faiL!
-    let config = log4rs::config::Config::builder(root.build())
-        .appender(log4rs::config::Appender::builder("console".to_string(), console).build())
-        .appender(log4rs::config::Appender::builder("file".to_string(), file).build());
+    
+    let file_appender = log4rs::appender::FileAppender::builder("log/hc_log.log")
+        .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap()).build();
+    let file_success = file_appender.is_ok();
+    
+    let mut root = log4rs::config::Root::builder(log::LogLevelFilter::max())
+        .appender("console".to_string());
+    if file_success {
+        root = root.appender("file".to_string());
+    }else{
+        error!("Could not initialize file based logging!");
+    }
+    
+    let mut config = log4rs::config::Config::builder(root.build())
+        .appender(log4rs::config::Appender::builder("console".to_string(), console).build());
+    if file_success {
+		let file = Box::new(file_appender.unwrap());
+        config = config.appender(log4rs::config::Appender::builder("file".to_string(), file).build());
+	}
+        
     println!("{:?}",log4rs::init_config(config.build().unwrap()));
     warn!("No log config file found, please create file {}",LOG_CONFIG);
     warn!("According to https://github.com/sfackler/log4rs");
