@@ -8,6 +8,8 @@ use std::fs::File;
 
 use std::process::exit;
 
+use std::collections::BTreeMap;
+
 use CONFIG_PATH;
 use lib::{self,l_expect};
 
@@ -57,6 +59,14 @@ pub struct ConfigCodecs {
     pub audio_raw: i16,
     pub audio_source_hq: i16,
     pub audio_mp3: i16,
+    pub yt: ConfigYT,
+    pub twitch: BTreeMap<String,String>, 
+}
+
+#[derive(Debug, RustcDecodable,Clone)]
+pub struct ConfigYT {
+    pub audio_normal: i16,
+    pub audio_hq: i16,
 }
 
 #[derive(Debug, RustcDecodable,Clone)]
@@ -142,12 +152,13 @@ audio_normal = 140
 audio_hq = 22
 
 #quality ids for twitch
+#quality id - twitch quality
 [codecs.twitch]
--10 = Mobile
--11 = Low
--12 = Medium
--13 = High
--14 = Source
+-10 = "Mobile"
+-11 = "Low"
+-12 = "Medium"
+-13 = "High"
+-14 = "Source"
 
 
 #which file ending should be used for the quality codes from youtube
