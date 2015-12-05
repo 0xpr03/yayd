@@ -54,13 +54,11 @@ impl<'a> Downloader<'a>{
         Downloader {ddb: ddb, defaults: defaults}
     }
     
-    ///Regex matching: [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
-    ///
-    ///Downloads a video, updates the DB
-    ///TODO: get the sql statements out of the class
-    ///TODO: wrap errors
-    ///Doesn't care about DMCAs, will emit errors on them
-    ///download_audio: ignore quality & download audio_raw codec for split containers
+    //Regex matching: [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
+    /// Downloads the requested file.
+    /// file_path specifies the download location.
+    /// DMCA errors will get thrown.
+    /// download_audio option: ignore the specified quality & download CONFIG.codecs.yt.audio_normal quality for split containers
     fn download_file_in(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         trace!("{:?}", self.ddb.url);
         
@@ -115,7 +113,7 @@ impl<'a> Downloader<'a>{
 
     }
     
-    ///Wrapper for download_file_fn to retry on Extract Error, appearing randomly
+    /// Wrapper for download_file_fn to retry on Extract Error's, which are appearing randomly.
     pub fn download_file(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         for attempts in 0..2 {
             match self.download_file_in(file_path, download_audio) {
@@ -131,8 +129,8 @@ impl<'a> Downloader<'a>{
         Err(DownloadError::ExtractorError)
     }
     
-    ///Trys to get the original name of a file, while checking for availability
-    ///As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
+    /// Trys to get the original name of a file, while checking for availability
+    /// As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
     pub fn get_file_name(&self) -> Result<String,DownloadError> {
         for attempts in 0..2 {
             let mut child = try!(self.run_filename_process());
@@ -163,7 +161,8 @@ impl<'a> Downloader<'a>{
         Err(DownloadError::ExtractorError)
     }
     
-    ///Get playlist file ids
+    /// Gets the playlist ids needed for furture download requests.
+    /// The output is a vector of IDs
     pub fn get_playlist_ids(&self) -> Result<Vec<String>,DownloadError> {
         let mut child = try!(self.run_playlist_extract());
         trace!("retrieving playlist ids");
@@ -202,7 +201,7 @@ impl<'a> Downloader<'a>{
         Ok(id_list)
     }
     
-    ///Retrive playlist name, will kill the process due to yt-dl starting detail retrieval
+    /// Retrives the playlist name, will kill the process due to yt-dl starting detailed retrieval afterwards.
     pub fn get_playlist_name(&self) -> Result<String,DownloadError> {
         let mut child = try!(self.run_playlist_get_name());
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -270,6 +269,7 @@ impl<'a> Downloader<'a>{
         }
     }
     
+    /// Runs the playlist extraction process.
     fn run_playlist_extract(&self) -> Result<Child,DownloadError> {
         let mut cmd = Command::new("youtube-dl");
         cmd.arg("-s").arg("--dump-json").arg("--flat-playlist");
@@ -291,6 +291,7 @@ impl<'a> Downloader<'a>{
         }
     }
     
+    /// Runs the playlist name retrival process.
     fn run_playlist_get_name(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("-s")
@@ -304,21 +305,22 @@ impl<'a> Downloader<'a>{
         }
     }
 
+    /// Prepares the progress update statement.
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
     fn prepare_progress_updater(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
         conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?").unwrap()
     }
 
-    ///updater called from the stdout progress
+    /// Executes the progress update statement.
     fn update_progress(&self,stmt: &mut Stmt, progress: &str) -> Result<(),DownloadError>{
         try!(stmt.execute((progress,&self.ddb.qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }
 
-    ///This function does a 3rd party binding in case it's needed
-    ///due to the country restrictions
-    ///The returned value has to contain the original video name, the lib has to download & save
-    ///the file to the given location
+    /// This function does a 3rd party binding in case it's needed
+    /// due to the country restrictions
+    /// The returned value has to contain the original video name, the lib has to download & save
+    /// the file to the given location
     pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &String) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd(file_path));
         trace!("Requesting video via lib..");
@@ -365,7 +367,7 @@ impl<'a> Downloader<'a>{
         Ok(out)
     }
 
-    ///Generate the lib-cmd
+    /// Generate the lib command.
     fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.lib_dir);
         
@@ -389,7 +391,7 @@ impl<'a> Downloader<'a>{
             }
     }
 
-    ///Check if the quality is 141, standing for audio or not
+    /// Check if audio is requested or not.
     pub fn is_audio(&self) -> bool {
         if self.ddb.quality == CONFIG.codecs.audio_raw {
             true
