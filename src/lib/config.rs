@@ -124,7 +124,7 @@ temp_dir = "/downloads/temp"
 
 #final destination of downloaded files / playlists
 download_dir = "/downloads"
-download_mbps = 6 #mb/s limit
+download_mbps = 6 #MB/s limit
 mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 
 #folder in which the ffmpeg binary lies

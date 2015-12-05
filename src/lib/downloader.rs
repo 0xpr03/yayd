@@ -90,7 +90,7 @@ impl<'a> Downloader<'a>{
                                             debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                             try!(self.update_progress(&mut statement, cap.at(1).unwrap()));
                                         },
-                                None => {},
+                                None => (),
                             }
                         }
                 },
@@ -182,7 +182,7 @@ impl<'a> Downloader<'a>{
                                         debug!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         id_list.push(cap.at(1).unwrap().to_string());
                                     },
-                            None => {},
+                            None => (),
                         }
                     },
             }
@@ -223,7 +223,7 @@ impl<'a> Downloader<'a>{
                                         trace!("killed it");
                                         return Ok(name);
                                     },
-                            None => {},
+                            None => (),
                         }
                     },
             }
