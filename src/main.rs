@@ -29,7 +29,9 @@ static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
 static CODE_FAILED_INTERNAL: i8 = 10; // internal error
 static CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
 static CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
-static QUALITY_CODE_YT_PLAYLIST: i16 = 1;
+const TYPE_YT_VIDEO: i16 = 0;
+const TYPE_YT_PL: i16 = 1;
+const TYPE_TWITCH: i16 = 2;
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {

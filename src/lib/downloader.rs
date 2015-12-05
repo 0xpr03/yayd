@@ -14,6 +14,7 @@ use lib::DownloadError;
 
 use CONFIG;
 use lib;
+use {TYPE_YT_PL,TYPE_YT_VIDEO,TYPE_TWITCH};
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -62,11 +63,7 @@ impl<'a> Downloader<'a>{
     fn download_file_in(&self, file_path: &str, download_audio: bool) -> Result<bool,DownloadError> {
         trace!("{:?}", self.ddb.url);
         
-        let curr_quality = if download_audio {
-            &CONFIG.codecs.audio_raw
-        }else{
-            &self.ddb.quality
-        };
+        let curr_quality = self.get_quality_name(&download_audio);
         
         trace!("quality: {}",curr_quality);
         let mut child = try!(self.run_download_process(file_path,curr_quality));
@@ -363,6 +360,24 @@ impl<'a> Downloader<'a>{
         if !stderr.is_empty() {
             warn!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
+    /// Returns the quality string used for the current download.
+    /// This changes depending on type & source.
+    fn get_quality_name(&self, download_audio: &bool) -> String {
+        match self.ddb.source_type {
+            TYPE_YT_VIDEO | TYPE_YT_PL => {
+                if *download_audio {
+                    CONFIG.codecs.yt.audio_normal.to_string()
+                }else{
+                    self.ddb.quality.to_string()
+                }
+            },
+            TYPE_TWITCH => {
+                match CONFIG.codecs.twitch.get(&self.ddb.quality.to_string()) {
+                    Some(v) => v.clone(),
+                    None => { warn!("Unknown twitch code!"); 0.to_string() },
+                }
+            },
+            _ => { warn!("Unknown type!"); 0.to_string() },
         }
         //this ONLY works because `filename ` is ascii..
         let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
