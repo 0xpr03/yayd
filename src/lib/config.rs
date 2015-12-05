@@ -96,6 +96,7 @@ pub fn init_config() -> Config {
     config
 }
 
+/// Read config from file.
 pub fn read_config(file: &str) -> Result<Config,ConfigError> {
     let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
     let mut toml = String::new();
@@ -107,6 +108,7 @@ pub fn read_config(file: &str) -> Result<Config,ConfigError> {
     Ok(config)
 }
 
+/// Create, read & write a new config.
 pub fn create_config(path: &str) -> Result<Config,ConfigError> {
     //TODO: replace with import_string
     trace!("Creating config..");

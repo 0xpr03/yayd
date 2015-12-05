@@ -16,7 +16,7 @@ macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!(
 
 macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
 
-
+/// Connect to DBMS, retry on failure.
 pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool { 
     loop {
         match pool::MyPool::new(opts.clone()) {
@@ -53,7 +53,7 @@ pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
 	}
 }
 
-///Update status code for query entry
+/// Update status code for query entrys
 pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
     let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
     let result = stmt.execute((&code,&qid));
@@ -63,12 +63,12 @@ pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<
     }
 }
 
-///Update progress steps for db entry
+/// Update progress steps for db entrys
 pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, finished: bool){
     set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 
-///add file to db including it's name & fid based on qid
+/// Add file to db including it's name & fid based on the qid
 pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
     trace!("name: {}",name);
     let mut conn = pool.get_conn().unwrap();
@@ -80,7 +80,7 @@ pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &s
     }
 }
 
-//add query status msg for error reporting
+/// Add query status msg for error reporting
 pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
     let mut conn = pool.get_conn().unwrap();
     let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
@@ -91,7 +91,7 @@ pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
     }
 }
 
-///Request an entry from the DB to handle
+/// Request an entry from the DB to handle
 pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     let mut conn = try_reoption!(pool.get_conn());
     let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,`type`,quality,zip,`from`,`to` FROM querydetails \
@@ -132,7 +132,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
     Some(download_db)
 }
 
-///Set dbms connection settings
+/// Set DBMS connection settings
 pub fn mysql_options() -> MyOpts {
     MyOpts {
         tcp_addr: Some(CONFIG.db.ip.clone()),

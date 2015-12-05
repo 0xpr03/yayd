@@ -123,18 +123,18 @@ fn main() {
     }
 }
 
-///Download handler
-///Used by the playlist/file handler to download one file
-///Based on the quality it needs to download audio & video separately and convert them together
-///In case of a playlist download it depends on the target download folder & if it should be bezipped
-///In case of a DMCA we need to download the file via the socket connector,
-///which will output a mp3, or if requested, the video but with the highest quality.
-///Thus in case of a DMCA we can't pick a quality anymore.
-///Also the filename depends on the socket output then.
+/// Download handler
+/// Used by the playlist/file handler to download one file
+/// Based on the quality it needs to download audio & video separately and convert them together
+/// In case of a playlist download it depends on the target download folder & if it should be bezipped
+/// In case of a DMCA we need to download the file via the socket connector,
+/// which will output a mp3, or if requested, the video but with the highest quality.
+/// Thus in case of a DMCA we can't pick a quality anymore.
+/// Also the filename depends on the socket output then.
 ///
-///If it's a non-zipped single file, it's moved after a successful download, converted etc to the
-///main folder from which it should be downloadable.
-///The original non-ascii & url_encode'd name of the file is stored in the DB
+/// If it's a non-zipped single file, it's moved after a successful download, converted etc to the
+/// main folder from which it should be downloadable.
+/// The original non-ascii & url_encode'd name of the file is stored in the DB
 fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
     //update progress
     let is_zipped = match *folder {
@@ -263,10 +263,10 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     }
 }
 
-///Handles a playlist request
-///If zipping isn't requested the downloads will be split up,
-///so for each video in the playlist an own query entry will be created
-///if warnings occured (unavailable video etc) the return will be true
+/// Handles a playlist request
+/// If zipping isn't requested the downloads will be split up,
+/// so for each video in the playlist an own query entry will be created
+/// if warnings occured (unavailable video etc) the return will be true
 fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
     let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);

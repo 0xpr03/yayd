@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::fs::metadata;
 use std::default::Default;
 
+/// Initializes the logger.
 pub fn initialize() {
     let mut log_path = get_executable_folder().unwrap_or(std::path::PathBuf::from("/"));
     log_path.set_file_name(LOG_CONFIG);
@@ -18,6 +19,7 @@ pub fn initialize() {
     }
 }
 
+/// Initialize log config from file
 fn init_file() {
     match log4rs::init_file(LOG_CONFIG, Default::default()) {
         Ok(_) => (),
@@ -25,6 +27,8 @@ fn init_file() {
     }
 }
 
+/// Initialize a fallback configurated logger.
+/// Conisiting of log to conole & if possible to file.
 fn init_config() {
     let console = Box::new(log4rs::appender::ConsoleAppender::builder()
         .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
