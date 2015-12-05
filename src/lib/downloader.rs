@@ -230,9 +230,59 @@ impl<'a> Downloader<'a>{
         
         Err(DownloadError::DownloadError("no playlist name".to_string()))
     }
+    
+    /// This function does a 3rd party binding in case it's needed
+    /// due to the country restrictions
+    /// The returned value has to contain the original video name, the lib has to download & save
+    /// the file to the given location
+    pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &String) -> Result<String,DownloadError> {
+        let mut child = try!(self.lib_request_video_cmd(file_path));
+        trace!("Requesting video via lib..");
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+
+        let re = regex!(r"step (\d)");
+        
+        let mut last_line = String::new();
+        for line in stdout.lines(){
+            match line{
+                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why));panic!();},
+                Ok(text) => {
+                        trace!("Out: {}",text);
+                        match re.captures(&text) {
+                            Some(cap) => {
+                                        debug!("Match: {}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        if !self.ddb.playlist {
+                                            lib::db::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
+                                        }
+                                    },
+                            None => {last_line = text.clone()},
+                        }
+                    },
+            }
+        }
+        
+        trace!("reading stderr");
+        
+        let mut stderr: String = String::new();
+        try!(stderr_buffer.read_to_string(&mut stderr));
+        
+
+        try!(child.wait());
+        
+        if !stderr.is_empty() {
+            warn!("stderr: {:?}", stderr);
+            return Err(DownloadError::InternalError(stderr));
+        }
+        //this ONLY works because `filename ` is ascii..
+        let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
+        out = lib::url_encode(&out);//stdout.trim();
+        
+        Ok(out)
+    }
 
 	/// Formats the download command.
-    fn run_download_process(&self, file_path: &str, quality: &i16) -> Result<Child,DownloadError> {
+    fn run_download_process(&self, file_path: &str, quality: String) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
                                     .arg("--newline")
                                     .arg("--no-warnings")
@@ -268,6 +318,30 @@ impl<'a> Downloader<'a>{
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
+    }
+    
+    /// Generate the lib command.
+    fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
+        let java_path = Path::new(&self.defaults.lib_dir);
+        
+        debug!("{} {:?} -q {} -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality, file_path, !self.is_audio(), self.ddb.url);
+        match Command::new(&self.defaults.lib_bin)
+                                        .current_dir(&java_path)
+                                        .args(&self.defaults.lib_args)
+                                        .arg("-q")
+                                        .arg(&self.ddb.quality.to_string())
+                                        .arg("-f")
+                                        .arg(file_path)
+                                        .arg("-v")
+                                        .arg((!self.is_audio()).to_string())
+                                        .arg(&self.ddb.url)
+                                        .stdin(Stdio::null())
+                                        .stdout(Stdio::piped())
+                                        .stderr(Stdio::piped())
+                                        .spawn() {
+                Err(why) => {warn!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
+                Ok(process) => Ok(process),
+            }
     }
     
     /// Runs the playlist extraction process.
@@ -318,48 +392,6 @@ impl<'a> Downloader<'a>{
         //-> only return errors, ignore the return value of stmt.execute
     }
 
-    /// This function does a 3rd party binding in case it's needed
-    /// due to the country restrictions
-    /// The returned value has to contain the original video name, the lib has to download & save
-    /// the file to the given location
-    pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &String) -> Result<String,DownloadError> {
-        let mut child = try!(self.lib_request_video_cmd(file_path));
-        trace!("Requesting video via lib..");
-        let stdout = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
-
-        let re = regex!(r"step (\d)");
-        
-        let mut last_line = String::new();
-        for line in stdout.lines(){
-            match line{
-                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why));panic!();},
-                Ok(text) => {
-                        trace!("Out: {}",text);
-                        match re.captures(&text) {
-                            Some(cap) => {
-                                        debug!("Match: {}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        if !self.ddb.playlist {
-                                            lib::db::update_steps(&self.ddb.pool ,&self.ddb.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
-                                        }
-                                    },
-                            None => {last_line = text.clone()},
-                        }
-                    },
-            }
-        }
-        
-        trace!("reading stderr");
-        
-        let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
-        
-
-        try!(child.wait());
-        
-        if !stderr.is_empty() {
-            warn!("stderr: {:?}", stderr);
-            return Err(DownloadError::InternalError(stderr));
     /// Returns the quality string used for the current download.
     /// This changes depending on type & source.
     fn get_quality_name(&self, download_audio: &bool) -> String {
@@ -379,35 +411,6 @@ impl<'a> Downloader<'a>{
             },
             _ => { warn!("Unknown type!"); 0.to_string() },
         }
-        //this ONLY works because `filename ` is ascii..
-        let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
-        out = lib::url_encode(&out);//stdout.trim();
-        
-        Ok(out)
-    }
-
-    /// Generate the lib command.
-    fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
-        let java_path = Path::new(&self.defaults.lib_dir);
-        
-        debug!("{} {:?} -q {} -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality, file_path, !self.is_audio(), self.ddb.url);
-        match Command::new(&self.defaults.lib_bin)
-                                        .current_dir(&java_path)
-                                        .args(&self.defaults.lib_args)
-                                        .arg("-q")
-                                        .arg(&self.ddb.quality.to_string())
-                                        .arg("-f")
-                                        .arg(file_path)
-                                        .arg("-v")
-                                        .arg((!self.is_audio()).to_string())
-                                        .arg(&self.ddb.url)
-                                        .stdin(Stdio::null())
-                                        .stdout(Stdio::piped())
-                                        .stderr(Stdio::piped())
-                                        .spawn() {
-                Err(why) => {warn!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
-                Ok(process) => Ok(process),
-            }
     }
 
     /// Check if audio is requested or not.
