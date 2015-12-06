@@ -287,13 +287,12 @@ impl<'a> Downloader<'a>{
                                     .arg("--newline")
                                     .arg("--no-warnings")
                                     .arg("-r")
-                                    .arg(format!("{}M",self.defaults.download_mbps * 8)) // yt-dl uses MB/s, we're using MBit/s
+                                    .arg(format!("{}M",self.defaults.download_mbps / 8)) // yt-dl uses MB/s, we're using MBit/s
                                     .arg("-f")
                                     .arg(quality.to_string())
                                     .arg("-o")
                                     .arg(file_path)
-                                    .arg("--ffmpeg-location") // this is needed for twitch extraction
-                                    .arg(&CONFIG.general.ffmpeg_bin_dir)
+                                    .arg("--hls-prefer-native") // this is needed for twitch extraction
                                     .arg(&self.ddb.url)
                                     .stdin(Stdio::null())
                                     .stdout(Stdio::piped())
@@ -325,7 +324,7 @@ impl<'a> Downloader<'a>{
     fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.lib_dir);
         
-        debug!("{} {:?} -q {} -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality, file_path, !self.is_audio(), self.ddb.url);
+        debug!("{} {:?} -q {} -r {}M -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality,self.defaults.download_mbps, file_path, !self.is_audio(), self.ddb.url);
         match Command::new(&self.defaults.lib_bin)
                                         .current_dir(&java_path)
                                         .args(&self.defaults.lib_args)
