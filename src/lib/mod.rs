@@ -1,3 +1,5 @@
+extern crate zip;
+
 pub mod config;
 pub mod downloader;
 pub mod converter;
@@ -8,11 +10,11 @@ use lib::downloader::{Downloader};
 
 use mysql::error::MyError;
 use std::env::current_exe;
-use std::process::{Command,Output};
 use std::error::Error;
-use std::{self,io,str};
-use std::fs::{remove_file,rename, metadata};
+use std::{self,io};
+use std::fs::{remove_file,rename, metadata,File,read_dir};
 use std::path::{Path, PathBuf};
+use std::io::{copy};
 
 use CONFIG;
 
@@ -41,6 +43,12 @@ impl From<MyError> for DownloadError {
 impl From<io::Error> for DownloadError {
     fn from(err: io::Error) -> DownloadError {
         DownloadError::InternalError(err.description().into())
+    }
+}
+
+impl From<zip::result::ZipError> for DownloadError {
+    fn from(err: zip::result::ZipError) -> DownloadError {
+        DownloadError::InternalError(format!("{}: {}",err, err.description()))
     }
 }
 
@@ -171,21 +179,31 @@ pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Do
 	debug!("Path: {}",path.to_string_lossy());
     path
 }
-    
-///Zip folder to file
-pub fn zip_folder(folder: &str, zip_name: &str) -> Result<(), DownloadError> {
-    let io = try!(create_zip_cmd(folder,zip_name));
-    trace!("zip stdout: {}\nzip stderr: {}", str::from_utf8(&io.stdout).unwrap(),str::from_utf8(&io.stderr).unwrap());
-    if str::from_utf8(&io.stderr).unwrap().contains("error") {
-        return Err(DownloadError::DownloadError(format!("error: {:?}",&io.stdout)))
-    }
-    Ok(())
-}
 
-fn create_zip_cmd(folder: &str, zip_file: &str) -> Result<Output, DownloadError> {
-    match Command::new("tar").arg("-zcf").arg(zip_file).arg("-C").arg(folder).arg(".").output() {
-                     Err(e) => Err(DownloadError::InternalError(format!("failed to zip: {}", e))),
-                     Ok(v) => Ok(v),
+/// Zips all files inside folder into one file
+pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> {
+    trace!("Starting zipping..");
+    let mut dir = PathBuf::from(&CONFIG.general.temp_dir);
+    dir.push(folder);
+    
+    if try!(metadata(dir.as_path())).is_dir() {
+        
+        let output_file = try!(File::create(zip_path));
+    	let mut writer = zip::ZipWriter::new(output_file);
+        
+        for entry in try!(read_dir(dir)) {
+            let entry = try!(entry);
+            if try!(entry.metadata()).is_file() {
+                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Deflated));
+                let mut reader = try!(File::open(entry.path()));
+                try!(copy(& mut reader,& mut writer));
+            }
+        }
+        try!(writer.finish());
+        trace!("finsiehd zipping");
+        Ok(())
+    }else{
+        Err(DownloadError::InternalError("zip source is not a folder!".to_string()))
     }
 }
 
