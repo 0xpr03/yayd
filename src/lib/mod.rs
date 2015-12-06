@@ -153,12 +153,9 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
     }
 }
 
-///Return valid path for the file cache
-///Checking for doubles, making the path unique
-///If there should be files up till file_name-100.extension it will fail using the same name again!
-pub fn format_save_path<'a>(folder: Option<String>, name: &str, download: &'a Downloader) -> PathBuf {
+/// Returns a unique path, if the file already exists, a '-X' number will be added to it.
+pub fn format_save_path<'a>(folder: Option<String>, name: &str, extension: &'a str) -> PathBuf {
     let clean_name = &file_encode(&name);
-    let extension = get_file_ext(download);
     let mut path = PathBuf::from(&CONFIG.general.download_dir);
 	match folder {
 	    Some(v) => path.push(v),
