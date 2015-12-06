@@ -95,6 +95,12 @@ fn main() {
                 },
                 Err(e) => {
                     warn!("Error: {:?}", e);
+                    if result.source_type == TYPE_TWITCH {
+                        match lib::cleanup_temp_folder() {
+                            Err(e) => error!("error doing cleanup {:?}", e),
+                            Ok(_) => (),
+                        }
+                    }
                     match e {
                         DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
                         DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,

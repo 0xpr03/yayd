@@ -1,3 +1,4 @@
+extern crate regex;
 extern crate zip;
 
 pub mod config;
@@ -21,6 +22,12 @@ use CONFIG;
 use {TYPE_YT_PL,TYPE_YT_VIDEO};
 
 use std::ascii::AsciiExt;
+
+const TWITCH_FILE_PART_REGEX: &'static str = r"\d+\.part(-Frag\d+(\.part|)|)"; // regex to match twitch part files
+
+macro_rules! regex(
+    ($s:expr) => (regex::Regex::new($s).unwrap());
+);
 
 #[derive(Debug)]
 pub enum DownloadError{
@@ -198,6 +205,24 @@ pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> 
     }else{
         Err(DownloadError::InternalError("zip source is not a folder!".to_string()))
     }
+}
+
+/// Cleans the temp folder from twitch part files
+/// This is necessary on failed twitch downloads as the part files remain
+pub fn cleanup_temp_folder() -> Result<(),DownloadError> {
+    let re = regex!(TWITCH_FILE_PART_REGEX);
+    
+    for entry in l_expect(read_dir(&CONFIG.general.temp_dir), "reading temp dir") {
+        let entry = try!(entry);
+        if re.is_match(&entry.file_name().to_string_lossy().into_owned()) {
+            match remove_file(&entry.path()) {
+                Err(e) => warn!("couldn't delete file {}",e),
+                Ok(_) => (),
+            }
+        }
+    }
+    
+    Ok(())
 }
 
 /// Delete all files in the list
