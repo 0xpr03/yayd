@@ -1,7 +1,7 @@
 [package]
 name = "yayd-backend"
-version = "0.0.3"
-authors = ["Aron Heinecke <aron.heinecke@t-online.de"]
+version = "0.0.4"
+authors = ["Aron Heinecke <aron.heinecke@t-online.de>"]
 
 [[bin]]
 name = "yayd-backend"
@@ -10,15 +10,16 @@ name = "yayd-backend"
 #lto = true
 
 [dependencies]
-lazy_static = "0.1.11"
-toml = "0.1.21"
-rustc-serialize = "0.3.15"
+lazy_static = "0.1.15"
+toml = "0.1.23"
+rustc-serialize = "0.3.16"
 log = "0.3.3"
 log4rs = "0.3.3"
+zip = "0.1.14"
 #hyper = "0.3.13"
 
 [dependencies.mysql]
-mysql = "0.14.0"
+mysql = "0.20.1"
 default-features = false
 
 [dependencies.regex]
