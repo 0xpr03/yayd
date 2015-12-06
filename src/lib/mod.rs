@@ -114,8 +114,8 @@ pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) ->
     }
 }
 
-///Return an sanitized String (url encode still required)
-pub fn url_encode(input: &str) -> String {
+/// Returns a sanitized String, usable via url encode
+pub fn url_sanitize(input: &str) -> String {
     // iterator over input, apply function to each element(function
     input.chars().map(|char| {
         match char {
