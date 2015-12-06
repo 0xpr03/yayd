@@ -69,15 +69,16 @@ pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, 
 }
 
 /// Add file to db including it's name & fid based on the qid
-pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str){
-    trace!("name: {}",name);
+pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str) -> Result<(), DownloadError> {
+    trace!("name: {:?}",name);
     let mut conn = pool.get_conn().unwrap();
-    let mut stmt = conn.prepare("INSERT INTO files (fid,name,rname,valid) VALUES (?,?,?,?)").unwrap();
-    let result = stmt.execute((fid,&real_name,&name,&1)); // why is this var needed ?!
-    match result {
-        Ok(_) => (),
-        Err(why) => error!("Error adding file: {}",why),
-    }
+    let mut stmt = conn.prepare("INSERT INTO files (fid,rname,name,valid) VALUES (?,?,?,?)").unwrap();
+    try!(stmt.execute((fid,&real_name,&name,&1))); // why is this var needed ?!
+//    match result {
+//        Ok(_) => (),
+//        Err(why) => error!("Error adding file: {}",why),
+//    }
+	Ok(())
 }
 
 /// Add query status msg for error reporting
