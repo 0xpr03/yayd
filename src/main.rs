@@ -201,19 +201,22 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         }
         
         //download first file, download audio raw source if specified or video
-        try!(download.download_file(&temp_path, convert_audio));
+        match download.download_file(&temp_path, convert_audio) {
+            Err(e) => {file_db.pop(); return Err(e); },
+            Ok(_) => (),
+        }
         
         if is_splitted_video {
             // download audio file & convert together
             if !downl_db.compress {
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
             }
-
+			
             let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
-            file_db.push(audio_path.clone());
             
             trace!("Downloading audio.. {}", audio_path);
             try!(download.download_file(&audio_path, true));
+            file_db.push(audio_path.clone());
             
             if !downl_db.compress {
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 4, total_steps,false);
