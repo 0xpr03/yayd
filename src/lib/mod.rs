@@ -147,7 +147,11 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
 /// Returns a unique path, if the file already exists, a '-X' number will be added to it.
 pub fn format_save_path<'a>(folder: Option<String>, name: &str, extension: &'a str) -> PathBuf {
     let clean_name = &url_sanitize(&name);
-    let mut path = PathBuf::from(&CONFIG.general.download_dir);
+    let mut path = if folder.is_some() {
+            PathBuf::from(&CONFIG.general.temp_dir)
+    } else {
+        PathBuf::from(&CONFIG.general.download_dir)
+    };
 	match folder {
 	    Some(v) => path.push(v),
 		None => {},
@@ -182,8 +186,9 @@ pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> 
         for entry in try!(read_dir(dir)) {
             let entry = try!(entry);
             if try!(entry.metadata()).is_file() {
-                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Deflated));
+                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Stored));
                 let mut reader = try!(File::open(entry.path()));
+                let _ = reader.sync_data();
                 try!(copy(& mut reader,& mut writer));
             }
         }

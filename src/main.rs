@@ -19,7 +19,7 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir_all};
 
-static VERSION : &'static str = "0.3"; // String not valid
+static VERSION : &'static str = "0.4"; // String not valid
 static CONFIG_PATH : &'static str = "config.cfg";
 static LOG_CONFIG: &'static str = "log.conf";
 static LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
@@ -250,7 +250,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
     file_db.pop();
     
     if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        db::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&save_path.file_name().unwrap().to_string_lossy(), &name);
+        try!(db::add_file_entry(&downl_db.pool.clone(), &downl_db.qid,&save_path.file_name().unwrap().to_string_lossy(), &name));
     }
     if !downl_db.compress {
         db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, true);
@@ -339,7 +339,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         let zip_file = lib::format_save_path(None, &lib::url_sanitize(&playlist_name),"zip");
         trace!("zip file: {} \n zip source {}",zip_file.to_string_lossy(), &downl_db.folder);
         try!(lib::zip_folder(&downl_db.folder, zip_file));
-        db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name);
+        try!(db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name));
         
         current_step += 1;
         db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
