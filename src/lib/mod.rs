@@ -100,6 +100,8 @@ pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
             "mp4"
         } else if CONFIG.extensions.flv.contains(&download.ddb.quality) {
             "flv"
+        } else if CONFIG.extensions.webm.contains(&download.ddb.quality) {
+            "webm"
         } else {
             "unknown"
         }
@@ -120,23 +122,12 @@ pub fn url_sanitize(input: &str) -> String {
     input.chars().map(|char| {
         match char {
             '\'' | '"' | '\\' => '_',
-            '&' => '-',
             c if c.is_ascii() => c,
             _ => '_'
         }
     }).collect()
     // match for each char, then do collect: loop through the iterator, collect all elements
     // into container FromIterator
-}
-
-///Removes file name invalid chars
-pub fn file_encode(input: &str) -> String {
-    input.chars().map(|char| {
-        match char {
-            '\\' | '/' | '\0' => '_',
-            c => c,
-        }
-    }).collect()
 }
 
 ///Format save location for file, zip dependent
@@ -155,7 +146,7 @@ pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> Strin
 
 /// Returns a unique path, if the file already exists, a '-X' number will be added to it.
 pub fn format_save_path<'a>(folder: Option<String>, name: &str, extension: &'a str) -> PathBuf {
-    let clean_name = &file_encode(&name);
+    let clean_name = &url_sanitize(&name);
     let mut path = PathBuf::from(&CONFIG.general.download_dir);
 	match folder {
 	    Some(v) => path.push(v),
