@@ -17,7 +17,7 @@ Errors like undownloadable files & unavailable qualitys are reported back via co
 See [codes.md](codes.md) for more information. Complete failures are logged in 
   
 One such GUI/Frontend/Website could look like this:
-[GUI Example](***REMOVED***)
+[GUI Example](yadyd_gui.png)
 It is the current frontend used by the author.
   
 ## About quality, queries & the config
