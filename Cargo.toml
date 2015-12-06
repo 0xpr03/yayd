@@ -15,7 +15,7 @@ toml = "0.1.23"
 rustc-serialize = "0.3.16"
 log = "0.3.3"
 log4rs = "0.3.3"
-zip = "0.1.14"
+zip = "0.1.15"
 #hyper = "0.3.13"
 
 [dependencies.mysql]

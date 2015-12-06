@@ -186,14 +186,14 @@ pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> 
         for entry in try!(read_dir(dir)) {
             let entry = try!(entry);
             if try!(entry.metadata()).is_file() {
-                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Stored));
+                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Deflated));
                 let mut reader = try!(File::open(entry.path()));
                 let _ = reader.sync_data();
                 try!(copy(& mut reader,& mut writer));
             }
         }
         try!(writer.finish());
-        trace!("finsiehd zipping");
+        trace!("finished zipping");
         Ok(())
     }else{
         Err(DownloadError::InternalError("zip source is not a folder!".to_string()))
