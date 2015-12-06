@@ -16,6 +16,7 @@ use lib::{self,l_expect};
 // pub mod config;
 // Config section
 
+/// Config Error struct
 #[derive(Debug)]
 pub enum ConfigError {
     ReadError,
@@ -24,6 +25,7 @@ pub enum ConfigError {
     ParseError,
 }
 
+/// Main config struct
 #[derive(Debug, RustcDecodable)]
 pub struct Config {
     pub db: ConfigDB,
@@ -32,6 +34,7 @@ pub struct Config {
     pub extensions: Extensions,
 }
 
+/// Config struct DBMS related
 #[derive(Debug, RustcDecodable)]
 pub struct ConfigDB {
     pub user: String,
@@ -41,6 +44,7 @@ pub struct ConfigDB {
     pub ip: String,
 }
 
+/// General settings config struct
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct ConfigGen{
     pub temp_dir: String, // folder to temp. save the raw files
@@ -54,6 +58,7 @@ pub struct ConfigGen{
     pub lib_args: Vec<String>,
 }
 
+/// Codec config struct
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct ConfigCodecs {
     pub audio_raw: i16,
@@ -63,6 +68,7 @@ pub struct ConfigCodecs {
     pub twitch: BTreeMap<String,String>, 
 }
 
+/// Youtube config struct
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct ConfigYT {
     pub audio_normal_mp4: i16,
@@ -70,6 +76,7 @@ pub struct ConfigYT {
     pub audio_hq: i16,
 }
 
+/// Extensions config struct
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct Extensions {
     pub aac: Vec<i16>,

@@ -52,8 +52,8 @@ impl From<zip::result::ZipError> for DownloadError {
     }
 }
 
-///Custom expect function logging the error and a msg when panicing
-///&'static str to prevent the usage of format!(), which would result in overhead
+/// Custom expect function logging errors plus custom messages on panic
+/// &'static str to prevent the usage of format!(), which would result in overhead
 #[inline]
 pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) -> T {
     match result {
@@ -64,8 +64,8 @@ pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) ->
     }
 }
 
-///Return whether the quality is a split container or not: video only
-///as specified in the docs
+/// Return whether the quality is a split container or not
+/// as specified in the docs
 pub fn is_split_container(quality: &i16, source_type: &i16) -> bool {
     match *source_type {
         TYPE_YT_VIDEO | TYPE_YT_PL => {
@@ -85,7 +85,7 @@ pub fn is_split_container(quality: &i16, source_type: &i16) -> bool {
     }
 }
 
-///Returns the file extension
+/// Returns the file extension to be used depending on the quality
 pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     if download.is_audio() {
         if CONFIG.extensions.aac.contains(&download.ddb.quality) {
@@ -108,7 +108,7 @@ pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
     }
 }
 
-///Move file to location
+/// Move file to location
 pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<(),DownloadError> {
     match rename(original, destination) { // no try possible..
         Err(v) => Err(v.into()),
@@ -127,11 +127,11 @@ pub fn url_sanitize(input: &str) -> String {
         }
     }).collect()
     // match for each char, then do collect: loop through the iterator, collect all elements
-    // into container FromIterator
+    // into container from iterator
 }
 
-///Format save location for file, zip dependent
-///audio files get an 'a' as suffix
+/// Format temp save location, zip dependent
+/// audio files get an 'a' as suffix
 pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
     let suffix = if audio {
         "a"
@@ -200,7 +200,7 @@ pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> 
     }
 }
 
-///Delete all files in the list
+/// Delete all files in the list
 pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
     for file in files.iter() {
         trace!("deleting {}",file);
@@ -209,6 +209,7 @@ pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
     Ok(())
 }
 
+/// Returns the current executable folder
 pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
     let mut folder = try!(current_exe());
     folder.pop();

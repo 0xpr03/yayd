@@ -27,7 +27,7 @@ impl<'a> Converter<'a> {
         Converter{ffmpeg_cmd: ffmpeg_cmd,mp3_quality: mp3_quality, pool: pool}
     }
 
-    ///Merge audo & video file to one, using ffmpeg, saving directly at the dest. folder
+    /// Merge audo & video files to one
     pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
         trace!("progress {}",show_progress);
         let max_frames: i64 = try!(self.get_max_frames(video_file));
@@ -67,6 +67,8 @@ impl<'a> Converter<'a> {
         Ok(())
     }
     
+    /// Extract audio from video files
+    /// If set audio will be converted to mp3 on the fly
     pub fn extract_audio(&self, video_file: &'a str, output_file: &'a str, convert_mp3: bool) -> Result<(), DownloadError> {
         let mut child;
         if convert_mp3 {
@@ -89,13 +91,14 @@ impl<'a> Converter<'a> {
 
         Ok(())
     }
-
+	
+	/// Calculate progress based on current & max frames
     fn caclulate_progress<'b>(&self, max_frames: &i64, current_frame: &str) -> i64 {
         let frame = current_frame.parse::<i64>().unwrap();
         frame / max_frames * 100
     }
 
-    ///retrives the max frames from a video file, needed a percentual progress calculation
+    /// Retrive the max frames from video file for percentual progress calculation
     fn get_max_frames(&self, video_file: &str) -> Result<i64,DownloadError> {
         let mut child = try!(self.create_fps_get_cmd(video_file));
         let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
@@ -177,7 +180,7 @@ impl<'a> Converter<'a> {
         a
     }
     
-    ///Create ffmpeg cmd to extract raw audio from a video file
+    /// Create ffmpeg cmd to extract raw audio from video files
     fn format_extract_audio_cmd(&self, video_file: &str, output_file: &str) -> String {
         let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -vn -acodec 'copy' "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,
@@ -187,7 +190,7 @@ impl<'a> Converter<'a> {
         a
     }
     
-    ///Create ffmpeg cmd to extract audio from a video file & convert it directly to mp3
+    /// Create ffmpeg cmd to extract audio from video files, converting it to mp3
     fn format_convert_audio_mp3_cmd(&self, video_file: &str, output_file: &str) -> String {
         let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a {} "{}" 2>&1 |& tr '\r' '\n'"#,
             self.ffmpeg_cmd,

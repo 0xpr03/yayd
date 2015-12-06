@@ -27,7 +27,7 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
     }
 }
 
-///Set the state of the current query, code dependent, see QueryCodes
+/// Set state of query
 pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool){ // same here
     let mut conn = pool.get_conn().unwrap();
     let progress: i32 = if finished {
@@ -43,6 +43,9 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
     }
 }
 
+/// Set state of query to null
+///
+/// Saves table space for finished downloads
 pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
 	let mut conn = pool.get_conn().unwrap();
 	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL WHERE qid = ?"));
@@ -53,7 +56,8 @@ pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
 	}
 }
 
-/// Update status code for query entrys
+/// Update query status code
+/// Affecting querydetails.code
 pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
     let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
     let result = stmt.execute((&code,&qid));
