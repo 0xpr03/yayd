@@ -1,6 +1,5 @@
-# yayd-backend
+# yayd
 ### Yet another youtube downloader - backend for DB based downloading with proxy support. 
-in short "yayd"
 Supports playlists & mass downloads as zip  
   
 This project was born out of ISP related connection problems with youtube.
