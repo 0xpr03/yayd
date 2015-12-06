@@ -72,7 +72,7 @@ fn main() {
                 }else{
                     action_result = handle_download(result, &None, &converter,&mut left_files);
                 }
-            
+
                 if !left_files.is_empty() {
                     trace!("cleaning up files");
                     for i in &left_files {
@@ -195,7 +195,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         2
     };
     
-    if !dmca {
+    if !dmca { // on dmca the called lib handles splitt videos, only audio conversion has to handled by us
         if !downl_db.compress {
             db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, total_steps,false);
         }
@@ -207,6 +207,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
         }
         
         if is_splitted_video {
+            debug!("splitted video");
             // download audio file & convert together
             if !downl_db.compress {
                 db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 3, total_steps,false);
@@ -229,25 +230,27 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 
             try!(remove_file(&audio_path));
             file_db.pop();
-
-        }else{ // we're already done, only need to copy if it's not raw audio source
-            if !download.is_audio() {
-                try!(lib::move_file(&temp_path, &save_path));
-            }
         }
     }
     
-    if download.is_audio(){ // if audio-> convert m4a to mp3, which converts directly to downl. dir
+    if !is_splitted_video { // if it's no splitted video & no audio we're moving the file, regardless of an earlier DMCA (lib call)
+        debug!("no split container");
+        if !download.is_audio() {
+            try!(lib::move_file(&temp_path, &save_path));
+        }
+    }
+    
+    if download.is_audio(){ // if audio-> convert m4a to mp3 or extract m4a, directly to output file
+    	debug!("is audio file");
         if !downl_db.compress {
             db::update_steps(&downl_db.pool.clone(),&downl_db.qid, total_steps, total_steps, false);
         }
         try!(converter.extract_audio(&temp_path, &save_path.to_string_lossy(), convert_audio));
         try!(remove_file(&temp_path));
     }else{
+        debug!("no audio");
         if is_splitted_video {
             try!(remove_file(&temp_path));
-        }else{
-            try!(lib::move_file(&temp_path, &save_path));
         }
     }
     file_db.pop();
