@@ -287,7 +287,7 @@ impl<'a> Downloader<'a>{
                                     .arg("--newline")
                                     .arg("--no-warnings")
                                     .arg("-r")
-                                    .arg(format!("{}M",self.defaults.download_mbps))
+                                    .arg(format!("{}M",self.defaults.download_mbps * 8)) // yt-dl uses MB/s, we're using MBit/s
                                     .arg("-f")
                                     .arg(quality.to_string())
                                     .arg("-o")
@@ -321,6 +321,7 @@ impl<'a> Downloader<'a>{
     }
     
     /// Generate the lib command.
+    /// binary [args] -q {quality} -r {rate} -f {file} -v {true/false} {url}
     fn lib_request_video_cmd(&self, file_path: &String) -> Result<Child,DownloadError> {
         let java_path = Path::new(&self.defaults.lib_dir);
         
@@ -330,6 +331,8 @@ impl<'a> Downloader<'a>{
                                         .args(&self.defaults.lib_args)
                                         .arg("-q")
                                         .arg(&self.ddb.quality.to_string())
+                                        .arg("-r")
+                                        .arg(format!("{}M", self.defaults.download_mbps))
                                         .arg("-f")
                                         .arg(file_path)
                                         .arg("-v")

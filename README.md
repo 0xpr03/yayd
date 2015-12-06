@@ -39,6 +39,7 @@ cut together with 140 (which is aac mp4 with very low video quality)
 Specify the credentials for a maria/mysql db connection
 ## lib
 You can specify an executable/script which should be called, when the file is not available in your country  
+The arguments from yayd are the following: `-q {quality} -r {rate} -f {file} -v {true/false} {url}`
 Example for calling a java application (`/path/to/jre/java -jar /path/to/jar/application.jar [..]`) :  
 ```toml
 lib_bin = "/path/to/jre/java"

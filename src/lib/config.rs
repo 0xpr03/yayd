@@ -128,14 +128,14 @@ temp_dir = "/downloads/temp"
 
 # final destination of downloaded files / playlists
 download_dir = "/downloads"
-download_mbps = 6 # MB/s limit
+download_mbps = 48 # MBit/s limit
 mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 
 # folder in which the ffmpeg binary lies
 ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 # additional lib callable in case of country-locks
-# will be called with {[optional arguments]} -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
+# will be called with {[optional arguments]} -q {quality} -r {speed limit} -f {dest. file} -v {video/audio -> true/false} {url}
 # the lib's return after 'name: ' will be taken as the name of the video/file to use
 lib_use = false
 lib_bin = "/binary" # path to binary
