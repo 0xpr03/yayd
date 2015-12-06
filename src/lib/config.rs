@@ -65,7 +65,8 @@ pub struct ConfigCodecs {
 
 #[derive(Debug, RustcDecodable,Clone)]
 pub struct ConfigYT {
-    pub audio_normal: i16,
+    pub audio_normal_mp4: i16,
+    pub audio_normal_webm: i16,
     pub audio_hq: i16,
 }
 
@@ -76,6 +77,7 @@ pub struct Extensions {
     pub m4a: Vec<i16>,
     pub mp4: Vec<i16>,
     pub flv: Vec<i16>,
+    pub webm: Vec<i16>,
 }
 
 /// create PathBuf by getting the current working dir
@@ -121,40 +123,41 @@ ip = "127.0.0.1"
 
 [general]
 
-#temporary dir for downloads before the conversion etc
+# temporary dir for downloads before the conversion etc
 temp_dir = "/downloads/temp"
 
-#final destination of downloaded files / playlists
+# final destination of downloaded files / playlists
 download_dir = "/downloads"
-download_mbps = 6 #MB/s limit
+download_mbps = 6 # MB/s limit
 mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 
-#folder in which the ffmpeg binary lies
+# folder in which the ffmpeg binary lies
 ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
-#additional lib callable in case of country-locks
-#will be called with {[optional arguments]} -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
-#the lib's return after 'name: ' will be taken as the name of the video/file to use
+# additional lib callable in case of country-locks
+# will be called with {[optional arguments]} -q {quality} -f {dest. file} -v {video/audio -> true/false} {url}
+# the lib's return after 'name: ' will be taken as the name of the video/file to use
 lib_use = false
-lib_bin = "/binary" #path to binary
-lib_args = ["arg1", "arg2"] #additional arguments
-lib_dir = "/" #working dir to use
+lib_bin = "/binary" # path to binary
+lib_args = ["arg1", "arg2"] # additional arguments
+lib_dir = "/" # working dir to use
 
 [codecs]
-#values used from external
+# values used from external
 audio_mp3 = -1
 audio_raw = -2
 audio_source_hq = -3
 
-#see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
-#the individual values for video-downloads are set by the db-entry
-#these values here are for music/mp3 extract/conversion
+# see https://en.wikipedia.org/wiki/YouTube#Quality_and_formats
+# the individual values for video-downloads are set by the db-entry
+# these values here are for music/mp3 extract/conversion
 [codecs.yt]
-audio_normal = 140
+audio_normal_mp4 = 140
+audio_normal_webm = 171
 audio_hq = 22
 
-#quality ids for twitch
-#quality id - twitch quality
+# quality ids for twitch
+# quality id - twitch quality
 [codecs.twitch]
 -10 = "Mobile"
 -11 = "Low"
@@ -163,14 +166,15 @@ audio_hq = 22
 -14 = "Source"
 
 
-#which file ending should be used for the quality codes from youtube
+# which file ending should be used for the quality codes from youtube
+# this is also needed to download the right audio part for every video container
 [extensions]
 aac = [-2,-3]
 mp3 = [-1]
 m4a = []
 mp4 = [299,298,137,136,135,134,133,22,18]
 flv = []
-
+webm = [303,302,248]
     "#;
     let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
     let config: Config = match decode_str(&toml) {

@@ -398,11 +398,17 @@ impl<'a> Downloader<'a>{
 
     /// Returns the quality string used for the current download.
     /// This changes depending on type & source.
+    ///
+    /// Webm/MP4 have different accepted containers, thus needing other audio source formats
     fn get_quality_name(&self, download_audio: &bool) -> String {
         match self.ddb.source_type {
             TYPE_YT_VIDEO | TYPE_YT_PL => {
                 if *download_audio {
-                    CONFIG.codecs.yt.audio_normal.to_string()
+                    if CONFIG.extensions.webm.contains(&self.ddb.quality) {
+                        CONFIG.codecs.yt.audio_normal_webm.to_string()
+                    }else{
+                    	CONFIG.codecs.yt.audio_normal_mp4.to_string()
+                    }
                 }else{
                     self.ddb.quality.to_string()
                 }
