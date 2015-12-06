@@ -59,7 +59,7 @@ fn main() {
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
-        if let Some(result) = db::request_entry(& pool) {
+        if let Some(mut result) = db::request_entry(& pool) {
             print_pause = true;
             let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
             db::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
@@ -68,9 +68,9 @@ fn main() {
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
                 if result.playlist {
-                    action_result = handle_playlist(result, &converter,&mut left_files);
+                    action_result = handle_playlist(& mut result, &converter,&mut left_files);
                 }else{
-                    action_result = handle_download(result, &None, &converter,&mut left_files);
+                    action_result = handle_download(& result, &None, &converter,&mut left_files);
                 }
 
                 if !left_files.is_empty() {
@@ -135,7 +135,7 @@ fn main() {
 /// If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 /// main folder from which it should be downloadable.
 /// The original non-ascii & url_encode'd name of the file is stored in the DB
-fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
+fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
     //update progress
     let is_zipped = match *folder {
         Some(_) => true,
@@ -273,7 +273,7 @@ fn handle_download<'a>(downl_db: DownloadDB, folder: &Option<String>, converter:
 /// If zipping isn't requested the downloads will be split up,
 /// so for each video in the playlist an own query entry will be created
 /// if warnings occured (unavailable video etc) the return will be true
-fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
+fn handle_playlist(mut downl_db: & mut DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
     let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
@@ -317,8 +317,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         current_url = format!("https://www.youtube.com/watch?v={}",id);
         downl_db.update_video(current_url.clone(), current_step as i64);
         debug!("id: {}",id);
-        let db_copy = downl_db.clone();
-        match handle_download(db_copy, &handler_folder, converter, file_db) {
+        match handle_download(downl_db, &handler_folder, converter, file_db) {
             Err(e) => { warn!("error downloading {}: {:?}",id,e);
                         failed_log.push_str(&format!("{} {:?}\n", current_url, e));
                         warnings = true;
@@ -350,7 +349,7 @@ fn handle_playlist(mut downl_db: DownloadDB, converter: &Converter, file_db: &mu
         current_step += 1;
         db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
         try!(lib::delete_files(file_delete_list));
-        try!(remove_dir_all(downl_db.folder));
+        try!(remove_dir_all(&downl_db.folder));
         file_db.pop();
     }
     
