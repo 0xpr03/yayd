@@ -1,2 +1,3 @@
 /target/
 .settings/com.github.rustdt.ide.core.prefs
+.settings/com.github.rustdt.ide.ui.prefs
