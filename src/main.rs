@@ -19,16 +19,17 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir_all};
 
-static VERSION : &'static str = "0.4"; // String not valid
-static CONFIG_PATH : &'static str = "config.cfg";
-static LOG_CONFIG: &'static str = "log.conf";
-static LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
-static SLEEP_MS: u32 = 5000;
-static CODE_SUCCESS: i8 = 2;
-static CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
-static CODE_FAILED_INTERNAL: i8 = 10; // internal error
-static CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
-static CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
+const VERSION : &'static str = "0.4"; // String not valid
+const CONFIG_PATH : &'static str = "config.cfg";
+const LOG_CONFIG: &'static str = "log.conf";
+const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
+const SLEEP_MS: u32 = 5000;
+const CODE_IN_PROGRESS: i8 = 1;
+const CODE_SUCCESS: i8 = 2;
+const CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
+const CODE_FAILED_INTERNAL: i8 = 10; // internal error
+const CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
+const CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
 const TYPE_YT_VIDEO: i16 = 0;
 const TYPE_YT_PL: i16 = 1;
 const TYPE_TWITCH: i16 = 2;
@@ -59,18 +60,18 @@ fn main() {
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     loop {
-        if let Some(mut result) = db::request_entry(& pool) {
+        if let Some(mut downl_db) = db::request_entry(& pool) {
             print_pause = true;
-            let qid = result.qid.clone();                 //&QueryCodes::InProgress as i32
-            db::set_query_code(&mut pool.get_conn().unwrap(), &1, &result.qid).ok().expect("Failed to set query code!");
+            let qid = downl_db.qid.clone();
+            db::set_query_code(&pool, &CODE_IN_PROGRESS, &downl_db.qid).ok().expect("Failed to set query code!");
             db::set_query_state(&pool.clone(),&qid, "started", false);
             let action_result: Result<Thing,DownloadError>;
             {
                 let mut left_files: Vec<String> = Vec::with_capacity(2);
-                if result.playlist {
-                    action_result = handle_playlist(& mut result, &converter,&mut left_files);
+                if downl_db.playlist {
+                    action_result = handle_playlist(& mut downl_db, &converter,&mut left_files);
                 }else{
-                    action_result = handle_download(& result, &None, &converter,&mut left_files);
+                    action_result = handle_download(& downl_db, &None, &converter,&mut left_files);
                 }
 
                 if !left_files.is_empty() {
@@ -95,7 +96,7 @@ fn main() {
                 },
                 Err(e) => {
                     warn!("Error: {:?}", e);
-                    if result.source_type == TYPE_TWITCH {
+                    if downl_db.source_type == TYPE_TWITCH {
                         match lib::cleanup_temp_folder() {
                             Err(e) => error!("error doing cleanup {:?}", e),
                             Ok(_) => (),
@@ -113,14 +114,14 @@ fn main() {
                                 DownloadError::InternalError(s) => s,
                                 _ => unreachable!(),
                             };
-                            db::add_query_status(&pool.clone(),&qid, &details);
+                            db::add_query_status(&pool,&qid, &details);
                             CODE_FAILED_INTERNAL
                         },
                     }
                 }
             };
-            db::set_query_code(&mut pool.get_conn().unwrap(), &code,&qid).ok().expect("Failed to set query code!");
-			db::set_null_state(&pool.clone(), &qid);
+            db::set_query_code(&pool, &code,&qid).ok().expect("Failed to set query code!");
+			db::set_null_state(&pool, &qid);
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }
@@ -279,7 +280,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
 /// If zipping isn't requested the downloads will be split up,
 /// so for each video in the playlist an own query entry will be created
 /// if warnings occured (unavailable video etc) the return will be true
-fn handle_playlist(mut downl_db: & mut DownloadDB, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
+fn handle_playlist<'a>(downl_db: &'a mut DownloadDB<'a>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
     let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
