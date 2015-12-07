@@ -280,7 +280,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
 /// If zipping isn't requested the downloads will be split up,
 /// so for each video in the playlist an own query entry will be created
 /// if warnings occured (unavailable video etc) the return will be true
-fn handle_playlist<'a>(downl_db: &'a mut DownloadDB<'a>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
+fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
     let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
     db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 1, max_steps,false);
     
