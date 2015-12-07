@@ -1,11 +1,11 @@
 use mysql::conn::MyOpts;
 use mysql::conn::pool;
-use mysql::conn::pool::{MyPooledConn,MyPool};
+use mysql::conn::pool::{MyPool};
 use mysql::value::from_value;
 
 use std::thread::sleep_ms;
 
-use lib::DownloadError;
+use lib::{DownloadError};
 use std::error::Error;
 use lib::downloader::DownloadDB;
 use CONFIG;
@@ -29,12 +29,12 @@ pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool {
 
 /// Set state of query
 pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: bool){ // same here
-    let mut conn = pool.get_conn().unwrap();
     let progress: i32 = if finished {
         100
     }else{
         0
     };
+    let mut conn = try_return!(pool.get_conn());
     let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?"));
     let result = stmt.execute((&state,&progress,qid)); // why is this var needed ?!
     match result {
@@ -46,8 +46,8 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
 /// Set state of query to null
 ///
 /// Saves table space for finished downloads
-pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
-	let mut conn = pool.get_conn().unwrap();
+pub fn set_null_state(pool: & MyPool, qid: &i64){
+    let mut conn = try_return!(pool.get_conn());
 	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL WHERE qid = ?"));
 	let result = stmt.execute((qid,));
 	match result {
@@ -58,7 +58,8 @@ pub fn set_null_state(pool: & pool::MyPool, qid: &i64){
 
 /// Update query status code
 /// Affecting querydetails.code
-pub fn set_query_code(conn: & mut MyPooledConn, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
+pub fn set_query_code(pool: & MyPool, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
+	let mut conn = try!(pool.get_conn());
     let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
     let result = stmt.execute((&code,&qid));
     match result {
@@ -73,17 +74,17 @@ pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, 
 }
 
 /// Add file to db including it's name & fid based on the qid
-pub fn add_file_entry(pool: & pool::MyPool, fid: &i64, name: &str, real_name: &str) -> Result<(), DownloadError> {
+pub fn add_file_entry(pool: & MyPool, fid: &i64, name: &str, real_name: &str) -> Result<(), DownloadError> {
     trace!("name: {}",name);
-    let mut conn = pool.get_conn().unwrap();
+    let mut conn = try!(pool.get_conn());
     let mut stmt = conn.prepare("INSERT INTO files (fid,rname,name,valid) VALUES (?,?,?,?)").unwrap();
     try!(stmt.execute((fid,&real_name,&name,&1))); // why is this var needed ?!
 	Ok(())
 }
 
 /// Add query status msg for error reporting
-pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
-    let mut conn = pool.get_conn().unwrap();
+pub fn add_query_status(pool: & MyPool, qid: &i64, status: &str){
+    let mut conn = try_return!(pool.get_conn());
     let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
     let result = stmt.execute((&qid,&status));
     match result {
@@ -93,7 +94,7 @@ pub fn add_query_status(pool: & pool::MyPool, qid: &i64, status: &str){
 }
 
 /// Request an entry from the DB to handle
-pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
+pub fn request_entry(pool: & MyPool) -> Option<DownloadDB> {
     let mut conn = try_reoption!(pool.get_conn());
     let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,`type`,quality,zip,`from`,`to` FROM querydetails \
                     INNER JOIN queries \
@@ -124,7 +125,7 @@ pub fn request_entry(pool: & pool::MyPool) -> Option<DownloadDB> {
                                     quality: from_value::<i16>(result[3].clone()),
                                     qid: from_value::<i64>(result[0].clone()),
                                     folder: CONFIG.general.temp_dir.clone(),
-                                    pool: pool.clone(),
+                                    pool: pool,
                                     playlist: playlist,
                                     compress: compress,
                                     to: to,

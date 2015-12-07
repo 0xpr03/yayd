@@ -21,7 +21,7 @@ macro_rules! regex(
 );
 
 #[derive(Clone)]
-pub struct DownloadDB {
+pub struct DownloadDB<'a> {
     pub url: String,
     pub quality: i16,
     pub playlist: bool,
@@ -31,14 +31,13 @@ pub struct DownloadDB {
     pub from: i32,
     pub to: i32,
     pub folder: String, // download folder, changes for playlists
-    pub pool: MyPool,
+    pub pool: &'a MyPool,
 }
 
-impl DownloadDB {
-    pub fn update_video(&mut self,url: String, qid: i64) -> &mut DownloadDB{
+impl<'a> DownloadDB<'a> {
+    pub fn update_video(&mut self,url: String, qid: i64){
         self.qid = qid;
         self.url = url;
-        self
     }
     pub fn update_folder(&mut self, folder: String){
         self.folder = folder;
@@ -46,7 +45,7 @@ impl DownloadDB {
 }
 
 pub struct Downloader<'a> {
-    pub ddb: &'a DownloadDB,
+    pub ddb: &'a DownloadDB<'a>,
     defaults: &'a ConfigGen,
 }
 
