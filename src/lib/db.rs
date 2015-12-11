@@ -38,8 +38,7 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
     }else{
         0
     };
-    let mut conn = try_return!(pool.get_conn());
-    let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?"));
+    let mut stmt = try_return!(pool.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?"));
     let result = stmt.execute((&state,&progress,qid)); // why is this var needed ?!
     match result {
         Ok(_) => (),
@@ -48,15 +47,14 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
 }
 
 pub fn clear_query_states(pool: &pool::MyPool) {
-    try_return!(pool.prep_exec("UPDATE querydetails SET code = ?, `luc` = `luc` WHERE code == ? OR code == ?",(CODE_FAILED_INTERNAL,CODE_STARTED, CODE_IN_PROGRESS)));
+    try_return!(pool.prep_exec("UPDATE `querydetails` SET `code` = ?, `status` = NULL, `luc` = `luc` WHERE `code` = ? OR `code` = ?",(CODE_FAILED_INTERNAL,CODE_STARTED, CODE_IN_PROGRESS)));
 }
 
 /// Set state of query to null & finished
 ///
 /// Saves table space for finished downloads & sets progress to 100
 pub fn set_null_state(pool: & MyPool, qid: &i64){
-    let mut conn = try_return!(pool.get_conn());
-	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?"));
+	let mut stmt = try_return!(pool.prepare("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?"));
 	let result = stmt.execute((qid,));
 	match result {
 	    Ok(_) => (),
@@ -67,8 +65,7 @@ pub fn set_null_state(pool: & MyPool, qid: &i64){
 /// Update query status code
 /// Affecting querydetails.code
 pub fn set_query_code(pool: & MyPool, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
-	let mut conn = try!(pool.get_conn());
-    let mut stmt = conn.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
+    let mut stmt = pool.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
     let result = stmt.execute((&code,&qid));
     match result {
         Ok(_) => Ok(()),
@@ -84,16 +81,14 @@ pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, 
 /// Add file to db including it's name & fid based on the qid
 pub fn add_file_entry(pool: & MyPool, fid: &i64, name: &str, real_name: &str) -> Result<(), DownloadError> {
     trace!("name: {}",name);
-    let mut conn = try!(pool.get_conn());
-    let mut stmt = conn.prepare("INSERT INTO files (fid,rname,name,valid) VALUES (?,?,?,?)").unwrap();
+    let mut stmt = pool.prepare("INSERT INTO files (fid,rname,name,valid) VALUES (?,?,?,?)").unwrap();
     try!(stmt.execute((fid,&real_name,&name,&1))); // why is this var needed ?!
 	Ok(())
 }
 
 /// Add query status msg for error reporting
 pub fn add_query_status(pool: & MyPool, qid: &i64, status: &str){
-    let mut conn = try_return!(pool.get_conn());
-    let mut stmt = conn.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
+    let mut stmt = pool.prepare("INSERT INTO querystatus (qid,msg) VALUES (?,?)").unwrap();
     let result = stmt.execute((&qid,&status));
     match result {
         Ok(_) => (),
@@ -103,8 +98,7 @@ pub fn add_query_status(pool: & MyPool, qid: &i64, status: &str){
 
 /// Request an entry from the DB to handle
 pub fn request_entry(pool: & MyPool) -> Option<DownloadDB> {
-    let mut conn = try_reoption!(pool.get_conn());
-    let mut stmt = try_reoption!(conn.prepare("SELECT queries.qid,url,`type`,quality,zip,`from`,`to` FROM querydetails \
+    let mut stmt = try_reoption!(pool.prepare("SELECT queries.qid,url,`type`,quality,zip,`from`,`to` FROM querydetails \
                     INNER JOIN queries \
                     ON querydetails.qid = queries.qid \
                     LEFT JOIN playlists ON queries.qid = playlists.qid \
@@ -121,7 +115,8 @@ pub fn request_entry(pool: & MyPool) -> Option<DownloadDB> {
     let compress;
     let playlist = from_value::<Option<i16>>(result[4].clone()).is_some();
     if playlist {
-        compress = from_value::<Option<i16>>(result[4].clone()).unwrap() == 1;
+        //compress = from_value::<Option<i16>>(result[4].clone()).unwrap() == 1;
+        compress = true;
         from = from_value::<Option<i32>>(result[5].clone()).unwrap();
         to = from_value::<Option<i32>>(result[6].clone()).unwrap();
     } else {
