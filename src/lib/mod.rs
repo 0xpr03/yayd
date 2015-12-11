@@ -180,7 +180,7 @@ pub fn format_save_path<'a>(folder: Option<String>, name: &str, extension: &'a s
 }
 
 /// Zips all files inside folder into one file
-pub fn zip_folder(folder: &str, zip_path: PathBuf) -> Result<(), DownloadError> {
+pub fn zip_folder(folder: &str, zip_path: &PathBuf) -> Result<(), DownloadError> {
     trace!("Starting zipping..");
     let mut dir = PathBuf::from(&CONFIG.general.temp_dir);
     dir.push(folder);

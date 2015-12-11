@@ -347,11 +347,10 @@ fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, fi
     if downl_db.compress { // zip to file, add to db & remove all sources
         current_step += 1;
         db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
-        let zip_name = format!("{}.zip",playlist_name);
-        let zip_file = lib::format_save_path(None, &lib::url_sanitize(&playlist_name),"zip");
-        trace!("zip file: {} \n zip source {}",zip_file.to_string_lossy(), &downl_db.folder);
-        try!(lib::zip_folder(&downl_db.folder, zip_file));
-        try!(db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_name, &playlist_name));
+        let zip_path = lib::format_save_path(None, &lib::url_sanitize(&playlist_name),"zip");
+        trace!("zip file: {} \n zip source {}",zip_path.to_string_lossy(), &downl_db.folder);
+        try!(lib::zip_folder(&downl_db.folder, &zip_path));
+        try!(db::add_file_entry(&downl_db.pool.clone(), &pl_id,&zip_path.file_name().unwrap().to_string_lossy(), &playlist_name));
         
         current_step += 1;
         db::update_steps(&downl_db.pool.clone(),&pl_id, current_step, max_steps,false);
