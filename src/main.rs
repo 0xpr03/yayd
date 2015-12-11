@@ -19,11 +19,12 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir_all};
 
-const VERSION : &'static str = "0.4"; // String not valid
+const VERSION : &'static str = "0.4";
 const CONFIG_PATH : &'static str = "config.cfg";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
 const SLEEP_MS: u32 = 5000;
+const CODE_STARTED: i8 = 0;
 const CODE_IN_PROGRESS: i8 = 1;
 const CODE_SUCCESS: i8 = 2;
 const CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
@@ -56,9 +57,12 @@ fn main() {
     logger::initialize();
     
     let pool = db::db_connect(db::mysql_options(), SLEEP_MS);
+    debug!("cleaning db");
+    db::clear_query_states(&pool);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
+    debug!("finished startup");
     loop {
         if let Some(mut downl_db) = db::request_entry(& pool) {
             print_pause = true;

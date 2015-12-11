@@ -8,6 +8,10 @@ use std::thread::sleep_ms;
 use lib::{DownloadError};
 use std::error::Error;
 use lib::downloader::DownloadDB;
+
+use CODE_FAILED_INTERNAL;
+use CODE_IN_PROGRESS;
+use CODE_STARTED;
 use CONFIG;
 
 ///Move result value out, return with none on err & print
@@ -43,12 +47,16 @@ pub fn set_query_state(pool: & pool::MyPool,qid: &i64 , state: &str, finished: b
     }
 }
 
-/// Set state of query to null
+pub fn clear_query_states(pool: &pool::MyPool) {
+    try_return!(pool.prep_exec("UPDATE querydetails SET code = ?, `luc` = `luc` WHERE code == ? OR code == ?",(CODE_FAILED_INTERNAL,CODE_STARTED, CODE_IN_PROGRESS)));
+}
+
+/// Set state of query to null & finished
 ///
-/// Saves table space for finished downloads
+/// Saves table space for finished downloads & sets progress to 100
 pub fn set_null_state(pool: & MyPool, qid: &i64){
     let mut conn = try_return!(pool.get_conn());
-	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL WHERE qid = ?"));
+	let mut stmt = try_return!(conn.prepare("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?"));
 	let result = stmt.execute((qid,));
 	match result {
 	    Ok(_) => (),
