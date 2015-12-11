@@ -138,10 +138,7 @@ fn main() {
 /// Used by the playlist/file handler to download one file
 /// Based on the quality it needs to download audio & video separately and convert them together
 /// In case of a playlist download it depends on the target download folder & if it should be bezipped
-/// In case of a DMCA we need to download the file via the socket connector,
-/// which will output a mp3, or if requested, the video but with the highest quality.
-/// Thus in case of a DMCA we can't pick a quality anymore.
-/// Also the filename depends on the socket output then.
+/// In case of a DMCA & turned on lib_use, we're expecting the lib to handle this & return the filename to us.
 ///
 /// If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 /// main folder from which it should be downloadable.
@@ -312,7 +309,7 @@ fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, fi
         None
     };
     
-    trace!("got em");
+    trace!("got playlist videos");
     max_steps += file_ids.len() as i32;
     let mut current_step = 2;
     let mut warnings = false;
@@ -346,7 +343,7 @@ fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, fi
     if warnings {
         db::add_query_status(&downl_db.pool.clone(),&pl_id, &failed_log);
     }
-    
+
     trace!("downloaded all videos");
     if downl_db.compress { // zip to file, add to db & remove all sources
         current_step += 1;

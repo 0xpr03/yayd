@@ -237,8 +237,8 @@ impl<'a> Downloader<'a>{
     pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &String) -> Result<String,DownloadError> {
         let mut child = try!(self.lib_request_video_cmd(file_path));
         trace!("Requesting video via lib..");
-        let stdout = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+        let stdout = BufReader::new(try!(child.stdout.take().ok_or(DownloadError::InternalError("stdout socket error!".into()))));
+        let mut stderr_buffer = BufReader::new(try!(child.stderr.take().ok_or(DownloadError::InternalError("stderr socket error".into()))));
 
         let re = regex!(r"step (\d)");
         
