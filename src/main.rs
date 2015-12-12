@@ -289,19 +289,24 @@ fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, fi
     downl_db.update_folder(format!("{}/{}",&CONFIG.general.temp_dir,pl_id));
     trace!("Folder:  {}",downl_db.folder);
     
-    let db_copy = downl_db.clone();
-    let download = Downloader::new(&db_copy, &CONFIG.general);
-    
-    let mut playlist_name = String::new();
-    if downl_db.compress {
-        playlist_name = try!(download.get_playlist_name());
-        println!("pl name {}",playlist_name);
-        try!(std::fs::create_dir(&downl_db.folder));
-        file_db.push(downl_db.folder.clone());
+    let mut playlist_name;
+    let file_ids: Vec<String>;
+    {
+        let download = Downloader::new(&downl_db, &CONFIG.general);
+        playlist_name = String::new();
+        if downl_db.compress {
+            playlist_name = try!(download.get_playlist_name());
+            println!("pl name {}",playlist_name);
+            try!(std::fs::create_dir(&downl_db.folder));
+            file_db.push(downl_db.folder.clone());
+        }
+        
+        db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
+        trace!("retriving playlist videos..");
+        file_ids = try!(download.get_playlist_ids());
     }
-    db::update_steps(&downl_db.pool.clone(),&downl_db.qid, 2, max_steps,false);
-    trace!("retriving playlist videos..");
-    let file_ids: Vec<String> = try!(download.get_playlist_ids());
+    
+    
     
     let handler_folder = if downl_db.compress {
         Some(pl_id.to_string())
