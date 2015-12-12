@@ -1,23 +1,36 @@
 # yayd
 ### Yet another youtube downloader - backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
+
+Features:  
+* Download Playlists complete as zip from youtube
+* Support newest youtube codecs without recompilation
+* Convert to mp3
+* Download original audio
+* Download twitch videos (archived streams) 
+* Multi-User support
+* Own library embeddable for downloads not available from your country
+  (Streaming those from other online services for example)
+* Runnable from any VPS probably even from raspis
+* Log any error occurring
+* Extendable to support many more sites
   
 This project was born out of ISP related connection problems with youtube.
 It's purpose is to download, mainly, youtube videos in the quality wanted and
 if optionally as audio only. It is supposed to run on a server, as it's reading
 it's tasks from a database and also reports back to it.  
-You can for example write a frontend: website which communicates over the DB with yayd.
+You can for example write a front end: a website which communicates over the DB with yayd.
 By this one can A: surrogate the ISP peering problem by download over the server, B have all the 
 advantages yayd has aside from this.
 
 Yayd is capable of download whole playlists and zipping all files, converting audio & cutting
 audio & video together, supporting youtube's DASH format.
-Errors like undownloadable files & unavailable qualitys are reported back via codes. 
+Errors like undownloadable files & unavailable formats are reported back via codes. 
 See [codes.md](codes.md) for more information. Complete failures are logged in 
   
 One such GUI/Frontend/Website could look like this:
 [GUI Example](yadyd_gui.png)
-It is the current frontend used by the author.
+It is the current front end used by the author.
   
 ## About quality, queries & the config
 Each download task is an entry in the DB, this 'query' entry is containing the wished target, quality etc  
@@ -27,12 +40,12 @@ These two are merged by yayd and thus if you specify the wanted quality [itag](h
 yayd will merge this with an audio files as specified in the config.  
 For a personal list of recommended quality itags to be used for the quality column see down below.
 As youtube changes the available codecs it is recommended to verify your setup from time to time.
-For example the current 1080p@60fps, mp4 (itag 299) is pixellated in certain circumstances, while the recently added
+For example the current 1080p@60fps, mp4 (itag 299) is pixelated in certain circumstances, while the recently added
 WebM (303) doesn't have this problem.  
   
 (WebM is using VP9 as codec, MP4 h264)
 
-The quality column (see db.md -> quality) is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to static values like twitchs quality (which is not nummeric) or the codec for internal music conversion. This gives you the option to choose by yourself which
+The quality column (see db.md -> quality) is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to static values like twitchs quality (which is not numeric) or the codec for internal music conversion. This gives you the option to choose by yourself which
 youtube quality you want to use.
 
 ### Recommended itags
@@ -53,7 +66,7 @@ lib_args = ["-jar", "application.jar"]
 lib_dir = "/path/to/jar"
 ```
 ## Codecs
-You can look up available codecs/qualities from youtube with youtube-dl via `youtube-dl -v -F [url]`
+Currently available itags/quality codes from youtube can be looked up via youtube-dl with `youtube-dl -v -F [url]`
 ### General
 `audio_mp3` codec id on which a mp3-conversion should be done  
 `audio_raw` quality file which should be used for the audio download  
