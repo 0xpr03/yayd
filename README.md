@@ -14,6 +14,7 @@ Features:
 * Runnable from any VPS probably even from raspis
 * Log any error occurring
 * Extendable to support many more sites
+* Terminable download rates
   
 This project was born out of ISP related connection problems with youtube.
 It's purpose is to download, mainly, youtube videos in the quality wanted and
