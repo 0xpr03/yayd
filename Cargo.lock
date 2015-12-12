@@ -1,6 +1,6 @@
 [root]
 name = "yayd-backend"
-version = "0.0.4"
+version = "0.5.0"
 dependencies = [
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
