@@ -38,7 +38,7 @@ const TYPE_TWITCH: i16 = 2;
 lazy_static! {
     pub static ref CONFIG: config::Config = {
         println!("Starting yayd-backend v{}",&VERSION);
-        config::init_config() //return
+        config::init_config()
     };
 
 }
@@ -148,6 +148,7 @@ fn main() {
 /// If it's a non-zipped single file, it's moved after a successful download, converted etc to the
 /// main folder from which it should be downloadable.
 /// The original non-ascii & url_encode'd name of the file is stored in the DB
+/// For playlist downloads the full path of the output file is returnd as Thing::String(path)
 fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
     //update progress
     let is_zipped = match *folder {
@@ -195,7 +196,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
     };
     let convert_audio = CONFIG.extensions.mp3.contains(&downl_db.quality);
     
-    let total_steps = if dmca {
+    let total_steps = if dmca { // calculate the needed steps for the current task
         if download.is_audio() {
             3
         } else {

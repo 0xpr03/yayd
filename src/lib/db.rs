@@ -50,6 +50,8 @@ pub fn clear_query_states(pool: &pool::MyPool) {
     let affected = try_return!(pool.prep_exec("UPDATE `querydetails` SET `code` = ?, `status` = NULL, `luc` = `luc` WHERE `code` = ? OR `code` = ?",(CODE_FAILED_INTERNAL,CODE_STARTED, CODE_IN_PROGRESS))).affected_rows();
     if affected != 0 {
         info!("Cleaned {} entries.",affected);
+    }else{
+        info!("No entries to clean.");
     }
 }
 
