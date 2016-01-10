@@ -24,15 +24,17 @@ It is supposed to run on a server, as it's using a DBMS like MySQL/mariaDB.
 You can for example write a website which communicates over the DB with yayd.
 By this, one can A: surrogate the ISP peering problem by download over the server, B have all the 
 advantages yayd has aside from this. [GUI Example](yadyd_gui.png)  
-If you're too lazy or want a fast setup see yayd-frontend for a working, installable frontend.
+If you're too lazy or want a fast setup see below for a working, installable frontend.
 
 All failures like undownloadable files & unavailable formats are reported back via codes. 
 See [codes.md](codes.md) for more information. Complete failures are logged in the table querystatus.
   
-One such GUI/Frontend/Website could look like this:
+One such GUI/Frontend/Website could look like in yayd_gui.png 
+Please look into the repo [yayd-frontend](https://github.com/0xpr03/yayd-frontend) for an example.
 
 ## Installation
 Needed: [youtube-dl](https://github.com/rg3/youtube-dl)  
+FFMPEG optionally  
 mariadb / mysql  
   
 1. Build yayd with rust: `cargo build --release`  
@@ -41,7 +43,7 @@ mariadb / mysql
 To run yayd with a GUI you'll need to write for example a website,or use the example. Yayd itself doesn't provide any type of UI.  
 4. If everything is running fine, create your own log configuration, see [here](https://github.com/sfackler/log4rs), to only some information is logged.
   
-## About quality, queries & the config
+## About quality codes, queries & the config
 Each download task is an entry in the DB, this 'query' entry is containing the wished target, quality etc  
 Youtube-Videos are consisting of two DASH-Files. One is only Video, in the quality you want.
 The other one is a qualitatively bad video but audio containing DASH-File.  
@@ -66,4 +68,4 @@ cut together with 140 (which is aac mp4 with very low video quality)
 Multithreading for downloads isn't planned as the one-by-one system is a natural limiter, preventing possible DDOS-Blocks (captcha) & saving bandwidth  
 I'm open for other ideas or implementations but it's not my main goal at the moment.
 
-## DB-Setup & internal quality code explanations see db.md
+### DB-Setup & internal quality code explanations see db.md
