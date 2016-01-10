@@ -273,9 +273,9 @@ impl<'a> Downloader<'a>{
             warn!("stderr: {:?}", stderr);
             return Err(DownloadError::InternalError(stderr));
         }
-        //this ONLY works because `filename ` is ascii..
+        //this ONLY works because `filename: ` is ASCII..
         let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
-        out = lib::url_sanitize(&out);//stdout.trim();
+        out = lib::url_sanitize(&out);
         
         Ok(out)
     }

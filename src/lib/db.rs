@@ -70,6 +70,7 @@ pub fn set_null_state(pool: & MyPool, qid: &i64){
 /// Update query status code
 /// Affecting querydetails.code
 pub fn set_query_code(pool: & MyPool, code: &i8, qid: &i64) -> Result<(), DownloadError> { // same here
+	trace!("Setting query code {} for id {}", code, qid);
     let mut stmt = pool.prepare("UPDATE querydetails SET code = ? WHERE qid = ?").unwrap();
     let result = stmt.execute((&code,&qid));
     match result {
@@ -80,6 +81,7 @@ pub fn set_query_code(pool: & MyPool, code: &i8, qid: &i64) -> Result<(), Downlo
 
 /// Update progress steps for db entrys
 pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, finished: bool){
+	trace!("Updating steps {} of {}",step, qid);
     set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 

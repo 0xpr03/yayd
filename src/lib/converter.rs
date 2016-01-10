@@ -209,6 +209,7 @@ impl<'a> Converter<'a> {
 
     ///updater called from the stdout progress
     fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64) -> Result<(),DownloadError>{
+    	trace!("updating progress {}",progress);
         try!(stmt.execute((&progress,qid)).map(|_| Ok(())))
     }
 }

@@ -1,8 +1,9 @@
 # yayd
 ### Yet another youtube downloader - backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
+Backend for youtube-dl
 
-##Features:  
+## Features:  
 * Download Playlists complete as zip from youtube
 * Support newest youtube codecs without recompilation
 * Convert to mp3
@@ -18,21 +19,17 @@ Supports playlists & mass downloads as zip
 * Terminable download rates
   
 This project was born out of ISP related connection problems with youtube.
-It's purpose is to download, mainly, youtube videos in the quality wanted and
-if optionally as audio only. It is supposed to run on a server, as it's reading
-it's tasks from a database and also reports back to it.  
-You can for example write a front end: a website which communicates over the DB with yayd.
-By this one can A: surrogate the ISP peering problem by download over the server, B have all the 
-advantages yayd has aside from this.
+It's purpose is mainly to download youtube videos or convert them to audio files. 
+It is supposed to run on a server, as it's using a DBMS like MySQL/mariaDB.
+You can for example write a website which communicates over the DB with yayd.
+By this, one can A: surrogate the ISP peering problem by download over the server, B have all the 
+advantages yayd has aside from this. [GUI Example](yadyd_gui.png)  
+If you're too lazy or want a fast setup see yayd-frontend for a working, installable frontend.
 
-Yayd is capable of download whole playlists and zipping all files, converting audio & cutting
-audio & video together, supporting youtube's DASH format.
-Errors like undownloadable files & unavailable formats are reported back via codes. 
-See [codes.md](codes.md) for more information. Complete failures are logged in 
+All failures like undownloadable files & unavailable formats are reported back via codes. 
+See [codes.md](codes.md) for more information. Complete failures are logged in the table querystatus.
   
 One such GUI/Frontend/Website could look like this:
-[GUI Example](yadyd_gui.png)
-It is the current front end used by the author.
 
 ## Installation
 Needed: [youtube-dl](https://github.com/rg3/youtube-dl)  

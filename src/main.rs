@@ -40,7 +40,6 @@ lazy_static! {
         println!("Starting yayd-backend v{}",&VERSION);
         config::init_config()
     };
-
 }
 
 //#[allow(non_camel_case_types)]
@@ -151,6 +150,7 @@ fn main() {
 /// For playlist downloads the full path of the output file is returnd as Thing::String(path)
 fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
     //update progress
+    debug!("Handling download id {}, zip:{} playlist:{}", downl_db.qid, downl_db.compress, downl_db.playlist);
     let is_zipped = match *folder {
         Some(_) => true,
         None => false,
@@ -165,11 +165,11 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
     
     let temp_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
     let name = match download.get_file_name() { // get filename
-        Ok(v) => {try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid)); v},
+        Ok(v) => {if !downl_db.compress { try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid)); } v},
         Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
             info!("DMCA error!");
             if CONFIG.general.lib_use {
-                try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid));
+                if !downl_db.compress { try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid)); }
                 match download.lib_request_video(1,0, &temp_path) {
                     Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
                     Ok(v) => { dmca = true; v },
