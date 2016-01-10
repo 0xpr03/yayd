@@ -23,7 +23,7 @@ It's purpose is mainly to download youtube videos or convert them to audio files
 It is supposed to run on a server, as it's using a DBMS like MySQL/mariaDB.
 You can for example write a website which communicates over the DB with yayd.
 By this, one can A: surrogate the ISP peering problem by download over the server, B have all the 
-advantages yayd has aside from this. [GUI Example](yadyd_gui.png)  
+advantages yayd has aside from this. [GUI Example](yayd_gui.png)  
 If you're too lazy or want a fast setup see below for a working, installable frontend.
 
 All failures like undownloadable files & unavailable formats are reported back via codes. 
@@ -40,7 +40,7 @@ mariadb / mysql
 1. Build yayd with rust: `cargo build --release`  
 2. Create the DB according to install.sql
 3. Run it for a first time & correct the config.cfg.  
-To run yayd with a GUI you'll need to write for example a website,or use the example. Yayd itself doesn't provide any type of UI.  
+To run yayd with a GUI you'll need to write for example a website,or use the [example](https://github.com/0xpr03/yayd-frontend). Yayd itself doesn't provide any type of UI.  
 4. If everything is running fine, create your own log configuration, see [here](https://github.com/sfackler/log4rs), to only some information is logged.
   
 ## About quality codes, queries & the config
