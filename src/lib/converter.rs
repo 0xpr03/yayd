@@ -2,10 +2,11 @@
 extern crate regex;
 
 use std::process::{Command, Stdio, Child};
-use std::error::Error;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::convert::Into;
+use std::path::PathBuf;
+use std::str;
 
 use lib::DownloadError;
 
@@ -17,52 +18,62 @@ macro_rules! regex(
 );
 
 pub struct Converter<'a> {
-    ffmpeg_cmd: &'a str,
+    ffmpeg_dir: PathBuf,
     mp3_quality: &'a i16,
     pool: MyPool,
 }
 
 impl<'a> Converter<'a> {
-    pub fn new(ffmpeg_cmd: &'a str,mp3_quality: &'a i16, pool: MyPool) -> Converter<'a> {
-        Converter{ffmpeg_cmd: ffmpeg_cmd,mp3_quality: mp3_quality, pool: pool}
+    pub fn new(ffmpeg_dir: &'a str,mp3_quality: &'a i16, pool: MyPool) -> Converter<'a> {
+    	debug!("ffmpeg dir: {}",ffmpeg_dir);
+        Converter{ffmpeg_dir: PathBuf::from(ffmpeg_dir),mp3_quality: mp3_quality, pool: pool}
     }
 
     /// Merge audo & video files to one
+    /// As ffmpeg uses \r for progress updates, we'll have to read untill this delimiter
+    /// ffmpeg prints only to stderr
     pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
         trace!("progress {}",show_progress);
-        let max_frames: i64 = try!(self.get_max_frames(video_file));
+        let max_frames: f64 = try!(self.get_max_frames(video_file));
         trace!("Total frames: {}",max_frames);
 
         let mut child = try!(self.create_merge_cmd(audio_file, video_file, output_file));
-        let stdout = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+        trace!("started merge process");
+        let mut stdout = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = self.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
         let re = regex!(r"frame=\s*(\d+)");
+		
+		let mut buf = vec![];
+		buf.reserve(128);
+		
+		let mut cur_frame: f64;
+		
+		loop {
+			match stdout.read_until(b'\r', &mut buf) {
+				Ok(0) => break,
+				Ok(_) => {},
+				Err(why) => {error!("couldn't read cmd stdout: {}", why); panic!(); }
+			}
+			
+			{
+				let line = str::from_utf8(&buf).unwrap();
+				debug!("ffmpeg: {}",line);
+				if re.is_match(&line) {
+					let cap = re.captures(&line).unwrap();
+	                debug!("frame: {}", cap.at(1).unwrap());
+	                cur_frame = cap.at(1).unwrap().parse::<f64>().unwrap();
+	                try!(self.update_progress(&mut statement, format!("{:.2}",(cur_frame / max_frames) * 100.0), qid)
+	                );
+				}
+			}
+			
+			buf.clear();
 
-        for line in stdout.lines(){
-            match line{
-                Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
-                Ok(text) => {
-                    if show_progress {
-                        if re.is_match(&text) {
-                            let cap = re.captures(&text).unwrap();
-                            debug!("frame: {}", cap.at(1).unwrap());
-                            try!(self.update_progress(&mut statement,
-                                    self.caclulate_progress(&max_frames,&cap.at(1).unwrap()).to_string(), qid)
-                                );
-                        }
-                    }
-                },
-            }
-        }
+		}
 
         try!(child.wait());
-
-        let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
-        trace!("Stderr: {}", stderr);
 
         Ok(())
     }
@@ -70,6 +81,8 @@ impl<'a> Converter<'a> {
     /// Extract audio from video files
     /// If set audio will be converted to mp3 on the fly
     pub fn extract_audio(&self, video_file: &'a str, output_file: &'a str, convert_mp3: bool) -> Result<(), DownloadError> {
+//        let duration = 
+        
         let mut child;
         if convert_mp3 {
             child = try!(self.create_audio_extrac_mp3_convert_cmd(video_file, output_file));
@@ -77,36 +90,42 @@ impl<'a> Converter<'a> {
             child = try!(self.create_audio_extract_cmd(video_file, output_file));
         }
         
-        //let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
+        let mut stdout = BufReader::new(child.stderr.take().unwrap());
+        
+		let mut buf = vec![];
+		buf.reserve(128);
+		
+		loop {
+			match stdout.read_until(b'\r', &mut buf) {
+				Ok(0) => break,
+				Ok(_) => {},
+				Err(why) => {error!("couldn't read cmd stdout: {}", why); panic!(); }
+			}
+			
+			{
+				let line = str::from_utf8(&buf).unwrap();
+				debug!("ffmpeg: {}",line);
+				
+			}
+			
+			buf.clear();
 
-        //let mut stdout: String = String::new();
-        //try!(stdout_buffer.read_to_string(&mut stdout));
-        let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
+		}
 
         try!(child.wait());
-
-        trace!("Stderr: {}", stderr);
 
         Ok(())
     }
-	
-	/// Calculate progress based on current & max frames
-    fn caclulate_progress<'b>(&self, max_frames: &i64, current_frame: &str) -> i64 {
-        let frame = current_frame.parse::<i64>().unwrap();
-        frame / max_frames * 100
-    }
 
     /// Retrive the max frames from video file for percentual progress calculation
-    fn get_max_frames(&self, video_file: &str) -> Result<i64,DownloadError> {
+    fn get_max_frames(&self, video_file: &str) -> Result<f64,DownloadError> {
         let mut child = try!(self.create_fps_get_cmd(video_file));
-        let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
+        let mut stdout_buffer = BufReader::new(child.stderr.take().unwrap());
         let mut stdout: String = String::new();
         try!(stdout_buffer.read_to_string(&mut stdout));
-        //println!("total frames stdout: {:?}", stdout.trim());
+        println!("total frames stdout: {:?}", stdout.trim());
         try!(child.wait());
-
+		
         let regex_duration = regex!(r"Duration: ((\d\d):(\d\d):(\d\d)\.\d\d)");
         let regex_fps = regex!(r"(\d+)\sfps");
 
@@ -119,86 +138,78 @@ impl<'a> Converter<'a> {
             let mut seconds = cap_duration.at(4).unwrap().parse::<i64>().unwrap();
             seconds += cap_duration.at(3).unwrap().parse::<i64>().unwrap() * 60;
             seconds += cap_duration.at(2).unwrap().parse::<i64>().unwrap() * 60 * 60 ;
-            Ok(seconds * fps)
+            Ok((seconds * fps) as f64)
         }else{
             Err(DownloadError::FFMPEGError(format!("Couldn't get max frames {}",stdout)))
         }
     }
 
-    ///Merges an audio & an video file together.
-    ///Due to ffmpeg not giving out new lines we need to use tr, till the ffmpeg bindings are better
-    ///This removes the option to use .arg() -> params must be handled carefully
+    /// Merges an audio & an video file together.
+    /// ffmpeg uses \r as \n
     fn create_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> Result<Child,DownloadError> {
-        self.create_bash_cmd(self.format_merge_cmd(audio_file, video_file, output_file))
+    	let mut command = self.create_ffmpeg_base("ffmpeg");
+    	command.args(&["-threads","0"]);
+    	command.args(&["-i",video_file]);
+    	command.args(&["-i",audio_file]);
+    	command.args(&["-map","0"]);
+    	command.args(&["-map","1"]);
+    	command.args(&["-codec","copy"]);
+    	command.arg("-shortest");
+    	command.arg(output_file);
+    	//-stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}"
+    	match command.spawn() {
+    		Err(why) => Err(why.into()),
+            Ok(process) => Ok(process),
+    	}
     }
 
-    ///Creates a cmd to gain the amount of frames in a video, for progress calculation
+    ///Creates a cmd to gain the amount of frames in a video, used in progress calculation
     fn create_fps_get_cmd(&self, video_file: &str) -> Result<Child, DownloadError> {
-        self.create_bash_cmd(self.format_frame_get_cmd(video_file))
+    	let mut command = self.create_ffmpeg_base("ffprobe");
+    	command.args(&["-i",video_file]);
+    	
+    	match command.spawn() {
+    		Err(why) => Err(why.into()),
+            Ok(process) => Ok(process),
+    	}
     }
     
     ///Create a ffmpeg instance with the audio extract cmd
     fn create_audio_extract_cmd(&self, video_file: &str, output_file: &str) -> Result<Child, DownloadError> {
-        self.create_bash_cmd(self.format_extract_audio_cmd(video_file, output_file))
+        let mut command = self.create_ffmpeg_base("ffmpeg");
+        command.args(&["-threads", "0"]);
+        command.args(&["-i",video_file]);
+        command.args(&["-vn", "-acodec","copy"]);
+        command.arg(output_file);
+        
+        match command.spawn() {
+    		Err(why) => Err(why.into()),
+            Ok(process) => Ok(process),
+    	}
     }
     
     fn create_audio_extrac_mp3_convert_cmd(&self, video_file: &str, output_file: &str) -> Result<Child, DownloadError> {
-        self.create_bash_cmd(self.format_convert_audio_mp3_cmd(video_file,output_file))
-    }
-
-    ///Create an bash cmd
-    fn create_bash_cmd(&self, cmd: String) -> Result<Child, DownloadError> {
-        match Command::new("bash")
-                            .arg("-c")
-                            .arg(cmd)
-                            .stdin(Stdio::null())
-                            .stdout(Stdio::piped())
-                            .stderr(Stdio::piped())
-                            .spawn() {
-                Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
-                Ok(process) => Ok(process),
-        }
-    }
-
-    ///Formats a command to gain the total amount of frames in a video file
-    ///which will be used for the progress calculation
-    fn format_frame_get_cmd(&self, video_file: &str) -> String {
-        let a = format!(r#"{}/ffprobe -i {} 2>&1"#,self.ffmpeg_cmd, video_file);
-        debug!("ffmpeg-fps cmd: {}", a);
-        a
-    }
-
-    ///Creates a ffmpeg_cmd containing the path to ffmpeg, as defined in the config
-    ///and all the needed arguments, which can't be set using .arg, see create_merge_cmd.
-    fn format_merge_cmd(&self, audio_file: &str, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -i "{}" -map 0 -map 1 -codec copy -shortest "{}" 2>&1 |& tr '\r' '\n'"#,
-            self.ffmpeg_cmd,
-            video_file,
-            audio_file,
-            output_file);
-        debug!("ffmpeg cmd: {}", a);
-        a
+        let mut command = self.create_ffmpeg_base("ffmpeg");
+        command.args(&["-threads", "0"]);
+        command.args(&["-i",video_file]);
+        command.args(&["-codec:a", "libmp3lame"]);
+        command.args(&["-qscale:a",&self.mp3_quality.to_string()]);
+        command.arg(output_file);
+        
+        match command.spawn() {
+    		Err(why) => Err(why.into()),
+            Ok(process) => Ok(process),
+    	}
     }
     
-    /// Create ffmpeg cmd to extract raw audio from video files
-    fn format_extract_audio_cmd(&self, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -vn -acodec 'copy' "{}" 2>&1 |& tr '\r' '\n'"#,
-            self.ffmpeg_cmd,
-            video_file,
-            output_file);
-        debug!("ffmpeg cmd: {}",a);
-        a
-    }
-    
-    /// Create ffmpeg cmd to extract audio from video files, converting it to mp3
-    fn format_convert_audio_mp3_cmd(&self, video_file: &str, output_file: &str) -> String {
-        let a = format!(r#"{}/ffmpeg -stats -threads 0 -i "{}" -codec:a libmp3lame -qscale:a {} "{}" 2>&1 |& tr '\r' '\n'"#,
-            self.ffmpeg_cmd,
-            video_file,
-            self.mp3_quality,
-            output_file);
-        debug!("ffmpeg cmd: {}", a);
-        a
+    /// Create FFMPEG basic command
+    /// executable is the called ffmpeg binary
+    fn create_ffmpeg_base(&self, executable: &'static str) -> Command {
+    	let mut cmd = Command::new(self.ffmpeg_dir.join(executable));
+    	cmd.stdin(Stdio::null());
+    	cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::piped());
+    	cmd
     }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared

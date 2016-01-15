@@ -49,7 +49,7 @@ impl From<MyError> for DownloadError {
 
 impl From<io::Error> for DownloadError {
     fn from(err: io::Error) -> DownloadError {
-        DownloadError::InternalError(err.description().into())
+        DownloadError::InternalError(format!("{}: {:?}",err.description(), err.kind()))
     }
 }
 
@@ -128,7 +128,6 @@ pub fn url_sanitize(input: &str) -> String {
     // iterator over input, apply function to each element(function
     input.chars().map(|char| {
         match char {
-            '\'' | '"' | '\\' => '_',
             c if c.is_ascii() => c,
             _ => '_'
         }
