@@ -40,15 +40,15 @@ mariadb / mysql
 1. Build yayd with rust: `cargo build --release`  
 2. Create the DB according to install.sql
 3. Run it for a first time & correct the config.cfg.  
-To run yayd with a GUI you'll need to write for example a website,or use the [example](https://github.com/0xpr03/yayd-frontend). Yayd itself doesn't provide any type of UI.  
-4. If everything is running fine, create your own log configuration, see [here](https://github.com/sfackler/log4rs), to only some information is logged.
+To run yayd with a GUI you'll need to write for example a website, or use the [example](https://github.com/0xpr03/yayd-frontend). Yayd itself doesn't provide any sort of UI.  
+4. If everything is running fine, create your own log configuration if needed, see [here](https://github.com/sfackler/log4rs).
   
 ## About quality codes, queries & the config
 Each download task is an entry in the DB, this 'query' entry is containing the wished target, quality etc  
 Youtube-Videos are consisting of two DASH-Files. One is only Video, in the quality you want.
 The other one is a qualitatively bad video but audio containing DASH-File.  
 These two are merged by yayd and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats) in you query (queries.quality) 
-yayd will merge this with an audio files as specified in the config.  
+yayd will merge this with an audio file as specified in the config.  
 For a personal list of recommended quality itags to be used for the quality column see down below.
 As youtube changes the available codecs it is recommended to verify your setup from time to time.
 For example the current 1080p@60fps, mp4 (itag 299) is pixelated in certain circumstances, while the recently added

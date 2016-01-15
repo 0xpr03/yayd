@@ -21,9 +21,11 @@ Currently available itags/quality codes from youtube can be looked up via youtub
 `audio_normal_webm` itag for all webm (VP9) downloads, DASH file to be meged with the video
 `audio_hq` itag for the source of HQ audio downloads
 ### Twitch
-```-10 = "Mobile"
+```
+-10 = "Mobile"
 -11 = "Low"
 -12 = "Medium"
 -13 = "High"
--14 = "Source"```
+-14 = "Source"
+```
 Left input numeric fom quality column, right used quality for twitch downloads.

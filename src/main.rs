@@ -239,7 +239,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
             }
 
             match converter.merge_files(&downl_db.qid,&temp_path, &audio_path,&save_path.to_string_lossy(), !downl_db.compress) {
-                Err(e) => {println!("merge error: {:?}",e); return Err(e);},
+                Err(e) => {error!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
 
