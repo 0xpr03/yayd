@@ -19,7 +19,7 @@ use lib::converter::Converter;
 
 use std::fs::{remove_file,remove_dir_all};
 
-const VERSION : &'static str = "0.5";
+const VERSION : &'static str = "0.6";
 const CONFIG_PATH : &'static str = "config.cfg";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
