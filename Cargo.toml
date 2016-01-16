@@ -1,6 +1,6 @@
 [package]
 name = "yayd-backend"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Aron Heinecke <Ox0p54r36@t-online.de>"]
 
 [[bin]]
@@ -11,17 +11,16 @@ name = "yayd-backend"
 
 [dependencies]
 lazy_static = "0.1.15"
-toml = "0.1.23"
+toml = "0.1.25"
 rustc-serialize = "0.3.16"
-log = "0.3.3"
+log = "0.3.4"
 log4rs = "0.3.3"
 zip = "0.1.15"
-#hyper = "0.3.13"
 
 [dependencies.mysql]
-mysql = "0.20.1"
+mysql = "1.20.1"
 default-features = false
 
 [dependencies.regex]
-regex = "0.1.41"
-regex_macros = "0.1.21"
+regex = "0.1.47"
+regex_macros = "0.1.26"
