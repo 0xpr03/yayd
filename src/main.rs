@@ -216,7 +216,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
         }
         
         //download first file, download audio raw source if specified or video
-        match download.download_file(&temp_path, convert_audio) {
+        match download.download_file(&temp_path, download.is_audio()) {
             Err(e) => {file_db.pop(); return Err(e); },
             Ok(_) => (),
         }
@@ -260,7 +260,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
         if !downl_db.compress {
             db::update_steps(downl_db.pool,&downl_db.qid, total_steps, total_steps, false);
         }
-        try!(converter.extract_audio(&temp_path, &save_path.to_string_lossy(), convert_audio));
+        try!(converter.extract_audio(&downl_db.qid, &temp_path, &save_path.to_string_lossy(), convert_audio));
         try!(remove_file(&temp_path));
     }else{
         debug!("no audio");

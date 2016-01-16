@@ -408,7 +408,11 @@ impl<'a> Downloader<'a>{
                     if CONFIG.extensions.webm.contains(&self.ddb.quality) {
                         CONFIG.codecs.yt.audio_normal_webm.to_string()
                     }else{
-                    	CONFIG.codecs.yt.audio_normal_mp4.to_string()
+                    	if self.ddb.quality == CONFIG.codecs.audio_source_hq {
+                    		CONFIG.codecs.yt.audio_hq.to_string()
+                    	} else {
+                    		CONFIG.codecs.yt.audio_normal_mp4.to_string()
+                    	}
                     }
                 }else{
                     self.ddb.quality.to_string()

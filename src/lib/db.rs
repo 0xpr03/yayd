@@ -81,7 +81,7 @@ pub fn set_query_code(pool: & MyPool, code: &i8, qid: &i64) -> Result<(), Downlo
 
 /// Update progress steps for db entrys
 pub fn update_steps(pool: & pool::MyPool, qid: &i64, step: i32, max_steps: i32, finished: bool){
-	trace!("Updating steps {} of id {}",step, qid);
+	trace!("Updating steps to {} for id {}",step, qid);
     set_query_state(&pool,qid, &format!("{}|{}", step, max_steps), finished);
 }
 
