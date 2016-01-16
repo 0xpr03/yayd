@@ -17,12 +17,14 @@ macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
+/// Converter containing all necessary methods to merge, extract and convert audio with/from video files
 pub struct Converter<'a> {
     ffmpeg_dir: PathBuf,
     mp3_quality: &'a i16,
     pool: MyPool,
 }
 
+/// Struct containing file information needed for progress calculation
 struct FileInfo {
 	duration: f32, // seconds
 	frames: f32,
@@ -37,8 +39,7 @@ impl<'a> Converter<'a> {
     /// Merge audo & video files to one
     /// As ffmpeg uses \r for progress updates, we'll have to read untill this delimiter
     /// ffmpeg prints only to stderr
-    pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str, show_progress: bool) -> Result<(), DownloadError>{
-        trace!("progress {}",show_progress);
+    pub fn merge_files(&self, qid: &i64, video_file: &'a str,audio_file: &'a str, output_file: &'a str) -> Result<(), DownloadError>{
         let file_info = try!(self.get_file_info(video_file));
         trace!("Total frames: {}",file_info.frames);
 
@@ -155,29 +156,11 @@ impl<'a> Converter<'a> {
 		}else{
 			Err(DownloadError::FFMPEGError(format!("Couldn't get max frames: {}",stdout)))
 		}
-		
-//        let regex_duration = regex!(r"Duration: ((\d\d):(\d\d):(\d\d)\.\d\d)");
-//        let regex_fps = regex!(r"(\d+)\sfps");
-//
-//        if regex_fps.is_match(&stdout) {
-//            let cap_fps = regex_fps.captures(&stdout).unwrap();
-//            
-//            let cap_duration = regex_duration.captures(&stdout).unwrap();
-//            trace!("Found duration: {}",cap_duration.at(0).unwrap());
-//            let fps = cap_fps.at(1).unwrap().parse::<i64>().unwrap();
-//            let mut seconds = cap_duration.at(4).unwrap().parse::<i64>().unwrap();
-//            seconds += cap_duration.at(3).unwrap().parse::<i64>().unwrap() * 60;
-//            seconds += cap_duration.at(2).unwrap().parse::<i64>().unwrap() * 60 * 60 ;
-//            Ok((seconds * fps) as f64)
-//        }else{
-//            Err(DownloadError::FFMPEGError(format!("Couldn't get max frames {}",stdout)))
-//        }
     }
     
     /// Runs a file probe and returns its output, used in progress calculation
     fn run_file_probe(&self, video_file: &str) -> Result<String, DownloadError> {
     	let mut command = self.create_ffmpeg_base("ffprobe");
-    	command.args(&["-v","error"]);
     	command.args(&["-select_streams","0"]);
     	command.args(&["-show_entries","stream=duration,r_frame_rate"]);
     	command.args(&["-of","default=noprint_wrappers=1"]);
@@ -247,6 +230,7 @@ impl<'a> Converter<'a> {
     /// executable is the called ffmpeg binary
     fn create_ffmpeg_base(&self, executable: &'static str) -> Command {
     	let mut cmd = Command::new(self.ffmpeg_dir.join(executable));
+    	cmd.args(&["-v","error"]);
     	cmd.stdin(Stdio::null());
     	cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());

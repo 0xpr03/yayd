@@ -140,6 +140,7 @@ pub fn request_entry(pool: & MyPool) -> Option<DownloadDB> {
                                     compress: compress,
                                     to: to,
                                     from: from,
+                                    qid_progress: from_value::<i64>(result[0].clone()),
                                     source_type: from_value::<i16>(result[2].clone()) };
     Some(download_db)
 }

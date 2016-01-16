@@ -27,6 +27,7 @@ pub struct DownloadDB<'a> {
     pub playlist: bool,
     pub compress: bool,
     pub qid: i64,
+    pub qid_progress: i64, // used for perc. progress info
     pub source_type: i16,
     pub from: i32,
     pub to: i32,
@@ -42,6 +43,9 @@ impl<'a> DownloadDB<'a> {
     pub fn update_folder(&mut self, folder: String){
         self.folder = folder;
     }
+//    pub fn update_qidProgress(&mut self, qid: i64) {
+//    	self.qidProgress = qid;
+//    }
 }
 
 pub struct Downloader<'a> {
@@ -73,20 +77,18 @@ impl<'a> Downloader<'a>{
         let mut conn = self.ddb.pool.get_conn().unwrap();
         let mut statement = self.prepare_progress_updater(&mut conn);
         let re = regex!(r"(\d+\.\d)%");
-
+		
         for line in stdout.lines(){
             match line{
                 Err(why) => {error!("couldn't read cmd stdout: {}", Error::description(&why)); panic!();},
                 Ok(text) => {
                         trace!("Out: {}",text);
-                        if !self.ddb.playlist {
-                            match re.captures(&text) {
-                                Some(cap) => { //println!("Match at {}", s.0);
-                                            debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                            try!(self.update_progress(&mut statement, cap.at(1).unwrap()));
-                                        },
-                                None => (),
-                            }
+                        match re.captures(&text) {
+                            Some(cap) => { //println!("Match at {}", s.0);
+                                        debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        try!(self.update_progress(&self.ddb.qid_progress,&mut statement, cap.at(1).unwrap()));
+                                    },
+                            None => (),
                         }
                 },
             }
@@ -283,20 +285,17 @@ impl<'a> Downloader<'a>{
 	/// Formats the download command.
     fn run_download_process(&self, file_path: &str, quality: String) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
-                                    .arg("--newline")
-                                    .arg("--no-warnings")
-                                    .arg("-r")
-                                    .arg(format!("{}M",self.defaults.download_mbps / 8)) // yt-dl uses MB/s, we're using MBit/s
-                                    .arg("-f")
-                                    .arg(quality.to_string())
-                                    .arg("-o")
-                                    .arg(file_path)
-                                    .arg("--hls-prefer-native") // this is needed for twitch extraction
-                                    .arg(&self.ddb.url)
-                                    .stdin(Stdio::null())
-                                    .stdout(Stdio::piped())
-                                    .stderr(Stdio::piped())
-                                    .spawn() {
+        .arg("--newline")
+        .arg("--no-warnings")
+        .args(&["-r", &format!("{}M",self.defaults.download_mbps / 8)]) // yt-dl uses MB/s, we're using MBit/s
+        .args(&["-f",&quality.to_string()])
+        .args(&["-o",file_path])
+        .arg("--hls-prefer-native") // this is needed for twitch extraction
+        .arg(&self.ddb.url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
@@ -305,14 +304,13 @@ impl<'a> Downloader<'a>{
 	/// Runs the filename retrival process.
     fn run_filename_process(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
-                                    .arg("--get-filename")
-                                    .arg("-o")
-                                    .arg("%(title)s")
-                                    .arg(&self.ddb.url)
-                                    .stdin(Stdio::null())
-                                    .stdout(Stdio::piped())
-                                    .stderr(Stdio::piped())
-                                    .spawn() {
+        .arg("--get-filename")
+        .args(&["-o","%(title)s"])
+        .arg(&self.ddb.url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
@@ -325,21 +323,17 @@ impl<'a> Downloader<'a>{
         
         debug!("{} {:?} -q {} -r {}M -f {} -v {} {}", self.defaults.lib_bin, self.defaults.lib_args, self.ddb.quality,self.defaults.download_mbps, file_path, !self.is_audio(), self.ddb.url);
         match Command::new(&self.defaults.lib_bin)
-                                        .current_dir(&java_path)
-                                        .args(&self.defaults.lib_args)
-                                        .arg("-q")
-                                        .arg(&self.ddb.quality.to_string())
-                                        .arg("-r")
-                                        .arg(format!("{}M", self.defaults.download_mbps))
-                                        .arg("-f")
-                                        .arg(file_path)
-                                        .arg("-v")
-                                        .arg((!self.is_audio()).to_string())
-                                        .arg(&self.ddb.url)
-                                        .stdin(Stdio::null())
-                                        .stdout(Stdio::piped())
-                                        .stderr(Stdio::piped())
-                                        .spawn() {
+        .current_dir(&java_path)
+        .args(&self.defaults.lib_args)
+        .args(&["-q",&self.ddb.quality.to_string()])
+        .args(&["-r",&format!("{}M", self.defaults.download_mbps)])
+        .args(&["-f",file_path])
+        .args(&["-v",&(!self.is_audio()).to_string()])
+        .arg(&self.ddb.url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn() {
                 Err(why) => {warn!("{:?}",why); Err(DownloadError::InternalError(Error::description(&why).into()))},
                 Ok(process) => Ok(process),
             }
@@ -370,16 +364,14 @@ impl<'a> Downloader<'a>{
     /// Runs the playlist name retrival process.
     fn run_playlist_get_name(&self) -> Result<Child,DownloadError> {
         match Command::new("youtube-dl")
-                                    .arg("-s")
-                                    .arg("--no-warnings")
-                                    .arg("--playlist-start")
-                                    .arg("1")
-                                    .arg("--playlist-end")
-                                    .arg("1")
-                                    .arg(&self.ddb.url)
-                                    .stdin(Stdio::null())
-                                    .stdout(Stdio::piped())
-                                    .spawn() {
+        .arg("-s")
+        .arg("--no-warnings")
+        .args(&["--playlist-start","1"])
+        .args(&["--playlist-end","1"])
+        .arg(&self.ddb.url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .spawn() {
             Err(why) => Err(DownloadError::InternalError(Error::description(&why).into())),
             Ok(process) => Ok(process),
         }
@@ -392,8 +384,8 @@ impl<'a> Downloader<'a>{
     }
 
     /// Executes the progress update statement.
-    fn update_progress(&self,stmt: &mut Stmt, progress: &str) -> Result<(),DownloadError>{
-        try!(stmt.execute((progress,&self.ddb.qid)).map(|_| Ok(())))
+    fn update_progress(&self,qid: &i64,stmt: &mut Stmt, progress: &str) -> Result<(),DownloadError>{
+        try!(stmt.execute((progress,qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }
 

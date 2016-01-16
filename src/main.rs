@@ -237,8 +237,8 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
             if !downl_db.compress {
                 db::update_steps(downl_db.pool,&downl_db.qid, 4, total_steps,false);
             }
-
-            match converter.merge_files(&downl_db.qid,&temp_path, &audio_path,&save_path.to_string_lossy(), !downl_db.compress) {
+			
+            match converter.merge_files(&downl_db.qid_progress,&temp_path, &audio_path,&save_path.to_string_lossy()) {
                 Err(e) => {error!("merge error: {:?}",e); return Err(e);},
                 Ok(()) => {},
             }
@@ -260,7 +260,7 @@ fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter
         if !downl_db.compress {
             db::update_steps(downl_db.pool,&downl_db.qid, total_steps, total_steps, false);
         }
-        try!(converter.extract_audio(&downl_db.qid, &temp_path, &save_path.to_string_lossy(), convert_audio));
+        try!(converter.extract_audio(&downl_db.qid_progress, &temp_path, &save_path.to_string_lossy(), convert_audio));
         try!(remove_file(&temp_path));
     }else{
         debug!("no audio");
