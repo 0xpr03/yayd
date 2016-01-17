@@ -60,7 +60,7 @@ enum Thing { String(String), Bool(bool), None }
 fn main() {
     logger::initialize();
     
-    let pool = db::db_connect(db::mysql_options(), SLEEP_MS);
+    let pool = db::db_connect(db::mysql_options(), SLEEP_MS, false);
     debug!("cleaning db");
     db::clear_query_states(&pool);
     
@@ -373,4 +373,100 @@ fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, fi
     }
     
     Ok(Thing::Bool(warnings))
+}
+
+#[cfg(test)]
+mod test {
+	extern crate mysql;
+	use mysql::error::MyResult;
+	use mysql::error::MyError;
+	use mysql::conn::MyOpts;
+	use mysql::conn::pool::MyPool;
+	
+    use super::handle_download;
+    use lib;
+    use lib::l_expect;
+    use lib::config;
+    use std::env;
+    use lib::db::db_connect;
+    
+    lazy_static! {
+	    pub static ref CONFIG: config::Config = {
+	        config::init_config()
+	    };
+	}
+    
+	macro_rules! println_stderr(
+	    ($($arg:tt)*) => (
+	        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
+	            Ok(_) => {},
+	            Err(x) => panic!("Unable to write to stderr: {}", x),
+	        }
+	    )
+	);
+
+    #[test]
+    fn handle_db() {
+    	assert_eq!(env::var("db_test"),Ok("true".to_string()));
+    	lib::logger::initialize();
+    	let pool = connect_db();
+    	setup_db(&pool);
+    	
+    	fn connect_db() -> MyPool {
+			let myopts = MyOpts {
+		        tcp_addr: Some(env::var("db_ip").unwrap()),
+		        tcp_port: env::var("db_port").unwrap().parse::<u16>().unwrap(),
+		        user: Some(env::var("db_user").unwrap()),
+		        pass: Some(env::var("db_password").unwrap()),
+		        db_name: Some(env::var("db_db").unwrap()),
+		        ..Default::default() // set others to default
+		    };
+			println!("{:?}",myopts);
+    		lib::db::db_connect(myopts, super::SLEEP_MS, true)
+    	}
+    	fn setup_db(pool: &MyPool) -> Result<(),MyError> {
+    		let setup = include_str!("../install.sql").to_string();
+		    let lines = setup.lines();
+		    let mut table_sql = String::new();
+		    let mut in_table = false;
+		    for line in lines {
+		    	if in_table {
+		    		table_sql = table_sql +"\n"+ line;
+		    		if line.contains(";") {
+		    			in_table = false;
+		    			info!("Table:\n{}",table_sql);
+		    			l_expect(pool.prep_exec(&table_sql,()),"unable to create db!");
+		    			table_sql.clear();
+		    		}
+		    	}
+		    	if line.starts_with("CREATE TABLE") {
+		    		table_sql = table_sql +"\n"+ line;
+		    		in_table = true;
+		    	}
+		    }
+		    
+		    // create fake entries to monitor progress regressions leading to wrong updates
+		    let mut query_stmt = l_expect(pool.prepare("insert into `queries` (qid, url, type, quality, uid, created) VALUES (?,?,?,?,0,NOW())"),"prepare error");
+		    let mut querydetails_stmt = l_expect(pool.prepare("insert into `querydetails` (qid,code,progress,status) VALUES (?,?,?,?)"),"prepare error");
+		    let index_start = 10;
+		    let mut index = index_start;
+		    for i in 1..index_start {
+		    	l_expect(query_stmt.execute((i,"",0,0)),"stmt exec");
+		    	l_expect(querydetails_stmt.execute((i,-5,-5,"fake")), "stmt exec");
+		    }
+		    
+		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,133)),"stmt exec");
+		    index += 1;
+		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,-1)),"stmt exec");
+		    index += 1;
+		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,-2)),"stmt exec");
+		    index += 1;
+		    const code_waiting: i16 = -1;
+		    for i in index_start..index {
+		    	l_expect(querydetails_stmt.execute((i,code_waiting,0,"waiting")),"stmt exec");
+		    }
+		    
+    		Ok(())
+    	}
+    }
 }

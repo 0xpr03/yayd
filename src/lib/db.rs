@@ -21,13 +21,17 @@ macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!(
 macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return None }) }
 
 /// Connect to DBMS, retry on failure.
-pub fn db_connect(opts: MyOpts, sleep_time: u32) -> MyPool { 
+/// `is_test` is only `true` for tests
+pub fn db_connect(opts: MyOpts, sleep_time: u32, is_test: bool) -> MyPool { 
     loop {
         match pool::MyPool::new(opts.clone()) {
             Ok(conn) => {return conn;},
             Err(err) => error!("Unable to establish a connection: {}",err),
         };
         sleep_ms(sleep_time);
+        if is_test {
+        	unreachable!("couldn't connect to db")
+        }
     }
 }
 
