@@ -3,8 +3,8 @@ use toml::decode_str;
 use std::io::Write;
 use std::io::Read;
 
-use std::fs::metadata;
-use std::fs::File;
+use std::fs::{File,metadata,OpenOptions};
+use std::path::Path;
 
 use std::process::exit;
 
@@ -87,39 +87,59 @@ pub struct Extensions {
     pub webm: Vec<i16>,
 }
 
-/// create PathBuf by getting the current working dir
+/// Init config, reading from file or creating such
+#[cfg(not(test))]
 pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
     path.push(CONFIG_PATH); // set_file_name doesn't return smth -> needs to be run on mut path
     trace!("config path {:?}",path );
-    let config : Config;
+    let data: String;
     if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
         info!("Config file found.");
-        config = l_expect(read_config(&path.to_str().unwrap()),"config read");
+        data = l_expect(read_config(&path),"unable to read config!");
     }else{
         info!("Config file not found.");
-        l_expect(create_config(&path.to_str().unwrap()), "config creation");
+        data = create_config();
+        l_expect(write_config_file(&path, &data),"unable to write config");
         
         exit(0);
     }
-    config
+    
+    l_expect(parse_config(data), "unable to parse config")
+}
+
+/// Config for test builds, using environment variables
+#[cfg(test)]
+pub fn init_config() -> Config {
+	use std::env;
+	macro_rules! env(
+    ($s:expr) => (match env::var($s) { Ok(val) => val, Err(e) => panic!("unable to read env var {}",$s),});
+	);
+
+	let data = create_config();
+	let mut conf = l_expect(parse_config(data),"invalid default config!");
+	conf.general.ffmpeg_bin_dir = env!("ffmpeg_dir");
+	conf
+}
+
+/// Parse input toml to config struct
+fn parse_config(input: String) -> Result<Config, ConfigError> {
+	match decode_str(&input) {
+        None => Err(ConfigError::ParseError),
+        Some(dconfig) => Ok(dconfig),
+    }
 }
 
 /// Read config from file.
-pub fn read_config(file: &str) -> Result<Config,ConfigError> {
-    let mut f = try!(File::open(file).map_err(|_| ConfigError::ReadError));
-    let mut toml = String::new();
-    try!(f.read_to_string(&mut toml).map_err(|_| ConfigError::ReadError));
-    let config: Config = match decode_str(&toml) {
-        None => return Err(ConfigError::ParseError),
-        Some(dconfig) => dconfig,
-    };
-    Ok(config)
+pub fn read_config(file: &Path) -> Result<String,ConfigError> {
+    let mut f = try!(OpenOptions::new().read(true).open(file).map_err(|_| ConfigError::ReadError));
+    let mut data = String::new();
+    try!(f.read_to_string(&mut data).map_err(|_| ConfigError::ReadError));
+    Ok(data)
 }
 
-/// Create, read & write a new config.
-pub fn create_config(path: &str) -> Result<Config,ConfigError> {
-    //TODO: replace with import_string
+/// Create a new config.
+pub fn create_config() -> String {
     trace!("Creating config..");
     let toml = r#"[db]
 user = "user"
@@ -131,15 +151,15 @@ ip = "127.0.0.1"
 [general]
 
 # temporary dir for downloads before the conversion etc
-temp_dir = "/downloads/temp"
+temp_dir = "~/downloads/temp"
 
 # final destination of downloaded files / playlists
-download_dir = "/downloads"
+download_dir = "~/downloads"
 download_mbps = 48 # MBit/s limit
 mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 
 # folder in which the ffmpeg binary lies
-ffmpeg_bin_dir = "/ffmpeg/ffmpeg-2.6.2-64bit-static/"
+ffmpeg_bin_dir = "~/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 # additional lib callable in case of country-locks
 # will be called with {[optional arguments]} -q {quality} -r {speed limit} -f {dest. file} -v {video/audio -> true/false} {url}
@@ -183,12 +203,14 @@ mp4 = [-10,-11,-12,-13,-14,299,298,137,136,135,134,133,22,18]
 flv = []
 webm = [303,302,248]
     "#;
-    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-    let config: Config = match decode_str(&toml) {
-        None => return Err(ConfigError::ParseError),
-        Some(dconfig) => dconfig,
-    };
-    trace!("Raw new config: {:?}", config);
-    try!(file.write_all(toml.as_bytes()).map_err(|_| ConfigError::WriteError));
-    Ok(config)
+    trace!("Raw new config: {:?}", toml);
+    
+    toml.to_owned()
+}
+
+/// Writes the recived string into the file
+fn write_config_file(path: &Path, data: &str) -> Result<(),ConfigError> {
+	let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
+	try!(file.write_all(data.as_bytes()).map_err(|_| ConfigError::WriteError));
+	Ok(())
 }
