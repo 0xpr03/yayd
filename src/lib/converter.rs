@@ -162,7 +162,7 @@ impl<'a> Converter<'a> {
     fn run_file_probe(&self, video_file: &str) -> Result<String, DownloadError> {
     	let mut command = self.create_ffmpeg_base("ffprobe");
     	command.args(&["-select_streams","0"]);
-    	command.args(&["-show_entries","stream=duration,r_frame_rate"]);
+    	command.args(&["-show_entries","format=duration:stream=r_frame_rate"]);
     	command.args(&["-of","default=noprint_wrappers=1"]);
     	command.arg(video_file);
     	
