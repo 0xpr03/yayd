@@ -380,7 +380,7 @@ mod test {
 	extern crate mysql;
 	use mysql::error::MyResult;
 	use mysql::error::MyError;
-	use mysql::conn::MyOpts;
+	use mysql::conn::{MyOpts};
 	use mysql::conn::pool::MyPool;
 	
     use super::handle_download;
@@ -411,62 +411,78 @@ mod test {
     	lib::logger::initialize();
     	let pool = connect_db();
     	setup_db(&pool);
+    	info!("db is now set");
+    	let amount = 4;
+    	let mut file_db: Vec<String> = Vec::with_capacity(2);
+    	let converter = lib::converter::Converter::new(&CONFIG.general.ffmpeg_bin_dir, &CONFIG.general.mp3_quality, pool.clone());
+    	let mut r1;
+    	for i in 0..amount {
+    		r1 = lib::db::request_entry(&pool);
+    		assert!(r1.is_some());
+    		assert!(super::handle_download(&r1.unwrap(), &None, &converter, &mut file_db).is_ok());
+    	}
     	
-    	fn connect_db() -> MyPool {
-			let myopts = MyOpts {
-		        tcp_addr: Some(env::var("db_ip").unwrap()),
-		        tcp_port: env::var("db_port").unwrap().parse::<u16>().unwrap(),
-		        user: Some(env::var("db_user").unwrap()),
-		        pass: Some(env::var("db_password").unwrap()),
-		        db_name: Some(env::var("db_db").unwrap()),
-		        ..Default::default() // set others to default
-		    };
-			println!("{:?}",myopts);
-    		lib::db::db_connect(myopts, super::SLEEP_MS, true)
-    	}
-    	fn setup_db(pool: &MyPool) -> Result<(),MyError> {
-    		let setup = include_str!("../install.sql").to_string();
-		    let lines = setup.lines();
-		    let mut table_sql = String::new();
-		    let mut in_table = false;
-		    for line in lines {
-		    	if in_table {
-		    		table_sql = table_sql +"\n"+ line;
-		    		if line.contains(";") {
-		    			in_table = false;
-		    			info!("Table:\n{}",table_sql);
-		    			l_expect(pool.prep_exec(&table_sql,()),"unable to create db!");
-		    			table_sql.clear();
-		    		}
-		    	}
-		    	if line.starts_with("CREATE TABLE") {
-		    		table_sql = table_sql +"\n"+ line;
-		    		in_table = true;
-		    	}
-		    }
-		    
-		    // create fake entries to monitor progress regressions leading to wrong updates
-		    let mut query_stmt = l_expect(pool.prepare("insert into `queries` (qid, url, type, quality, uid, created) VALUES (?,?,?,?,0,NOW())"),"prepare error");
-		    let mut querydetails_stmt = l_expect(pool.prepare("insert into `querydetails` (qid,code,progress,status) VALUES (?,?,?,?)"),"prepare error");
-		    let index_start = 10;
-		    let mut index = index_start;
-		    for i in 1..index_start {
-		    	l_expect(query_stmt.execute((i,"",0,0)),"stmt exec");
-		    	l_expect(querydetails_stmt.execute((i,-5,-5,"fake")), "stmt exec");
-		    }
-		    
-		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,133)),"stmt exec");
-		    index += 1;
-		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,-1)),"stmt exec");
-		    index += 1;
-		    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=aqz-KE-bpKQ",0,-2)),"stmt exec");
-		    index += 1;
-		    const code_waiting: i16 = -1;
-		    for i in index_start..index {
-		    	l_expect(querydetails_stmt.execute((i,code_waiting,0,"waiting")),"stmt exec");
-		    }
-		    
-    		Ok(())
-    	}
+    	
+    	
     }
+
+	fn connect_db() -> MyPool {
+		let myopts = MyOpts {
+	        tcp_addr: Some(env::var("db_ip").unwrap()),
+	        tcp_port: l_expect(env::var("db_port").unwrap().parse::<u16>(),"port"),
+	        user: Some(env::var("db_user").unwrap()),
+	        pass: Some(env::var("db_password").unwrap()),
+	        db_name: Some(env::var("db_db").unwrap()),
+	        ..Default::default() // set others to default
+	    };
+		println!("{:?}",myopts);
+		lib::db::db_connect(myopts, super::SLEEP_MS, true)
+	}
+	
+	fn setup_db(pool: &MyPool) -> Result<(),MyError> {
+		let setup = include_str!("../install.sql").to_string();
+	    let lines = setup.lines();
+	    let mut table_sql = String::new();
+	    let mut in_table = false;
+	    for line in lines {
+	    	if in_table {
+	    		table_sql = table_sql +"\n"+ line;
+	    		if line.contains(";") {
+	    			in_table = false;
+	    			info!("Table:\n{}",table_sql);
+	    			l_expect(pool.prep_exec(&table_sql,()),"unable to create db!");
+	    			table_sql.clear();
+	    		}
+	    	}
+	    	if line.starts_with("CREATE TABLE") {
+	    		table_sql = table_sql +"\n"+ line;
+	    		in_table = true;
+	    	}
+	    }
+	    
+	    // create fake entries to monitor progress regressions leading to wrong updates
+	    let mut query_stmt = l_expect(pool.prepare("insert into `queries` (qid, url, type, quality, uid, created) VALUES (?,?,?,?,0,NOW())"),"prepare error");
+	    let mut querydetails_stmt = l_expect(pool.prepare("insert into `querydetails` (qid,code,progress,status) VALUES (?,?,?,?)"),"prepare error");
+	    let index_start = 10;
+	    let mut index = index_start;
+	    for i in 1..index_start {
+	    	l_expect(query_stmt.execute((i,"",0,0)),"stmt exec");
+	    	l_expect(querydetails_stmt.execute((i,-5,-5,"fake")), "stmt exec");
+	    }
+	    // shortest 60fps video I could find
+	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,133)),"stmt exec");
+	    index += 1;
+	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,303)),"stmt exec");
+	    index += 1;
+	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-1)),"stmt exec");
+	    index += 1;
+	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-2)),"stmt exec");
+	    index += 1;
+	    const code_waiting: i16 = -1;
+	    for i in index_start..index {
+	    	l_expect(querydetails_stmt.execute((i,code_waiting,0,"waiting")),"stmt exec");
+	    }
+	    
+		Ok(())
+	}
 }

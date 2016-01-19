@@ -1,12 +1,17 @@
 language: rust
 rust:
   - stable
-  - beta
-  - nightly
-matrix:
-  allow_failures:
-    - rust: nightly
 addons:
   mariadb: '10.0'
+  apt:
+    packages:
+    - youtube-dl
+services: mariadb
 before_script:
- - 
+ - sh -c "mysql -e 'create database yayd'"
+ - wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz -O /tmp/ffmpeg.tar.xz
+ - tar xpvf "/mnt/hgfs/VM-WORK/ffmpeg.tar.xz" -C /tmp/
+script:
+ - cargo build
+ - db_test=true db_ip="127.0.0.1" db_port="3306" db_user=root db_password="" db_db=yayd download_dir="/tmp" temp_dir="/tmp" mbps=100 ffmpeg_dir="/tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/" cargo test
+sudo: false

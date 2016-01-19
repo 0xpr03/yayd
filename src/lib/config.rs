@@ -119,6 +119,9 @@ pub fn init_config() -> Config {
 	let data = create_config();
 	let mut conf = l_expect(parse_config(data),"invalid default config!");
 	conf.general.ffmpeg_bin_dir = env!("ffmpeg_dir");
+	conf.general.download_dir = env!("download_dir");
+	conf.general.temp_dir = env!("temp_dir");
+	conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
 	conf
 }
 
