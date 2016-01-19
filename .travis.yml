@@ -9,14 +9,17 @@ addons:
 services: mariadb
 before_script:
  - sh -c "mysql -e 'create database yayd'"
- - wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz -O /tmp/ffmpeg.tar.xz
- - tar xpvf "/tmp/ffmpeg.tar.xz" -C /tmp/
- - wget "https://yt-dl.org/downloads/latest/youtube-dl" -O "/tmp/youtube-dl"
+ - if [ ! -f "/tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/ffmpeg" ]; then wget http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz -O /tmp/ffmpeg.tar.xz ; fi
+ - if [ ! -f "/tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/ffmpeg" ]; then tar xpvf "/tmp/ffmpeg.tar.xz" -C "/tmp/" ; fi
+ - if [ ! -f "/tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/ffmpeg" ]; then chmod +x "/tmp/ffmpeg-2.8.5-64bit-static/ffmpeg" "/tmp/ffmpeg-2.8.5-64bit-static/ffprobe" "/tmp/ffmpeg-2.8.5-64bit-static/qt-faststart" ; fi
+ - wget --no-check-certificate "https://yt-dl.org/downloads/latest/youtube-dl" -O "/tmp/youtube-dl"
+ - chmod +x "/tmp/youtube-dl"
  - export PATH=$PATH:/tmp/
 script:
  - cargo build
- - db_test=true db_ip="127.0.0.1" db_port="3306" db_user=root db_password="" db_db=yayd download_dir="/tmp" temp_dir="/tmp" mbps=100 ffmpeg_dir="/tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/" cargo test
+ - db_test=true db_ip="127.0.0.1" db_port="3306" db_user=root db_password="" db_db=yayd download_dir="/tmp" temp_dir="/tmp" mbps=100 ffmpeg_dir="/tmp/ffmpeg-2.8.5-64bit-static/" cargo test
 cache:
+  apt : true
   directories:
-  - /tmp/ffmpeg/ffmpeg-2.8.5-64bit-static/
+  - /tmp/ffmpeg-2.8.5-64bit-static/
 sudo: false
