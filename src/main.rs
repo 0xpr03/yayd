@@ -59,14 +59,15 @@ enum Thing { String(String), Bool(bool), None }
 
 fn main() {
     logger::initialize();
-    
-    let pool = db::db_connect(db::mysql_options(), SLEEP_MS, false);
+    let sleep_time = std::time::Duration::new(0, SLEEP_MS);
+    let pool = db::db_connect(db::mysql_options(), sleep_time, false);
     debug!("cleaning db");
     db::clear_query_states(&pool);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
     let mut print_pause = true;
     debug!("finished startup");
+    
     loop {
         if let Some(mut downl_db) = db::request_entry(& pool) {
             print_pause = true;
@@ -133,7 +134,7 @@ fn main() {
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }
-            std::thread::sleep_ms(SLEEP_MS);
+            std::thread::sleep(sleep_time);
         }
     }
 }

@@ -3,7 +3,8 @@ use mysql::conn::pool;
 use mysql::conn::pool::{MyPool};
 use mysql::value::from_value;
 
-use std::thread::sleep_ms;
+use std::thread::sleep;
+use std::time::Duration;
 
 use lib::{DownloadError};
 use std::error::Error;
@@ -22,13 +23,13 @@ macro_rules! try_option { ($e:expr) => (match $e { Some(x) => x, None => return 
 
 /// Connect to DBMS, retry on failure.
 /// `is_test` is only `true` for tests
-pub fn db_connect(opts: MyOpts, sleep_time: u32, is_test: bool) -> MyPool { 
+pub fn db_connect(opts: MyOpts, sleep_time: Duration, is_test: bool) -> MyPool { 
     loop {
         match pool::MyPool::new(opts.clone()) {
             Ok(conn) => {return conn;},
             Err(err) => error!("Unable to establish a connection: {}",err),
         };
-        sleep_ms(sleep_time);
+        sleep(sleep_time);
         if is_test {
         	unreachable!("couldn't connect to db")
         }
