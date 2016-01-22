@@ -1,6 +1,7 @@
 extern crate mysql;
 extern crate toml;
 extern crate rustc_serialize;
+extern crate monster;
 #[macro_use]
 extern crate log;
 extern crate log4rs;
@@ -8,6 +9,7 @@ extern crate log4rs;
 extern crate lazy_static;
 
 mod lib;
+mod handler;
 
 use lib::config;
 use lib::db;
