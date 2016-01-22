@@ -11,12 +11,12 @@ macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
-struct Module {
+pub struct Module {
     checker: Box<Fn(i32) -> bool>,
     action: Box<Fn(&mut Registry, i32) -> i32>
 }
 
-struct Registry {
+pub struct Registry {
     modules: Vec<Module>
 }
 
@@ -30,11 +30,12 @@ impl Registry {
     }
     
     fn handle_some_data(&mut self, data: i32) {
-	    let module = self.modules.find_and_take(|&(_, module)| (module.checker)(data));
+	    let module = self.modules.find_and_take(|module| (module.checker)(data));
 	    
-	    (module.action)(self, data);
-	        
-	    self.modules.push(module);
+        if let Some(module) = module {
+	       (module.action)(self, data);
+	       self.modules.push(module);
+        }
 	}
 }
 
