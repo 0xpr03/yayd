@@ -23,7 +23,6 @@ const VERSION : &'static str = "0.6";
 const CONFIG_PATH : &'static str = "config.cfg";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
-const SLEEP_MS: u32 = 5000;
 const CODE_STARTED: i8 = 0;
 const CODE_IN_PROGRESS: i8 = 1;
 const CODE_SUCCESS: i8 = 2;
@@ -40,6 +39,10 @@ lazy_static! {
         println!("Starting yayd-backend v{}",&VERSION);
         config::init_config()
     };
+    pub static ref SLEEP_TIME: std::time::Duration = {
+    	std::time::Duration::new(5,0)
+    };
+    	
 }
 
 //#[allow(non_camel_case_types)]
@@ -59,8 +62,7 @@ enum Thing { String(String), Bool(bool), None }
 
 fn main() {
     logger::initialize();
-    let sleep_time = std::time::Duration::new(0, SLEEP_MS);
-    let pool = db::db_connect(db::mysql_options(), sleep_time, false);
+    let pool = db::db_connect(db::mysql_options(), *SLEEP_TIME, false);
     debug!("cleaning db");
     db::clear_query_states(&pool);
     
@@ -134,7 +136,7 @@ fn main() {
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }
-            std::thread::sleep(sleep_time);
+            std::thread::sleep(*SLEEP_TIME);
         }
     }
 }
@@ -389,12 +391,16 @@ mod test {
     use lib::l_expect;
     use lib::config;
     use std::env;
+    use std;
     use lib::db::db_connect;
     
     lazy_static! {
 	    pub static ref CONFIG: config::Config = {
 	        config::init_config()
 	    };
+        pub static ref SLEEP_TIME: std::time::Duration = {
+    		std::time::Duration::new(0,0)
+   		};
 	}
     
 	macro_rules! println_stderr(
@@ -437,7 +443,7 @@ mod test {
 	        ..Default::default() // set others to default
 	    };
 		println!("{:?}",myopts);
-		lib::db::db_connect(myopts, super::SLEEP_MS, true)
+		lib::db::db_connect(myopts, *super::SLEEP_TIME, true)
 	}
 	
 	fn setup_db(pool: &MyPool) -> Result<(),MyError> {
