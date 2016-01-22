@@ -8,8 +8,6 @@ use std::path::Path;
 
 use std::process::exit;
 
-use std::collections::BTreeMap;
-
 use CONFIG_PATH;
 use lib::{self,l_expect};
 
@@ -31,7 +29,6 @@ pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
     pub codecs: ConfigCodecs,
-    pub extensions: Extensions,
 }
 
 /// Config struct DBMS related
@@ -65,7 +62,6 @@ pub struct ConfigCodecs {
     pub audio_source_hq: i16,
     pub audio_mp3: i16,
     pub yt: ConfigYT,
-    pub twitch: BTreeMap<String,String>, 
 }
 
 /// Youtube config struct
@@ -74,17 +70,7 @@ pub struct ConfigYT {
     pub audio_normal_mp4: i16,
     pub audio_normal_webm: i16,
     pub audio_hq: i16,
-}
-
-/// Extensions config struct
-#[derive(Debug, RustcDecodable,Clone)]
-pub struct Extensions {
-    pub aac: Vec<i16>,
-    pub mp3: Vec<i16>,
-    pub m4a: Vec<i16>,
-    pub mp4: Vec<i16>,
-    pub flv: Vec<i16>,
-    pub webm: Vec<i16>,
+    
 }
 
 /// Init config, reading from file or creating such
@@ -111,23 +97,23 @@ pub fn init_config() -> Config {
 /// Config for test builds, using environment variables
 #[cfg(test)]
 pub fn init_config() -> Config {
-	use std::env;
-	macro_rules! env(
+    use std::env;
+    macro_rules! env(
     ($s:expr) => (match env::var($s) { Ok(val) => val, Err(e) => panic!("unable to read env var {}",$s),});
-	);
+    );
 
-	let data = create_config();
-	let mut conf = l_expect(parse_config(data),"invalid default config!");
-	conf.general.ffmpeg_bin_dir = env!("ffmpeg_dir");
-	conf.general.download_dir = env!("download_dir");
-	conf.general.temp_dir = env!("temp_dir");
-	conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
-	conf
+    let data = create_config();
+    let mut conf = l_expect(parse_config(data),"invalid default config!");
+    conf.general.ffmpeg_bin_dir = env!("ffmpeg_dir");
+    conf.general.download_dir = env!("download_dir");
+    conf.general.temp_dir = env!("temp_dir");
+    conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
+    conf
 }
 
 /// Parse input toml to config struct
 fn parse_config(input: String) -> Result<Config, ConfigError> {
-	match decode_str(&input) {
+    match decode_str(&input) {
         None => Err(ConfigError::ParseError),
         Some(dconfig) => Ok(dconfig),
     }
@@ -173,7 +159,7 @@ lib_args = ["arg1", "arg2"] # additional arguments
 lib_dir = "/" # working dir to use
 
 [codecs]
-# values used from external
+# audio type : quality value
 audio_mp3 = -1
 audio_raw = -2
 audio_source_hq = -3
@@ -182,29 +168,10 @@ audio_source_hq = -3
 # the individual values for video-downloads are set by the db-entry
 # these values here are for music/mp3 extract/conversion
 [codecs.yt]
+# audio type : itag
 audio_normal_mp4 = 140
 audio_normal_webm = 171
 audio_hq = 22
-
-# quality ids for twitch
-# quality id - twitch quality
-[codecs.twitch]
--10 = "Mobile"
--11 = "Low"
--12 = "Medium"
--13 = "High"
--14 = "Source"
-
-
-# which file ending should be used for the quality codes from youtube
-# this is also needed to download the right audio part for every video container
-[extensions]
-aac = [-2,-3]
-mp3 = [-1]
-m4a = []
-mp4 = [-10,-11,-12,-13,-14,299,298,137,136,135,134,133,22,18]
-flv = []
-webm = [303,302,248]
     "#;
     trace!("Raw new config: {:?}", toml);
     
@@ -213,7 +180,7 @@ webm = [303,302,248]
 
 /// Writes the recived string into the file
 fn write_config_file(path: &Path, data: &str) -> Result<(),ConfigError> {
-	let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-	try!(file.write_all(data.as_bytes()).map_err(|_| ConfigError::WriteError));
-	Ok(())
+    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
+    try!(file.write_all(data.as_bytes()).map_err(|_| ConfigError::WriteError));
+    Ok(())
 }

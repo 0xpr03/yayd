@@ -1,7 +1,6 @@
 extern crate mysql;
 extern crate toml;
 extern crate rustc_serialize;
-extern crate monster;
 #[macro_use]
 extern crate log;
 extern crate log4rs;
@@ -11,15 +10,13 @@ extern crate lazy_static;
 mod lib;
 mod handler;
 
+use lib::downloader::Downloader;
+use lib::converter::Converter;
+use handler::init_handlers;
 use lib::config;
 use lib::db;
 use lib::logger;
-use lib::downloader::DownloadDB;
-use lib::downloader::Downloader;
-use lib::DownloadError;
-use lib::converter::Converter;
-
-use std::fs::{remove_file,remove_dir_all};
+use lib::Error;
 
 const VERSION : &'static str = "0.6";
 const CONFIG_PATH : &'static str = "config.cfg";
@@ -32,9 +29,6 @@ const CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
 const CODE_FAILED_INTERNAL: i8 = 10; // internal error
 const CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
 const CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
-const TYPE_YT_VIDEO: i16 = 0;
-const TYPE_YT_PL: i16 = 1;
-const TYPE_TWITCH: i16 = 2;
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {
@@ -42,9 +36,9 @@ lazy_static! {
         config::init_config()
     };
     pub static ref SLEEP_TIME: std::time::Duration = {
-    	std::time::Duration::new(5,0)
+        std::time::Duration::new(5,0)
     };
-    	
+        
 }
 
 //#[allow(non_camel_case_types)]
@@ -60,8 +54,6 @@ lazy_static! {
 //    FailedUnavailable = 12,
 //}
 
-enum Thing { String(String), Bool(bool), None }
-
 fn main() {
     logger::initialize();
     let pool = db::db_connect(db::mysql_options(), *SLEEP_TIME, false);
@@ -69,62 +61,31 @@ fn main() {
     db::clear_query_states(&pool);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
+    let mut handler = init_handlers(Downloader::new(&CONFIG.general),converter);
     let mut print_pause = true;
     debug!("finished startup");
     
     loop {
-        if let Some(mut downl_db) = db::request_entry(& pool) {
+        if let Some(request) = db::request_entry(& pool) {
             print_pause = true;
-            let qid = downl_db.qid.clone();
-            db::set_query_code(&pool, &CODE_STARTED, &downl_db.qid).ok().expect("Failed to set query code!");
-            db::set_query_state(&pool.clone(),&qid, "started", false);
-            let action_result: Result<Thing,DownloadError>;
-            {
-                let mut left_files: Vec<String> = Vec::with_capacity(2);
-                if downl_db.playlist {
-                    action_result = handle_playlist(& mut downl_db, &converter,&mut left_files);
-                }else{
-                    action_result = handle_download(& downl_db, &None, &converter,&mut left_files);
-                }
-
-                if !left_files.is_empty() {
-                    trace!("cleaning up files");
-                    for i in &left_files {
-                        match remove_file(&i) {
-                            Ok(_) => (trace!("cleaning up {}",i)),
-                            Err(e) => warn!("unable to remove file '{}' {}",i,e),
-                        }
-                    }
-                }
-            }
-            
-            let code: i8 = match action_result {
-                Ok(t) => {
-                    match t {
-                        Thing::Bool(b) => {
-                            if b { CODE_SUCCESS_WARNINGS } else { CODE_SUCCESS }
-                        }
-                        _ => CODE_SUCCESS,
-                    }
-                },
+            let qid = request.qid.clone();
+            db::set_query_code(&pool, &CODE_STARTED, &request.qid);
+            db::set_query_state(&pool.clone(),&request.qid, "started", false);
+            let code: i8 = match handler.handle(request) {
+                Ok(_) => CODE_SUCCESS,
                 Err(e) => {
-                    warn!("Error: {:?}", e);
-                    if downl_db.source_type == TYPE_TWITCH {
-                        match lib::cleanup_temp_folder() {
-                            Err(e) => error!("error doing cleanup {:?}", e),
-                            Ok(_) => (),
-                        }
-                    }
                     match e {
-                        DownloadError::NotAvailable => CODE_FAILED_UNAVAILABLE,
-                        DownloadError::ExtractorError => CODE_FAILED_UNAVAILABLE,
-                        DownloadError::QualityNotAvailable => CODE_FAILED_QUALITY,
+                        Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
+                        Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
+                        Error::QualityNotAvailable => CODE_FAILED_QUALITY,
+                        Error::HandlerWarn(_) => CODE_SUCCESS_WARNINGS,
                         _ => {
                             let details = match e {
-                                DownloadError::DBError(s) => s,
-                                DownloadError::DownloadError(s) => s,
-                                DownloadError::FFMPEGError(s) => s,
-                                DownloadError::InternalError(s) => s,
+                                Error::DBError(s) => format!("{:?}",s),
+                                Error::DownloadError(s) => s,
+                                Error::FFMPEGError(s) => s,
+                                Error::InternalError(s) => s,
+                                Error::InputError(s) => s,
                                 _ => unreachable!(),
                             };
                             db::add_query_status(&pool,&qid, &details);
@@ -132,9 +93,9 @@ fn main() {
                         },
                     }
                 }
-            };
-            db::set_query_code(&pool, &code,&qid).ok().expect("Failed to set query code!");
-			db::set_null_state(&pool, &qid);
+            }; 
+            db::set_query_code(&pool, &code,&qid);
+            db::set_null_state(&pool, &qid);
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }
@@ -142,252 +103,15 @@ fn main() {
         }
     }
 }
-
-/// Download handler
-/// Used by the playlist/file handler to download one file
-/// Based on the quality it needs to download audio & video separately and convert them together
-/// In case of a playlist download it depends on the target download folder & if it should be bezipped
-/// In case of a DMCA & turned on lib_use, we're expecting the lib to handle this & return the filename to us.
-///
-/// If it's a non-zipped single file, it's moved after a successful download, converted etc to the
-/// main folder from which it should be downloadable.
-/// The original non-ascii & url_encode'd name of the file is stored in the DB
-/// For playlist downloads the full path of the output file is returnd as Thing::String(path)
-fn handle_download<'a>(downl_db: &DownloadDB, folder: &Option<String>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing,DownloadError>{
-    //update progress
-    debug!("Handling download id {}, zip:{} playlist:{}", downl_db.qid, downl_db.compress, downl_db.playlist);
-    let is_zipped = match *folder {
-        Some(_) => true,
-        None => false,
-    };
-    if !downl_db.compress {
-        db::update_steps(downl_db.pool,&downl_db.qid, 1, 0,false);
-    }
-    
-    let download = Downloader::new(downl_db, &CONFIG.general);
-    //get filename, check for DMCA
-    let mut dmca = false; // "succ." dmca -> file already downloaded
-    
-    let temp_path = lib::format_file_path(&downl_db.qid, folder.clone(), false);
-    let name = match download.get_file_name() { // get filename
-        Ok(v) => {if !downl_db.compress { try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid)); } v},
-        Err(DownloadError::DMCAError) => { //now request via lib.. // k if( k == Err(DownloadError::DMCAError) ) 
-            info!("DMCA error!");
-            if CONFIG.general.lib_use {
-                if !downl_db.compress { try!(db::set_query_code(downl_db.pool, &CODE_IN_PROGRESS,&downl_db.qid)); }
-                match download.lib_request_video(1,0, &temp_path) {
-                    Err(err) => { warn!("lib-call error {:?}", err); return Err(err); },
-                    Ok(v) => { dmca = true; v },
-                }
-            } else {
-                return Err(DownloadError::NotAvailable);
-            }
-        },
-        Err(e) => { // unknown error / restricted source etc.. abort
-            error!("Unknown error: {:?}", e);
-            return Err(e);
-        },
-    };
-
-    file_db.push(temp_path.clone());
-    let save_path = lib::format_save_path(folder.clone(),&name, lib::get_file_ext(&download));
-
-    trace!("Filename: {}", name);
-    
-    let is_splitted_video = if dmca {
-        false
-    } else {
-        lib::is_split_container(&downl_db.quality, &downl_db.source_type)
-    };
-    let convert_audio = CONFIG.extensions.mp3.contains(&downl_db.quality);
-    
-    let total_steps = if dmca { // calculate the needed steps for the current task
-        if download.is_audio() {
-            3
-        } else {
-            2
-        }
-    } else if is_splitted_video {
-        4
-    } else if download.is_audio() {
-        3
-    } else {
-        2
-    };
-    
-    if !dmca { // on dmca the called lib handles splitt videos, only audio conversion has to handled by us
-        if !downl_db.compress {
-            db::update_steps(downl_db.pool,&downl_db.qid, 2, total_steps,false);
-        }
-        
-        //download first file, download audio raw source if specified or video
-        match download.download_file(&temp_path, download.is_audio()) {
-            Err(e) => {file_db.pop(); return Err(e); },
-            Ok(_) => (),
-        }
-        
-        if is_splitted_video {
-            debug!("splitted video");
-            // download audio file & convert together
-            if !downl_db.compress {
-                db::update_steps(downl_db.pool,&downl_db.qid, 3, total_steps,false);
-            }
-			
-            let audio_path = lib::format_file_path(&downl_db.qid, folder.clone(), true);
-            
-            trace!("Downloading audio.. {}", audio_path);
-            try!(download.download_file(&audio_path, true));
-            file_db.push(audio_path.clone());
-            
-            if !downl_db.compress {
-                db::update_steps(downl_db.pool,&downl_db.qid, 4, total_steps,false);
-            }
-			
-            match converter.merge_files(&downl_db.qid_progress,&temp_path, &audio_path,&save_path.to_string_lossy()) {
-                Err(e) => {error!("merge error: {:?}",e); return Err(e);},
-                Ok(()) => {},
-            }
-
-            try!(remove_file(&audio_path));
-            file_db.pop();
-        }
-    }
-    
-    if !is_splitted_video { // if it's no splitted video & no audio we're moving the file, regardless of an earlier DMCA (lib call)
-        debug!("no split container");
-        if !download.is_audio() {
-            try!(lib::move_file(&temp_path, &save_path));
-        }
-    }
-    
-    if download.is_audio(){ // if audio-> convert m4a to mp3 or extract m4a, directly to output file
-    	debug!("is audio file");
-        if !downl_db.compress {
-            db::update_steps(downl_db.pool,&downl_db.qid, total_steps, total_steps, false);
-        }
-        try!(converter.extract_audio(&downl_db.qid_progress, &temp_path, &save_path.to_string_lossy(), convert_audio));
-        try!(remove_file(&temp_path));
-    }else{
-        debug!("no audio");
-        if is_splitted_video {
-            try!(remove_file(&temp_path));
-        }
-    }
-    file_db.pop();
-    
-    if !is_zipped { // add file to list, except it's for zip-compression later (=folder set)
-        try!(db::add_file_entry(downl_db.pool, &downl_db.qid,&save_path.file_name().unwrap().to_string_lossy(), &name));
-    }
-    if !downl_db.compress {
-        db::update_steps(downl_db.pool,&downl_db.qid, total_steps, total_steps, true);
-    }
-    
-    if folder.is_some() {
-        Ok(Thing::String(save_path.to_string_lossy().into_owned()))
-    } else {
-        Ok(Thing::None)
-    }
-}
-
-/// Handles a playlist request
-/// If zipping isn't requested the downloads will be split up,
-/// so for each video in the playlist an own query entry will be created
-/// if warnings occured (unavailable video etc) the return will be true
-fn handle_playlist<'a>(downl_db: & mut DownloadDB<'a>, converter: &Converter, file_db: &mut Vec<String>) -> Result<Thing, DownloadError>{
-    let mut max_steps: i32 = if downl_db.compress { 4 } else { 3 };
-    db::update_steps(downl_db.pool,&downl_db.qid, 1, max_steps,false);
-    
-    let pl_id: i64 = downl_db.qid;
-    downl_db.update_folder(format!("{}/{}",&CONFIG.general.temp_dir,pl_id));
-    trace!("Folder:  {}",downl_db.folder);
-    
-    let mut playlist_name;
-    let file_ids: Vec<String>;
-    {
-        let download = Downloader::new(&downl_db, &CONFIG.general);
-        playlist_name = String::new();
-        if downl_db.compress {
-            playlist_name = try!(download.get_playlist_name());
-            println!("pl name {}",playlist_name);
-            try!(std::fs::create_dir(&downl_db.folder));
-            file_db.push(downl_db.folder.clone());
-        }
-        
-        db::update_steps(downl_db.pool,&downl_db.qid, 2, max_steps,false);
-        trace!("retriving playlist videos..");
-        file_ids = try!(download.get_playlist_ids());
-    }
-    
-    
-    
-    let handler_folder = if downl_db.compress {
-        Some(pl_id.to_string())
-    }else {
-        None
-    };
-    
-    trace!("got playlist videos");
-    max_steps += file_ids.len() as i32;
-    let mut current_step = 2;
-    let mut warnings = false;
-    let mut current_url: String;
-    let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
-    // we'll store all files and delete em later, so we don't need rm -rf
-    let mut file_delete_list: Vec<String> = Vec::with_capacity(if downl_db.compress { file_ids.len() } else { 0 });
-    for id in file_ids.iter() {
-        current_step += 1;
-        if downl_db.compress {
-            db::update_steps(downl_db.pool,&pl_id, current_step, max_steps,false);
-        }
-        current_url = format!("https://www.youtube.com/watch?v={}",id);
-        downl_db.update_video(current_url.clone(), current_step as i64);
-        debug!("id: {}",id);
-        match handle_download(downl_db, &handler_folder, converter, file_db) {
-            Err(e) => { warn!("error downloading {}: {:?}",id,e);
-                        failed_log.push_str(&format!("{} {:?}\n", current_url, e));
-                        warnings = true;
-            },
-            Ok(e) => {  if downl_db.compress {
-                            match e {
-                                Thing::String(v) => file_delete_list.push(v),
-                                _ => {error!("handle_download not returning a filename"); panic!();},
-                            }
-                        }
-            },
-        }
-    }
-    
-    if warnings {
-        db::add_query_status(downl_db.pool,&pl_id, &failed_log);
-    }
-
-    trace!("downloaded all videos");
-    if downl_db.compress { // zip to file, add to db & remove all sources
-        current_step += 1;
-        db::update_steps(downl_db.pool,&pl_id, current_step, max_steps,false);
-        let zip_path = lib::format_save_path(None, &lib::url_sanitize(&playlist_name),"zip");
-        trace!("zip file: {} \n zip source {}",zip_path.to_string_lossy(), &downl_db.folder);
-        try!(lib::zip_folder(&downl_db.folder, &zip_path));
-        try!(db::add_file_entry(downl_db.pool, &pl_id,&zip_path.file_name().unwrap().to_string_lossy(), &playlist_name));
-        
-        current_step += 1;
-        db::update_steps(downl_db.pool,&pl_id, current_step, max_steps,false);
-        try!(lib::delete_files(file_delete_list));
-        try!(remove_dir_all(&downl_db.folder));
-        file_db.pop();
-    }
-    
-    Ok(Thing::Bool(warnings))
-}
-
+/*
 #[cfg(test)]
 mod test {
-	extern crate mysql;
-	use mysql::error::MyResult;
-	use mysql::error::MyError;
-	use mysql::conn::{MyOpts};
-	use mysql::conn::pool::MyPool;
-	
+    extern crate mysql;
+    use mysql::error::MyResult;
+    use mysql::error::MyError;
+    use mysql::conn::{MyOpts};
+    use mysql::conn::pool::MyPool;
+    
     use super::handle_download;
     use lib;
     use lib::l_expect;
@@ -397,101 +121,101 @@ mod test {
     use lib::db::db_connect;
     
     lazy_static! {
-	    pub static ref CONFIG: config::Config = {
-	        config::init_config()
-	    };
+        pub static ref CONFIG: config::Config = {
+            config::init_config()
+        };
         pub static ref SLEEP_TIME: std::time::Duration = {
-    		std::time::Duration::new(0,0)
-   		};
-	}
+            std::time::Duration::new(0,0)
+           };
+    }
     
-	macro_rules! println_stderr(
-	    ($($arg:tt)*) => (
-	        match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
-	            Ok(_) => {},
-	            Err(x) => panic!("Unable to write to stderr: {}", x),
-	        }
-	    )
-	);
+    macro_rules! println_stderr(
+        ($($arg:tt)*) => (
+            match writeln!(&mut ::std::io::stderr(), $($arg)* ) {
+                Ok(_) => {},
+                Err(x) => panic!("Unable to write to stderr: {}", x),
+            }
+        )
+    );
 
     #[test]
     fn handle_db() {
-    	assert_eq!(env::var("db_test"),Ok("true".to_string()));
-    	lib::logger::initialize();
-    	let pool = connect_db();
-    	setup_db(&pool);
-    	info!("db is now set");
-    	let amount = 4;
-    	let mut file_db: Vec<String> = Vec::with_capacity(2);
-    	let converter = lib::converter::Converter::new(&CONFIG.general.ffmpeg_bin_dir, &CONFIG.general.mp3_quality, pool.clone());
-    	let mut r1;
-    	for i in 0..amount {
-    		r1 = lib::db::request_entry(&pool);
-    		assert!(r1.is_some());
-    		assert!(super::handle_download(&r1.unwrap(), &None, &converter, &mut file_db).is_ok());
-    	}
-    	
-    	
-    	
+        assert_eq!(env::var("db_test"),Ok("true".to_string()));
+        lib::logger::initialize();
+        let pool = connect_db();
+        setup_db(&pool);
+        info!("db is now set");
+        let amount = 4;
+        let mut file_db: Vec<String> = Vec::with_capacity(2);
+        let converter = lib::converter::Converter::new(&CONFIG.general.ffmpeg_bin_dir, &CONFIG.general.mp3_quality, pool.clone());
+        let mut r1;
+        for i in 0..amount {
+            r1 = lib::db::request_entry(&pool);
+            assert!(r1.is_some());
+            assert!(super::handle_download(&r1.unwrap(), &None, &converter, &mut file_db).is_ok());
+        }
+        
+        
+        
     }
 
-	fn connect_db() -> MyPool {
-		let myopts = MyOpts {
-	        tcp_addr: Some(env::var("db_ip").unwrap()),
-	        tcp_port: l_expect(env::var("db_port").unwrap().parse::<u16>(),"port"),
-	        user: Some(env::var("db_user").unwrap()),
-	        pass: Some(env::var("db_password").unwrap()),
-	        db_name: Some(env::var("db_db").unwrap()),
-	        ..Default::default() // set others to default
-	    };
-		println!("{:?}",myopts);
-		lib::db::db_connect(myopts, *super::SLEEP_TIME, true)
-	}
-	
-	fn setup_db(pool: &MyPool) -> Result<(),MyError> {
-		let setup = include_str!("../install.sql").to_string();
-	    let lines = setup.lines();
-	    let mut table_sql = String::new();
-	    let mut in_table = false;
-	    for line in lines {
-	    	if in_table {
-	    		table_sql = table_sql +"\n"+ line;
-	    		if line.contains(";") {
-	    			in_table = false;
-	    			info!("Table:\n{}",table_sql);
-	    			l_expect(pool.prep_exec(&table_sql,()),"unable to create db!");
-	    			table_sql.clear();
-	    		}
-	    	}
-	    	if line.starts_with("CREATE TABLE") {
-	    		table_sql = table_sql +"\n"+ line;
-	    		in_table = true;
-	    	}
-	    }
-	    
-	    // create fake entries to monitor progress regressions leading to wrong updates
-	    let mut query_stmt = l_expect(pool.prepare("insert into `queries` (qid, url, type, quality, uid, created) VALUES (?,?,?,?,0,NOW())"),"prepare error");
-	    let mut querydetails_stmt = l_expect(pool.prepare("insert into `querydetails` (qid,code,progress,status) VALUES (?,?,?,?)"),"prepare error");
-	    let index_start = 10;
-	    let mut index = index_start;
-	    for i in 1..index_start {
-	    	l_expect(query_stmt.execute((i,"",0,0)),"stmt exec");
-	    	l_expect(querydetails_stmt.execute((i,-5,-5,"fake")), "stmt exec");
-	    }
-	    // shortest 60fps video I could find
-	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,133)),"stmt exec");
-	    index += 1;
-	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,303)),"stmt exec");
-	    index += 1;
-	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-1)),"stmt exec");
-	    index += 1;
-	    l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-2)),"stmt exec");
-	    index += 1;
-	    const code_waiting: i16 = -1;
-	    for i in index_start..index {
-	    	l_expect(querydetails_stmt.execute((i,code_waiting,0,"waiting")),"stmt exec");
-	    }
-	    
-		Ok(())
-	}
-}
+    fn connect_db() -> MyPool {
+        let myopts = MyOpts {
+            tcp_addr: Some(env::var("db_ip").unwrap()),
+            tcp_port: l_expect(env::var("db_port").unwrap().parse::<u16>(),"port"),
+            user: Some(env::var("db_user").unwrap()),
+            pass: Some(env::var("db_password").unwrap()),
+            db_name: Some(env::var("db_db").unwrap()),
+            ..Default::default() // set others to default
+        };
+        println!("{:?}",myopts);
+        lib::db::db_connect(myopts, *super::SLEEP_TIME, true)
+    }
+    
+    fn setup_db(pool: &MyPool) -> Result<(),MyError> {
+        let setup = include_str!("../install.sql").to_string();
+        let lines = setup.lines();
+        let mut table_sql = String::new();
+        let mut in_table = false;
+        for line in lines {
+            if in_table {
+                table_sql = table_sql +"\n"+ line;
+                if line.contains(";") {
+                    in_table = false;
+                    info!("Table:\n{}",table_sql);
+                    l_expect(pool.prep_exec(&table_sql,()),"unable to create db!");
+                    table_sql.clear();
+                }
+            }
+            if line.starts_with("CREATE TABLE") {
+                table_sql = table_sql +"\n"+ line;
+                in_table = true;
+            }
+        }
+        
+        // create fake entries to monitor progress regressions leading to wrong updates
+        let mut query_stmt = l_expect(pool.prepare("insert into `queries` (qid, url, type, quality, uid, created) VALUES (?,?,?,?,0,NOW())"),"prepare error");
+        let mut querydetails_stmt = l_expect(pool.prepare("insert into `querydetails` (qid,code,progress,status) VALUES (?,?,?,?)"),"prepare error");
+        let index_start = 10;
+        let mut index = index_start;
+        for i in 1..index_start {
+            l_expect(query_stmt.execute((i,"",0,0)),"stmt exec");
+            l_expect(querydetails_stmt.execute((i,-5,-5,"fake")), "stmt exec");
+        }
+        // shortest 60fps video I could find
+        l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,133)),"stmt exec");
+        index += 1;
+        l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,303)),"stmt exec");
+        index += 1;
+        l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-1)),"stmt exec");
+        index += 1;
+        l_expect(query_stmt.execute((index,"https://www.youtube.com/watch?v=IOC_EoRSpUA",0,-2)),"stmt exec");
+        index += 1;
+        const code_waiting: i16 = -1;
+        for i in index_start..index {
+            l_expect(querydetails_stmt.execute((i,code_waiting,0,"waiting")),"stmt exec");
+        }
+        
+        Ok(())
+    }
+}*/

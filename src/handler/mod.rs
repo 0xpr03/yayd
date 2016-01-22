@@ -1,47 +1,146 @@
-
-use monster::incubation::FindAndTake;
-
-mod youtube;
 mod soundcloud;
+mod youtube;
 mod twitch;
 
+use lib::downloader::Downloader;
+use lib::converter::Converter;
+use std::fs::remove_dir_all;
+use std::fs::remove_file;
+use std::path::PathBuf;
+use std::path::Path;
 use std::vec::Vec;
+use lib::Request;
+use lib::Error;
+use lib::db;
 
-macro_rules! regex(
-    ($s:expr) => (regex::Regex::new($s).unwrap());
-);
+use CONFIG;
 
-pub struct Module {
-    checker: Box<Fn(i32) -> bool>,
-    action: Box<Fn(&mut Registry, i32) -> i32>
+/// Structure holding a list of produced and left files
+/// `left_files` is a storage used for temporary files
+/// on handler failure all files listed in the temporary variable will be deleted
+/// thus no handler has to worry about possible
+struct HandleData<'a> {
+    /// temporary files, deleted on failure by handler manager
+    files: Vec<FileEntry>,
+    /// Processed files, which should be downloaded by the user at the end
+    left_files: Vec<PathBuf>,
+    pub downloader: &'a Downloader<'a>,
+    pub converter: &'a Converter<'a>,
 }
 
-pub struct Registry {
-    modules: Vec<Module>
+/// Structure for storing files to be inserted into the file db later
+/// or used as file output for playlist calls
+struct FileEntry {
+    pub path: PathBuf,
+    pub origin_name: String,
 }
 
-impl Registry {
-	pub fn new() -> Registry{
-        Registry {modules: Vec::new()}
+#[allow(non_snake_case)]
+impl<'a> HandleData<'a> {
+    pub fn new(converter: &'a Converter, downloader: &'a Downloader) -> HandleData<'a>{
+        HandleData {files: Vec::new(),left_files: Vec::new(), converter: converter, downloader: downloader}
     }
-	
+    
+    /// Add a file to be inserted into the file db
+    pub fn addFile(&mut self, file: &Path, origin_name: &str){
+        self.files.push(FileEntry { origin_name: origin_name.to_string(), path: file.to_path_buf()  });
+    }
+    
+    /// Push a file to the left_files list//
+    pub fn push(&mut self,file: &Path){
+        self.left_files.push(file.to_path_buf());
+    }
+    
+    /// Pop a file from the left_files list
+    pub fn pop(&mut self){
+        self.left_files.pop();
+    }
+    
+    /// Retrive left files
+    pub fn getLeftFiles(&mut self) -> &Vec<PathBuf> {
+        &self.left_files
+    }
+    
+    pub fn getFiles(&mut self) -> &Vec<FileEntry> {
+        &self.files
+    }
+    
+    pub fn clearFiles(&mut self) {
+        self.files.clear();
+    }
+}
+
+/// A Module consisting of it's checker, handler & information if files need to be deleted in a extended way on errors.
+/// Every handler (XY.rs) can register multiple modules, see youtube.rs for example
+pub struct Module {
+    /// Checking module, returning true if it's able to handle the URL
+    checker: Box<Fn(& Request) -> bool>,
+    /// Handler, called when the checking module returns true
+    handler: Box<Fn(&mut HandleData,&mut Request) -> Result<(),Error>>,
+}
+
+/// Registry holding all available modules
+pub struct Registry<'a> {
+    modules: Vec<Module>,
+    downloader: Downloader<'a>,
+    converter: Converter<'a>,
+}
+
+impl<'a> Registry<'a> {
+    pub fn new(downloader: Downloader<'a>, converter: Converter<'a>) -> Registry<'a> {
+        Registry {downloader: downloader, converter: converter,modules: Vec::new()}
+    }
+    
+    /// Register a module
     fn register(&mut self, module: Module) {
         self.modules.push(module);
     }
     
-    fn handle_some_data(&mut self, data: i32) {
-	    let module = self.modules.find_and_take(|module| (module.checker)(data));
-	    
-        if let Some(module) = module {
-	       (module.action)(self, data);
-	       self.modules.push(module);
+    /// Handle a request with it's appropriate handler, if existing
+    /// Returns an error on failure
+    pub fn handle(&mut self, mut data: Request) -> Result<(),Error> {
+        let mut handle_db = HandleData::new(&self.converter,&self.downloader);
+        
+        if let Some(module) = self.modules.iter()
+                .find(|module| (module.checker)(&data)) {
+            
+            let result = (module.handler)(&mut handle_db,&mut data);
+            
+            if !handle_db.getLeftFiles().is_empty() {
+                trace!("cleaning up files");
+                for i in handle_db.getLeftFiles() {
+                    match remove_file(&i) {
+                        Ok(_) => (trace!("cleaning up {:?}",i)),
+                        Err(e) => warn!("unable to remove file '{:?}' {}",i,e),
+                    }
+                }
+            }
+            
+            if data.temp_path != PathBuf::from(&CONFIG.general.temp_dir) {
+                match remove_dir_all(&data.temp_path) {
+                    Ok(_) => trace!("cleaning up {:?}",data.temp_path),
+                    Err(e) => warn!("unable to remove dir {:?} {}",data.temp_path,e),
+                }
+            }
+            
+            if !handle_db.getFiles().is_empty() {
+                for file in handle_db.getFiles() {
+                    try!(db::add_file_entry(data.pool, &data.qid, &file.path.file_name().unwrap().to_string_lossy(), &file.origin_name));
+                }
+            }
+            result
+        }else{
+            Err(Error::InternalError(String::from("Unknown URL, no handler found!")))
         }
-	}
+    }
 }
 
-pub fn init_handlers() -> Registry {
-	let mut registry = Registry::new();
-	
-	
-	registry
+/// Init handlers
+pub fn init_handlers<'a>(downloader: Downloader<'a>, converter: Converter<'a>) -> Registry<'a> {
+    let mut registry = Registry::new(downloader,converter);
+    youtube::init(&mut registry);
+    twitch::init(&mut registry);
+    
+    registry
 }
+
