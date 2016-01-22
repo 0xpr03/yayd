@@ -248,5 +248,19 @@ impl<'a> Converter<'a> {
     	trace!("updating progress {}",progress);
         try!(stmt.execute((&progress,qid)).map(|_| Ok(())))
     }
-
+    
+	
+}
+#[cfg(test)]
+mod test {
+	use super::*;
+	
+	#[test]
+	fn length() {
+		
+	}
+	
+	fn download_files() {
+		use lib::downloader::Downloader;
+	}
 }
