@@ -3,6 +3,8 @@
 Supports playlists & mass downloads as zip  
 Backend for youtube-dl
 
+## Currently under rewrite, see dev branch!
+
 ## Features:  
 * Download Playlists complete as zip from youtube
 * Support newest youtube codecs without recompilation
