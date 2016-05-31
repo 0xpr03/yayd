@@ -4,6 +4,7 @@ use super::{Registry, Module, HandleData};
 use lib::{self, Error, Request, status};
 use std::fs::remove_dir_all;
 use std::fs::create_dir;
+use std::fs::rename;
 
 use CODE_IN_PROGRESS;
 
@@ -55,6 +56,7 @@ fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error>
     state.set_status("2/2", false);
     trace!("downloading video");
     try!(hdb.downloader.download_file(&request, &temp_file_v, &quality));
+	try!(rename(&temp_file_v,&save_file));
 	
     hdb.addFile(&save_file, &name.full_name());
     try!(remove_dir_all(&request.temp_path));
