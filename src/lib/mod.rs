@@ -6,56 +6,86 @@ pub mod downloader;
 pub mod converter;
 pub mod db;
 pub mod logger;
-
-use lib::downloader::{Downloader};
+pub mod status;
 
 use mysql::error::MyError;
+use mysql::conn::pool::MyPool;
 use std::env::current_exe;
-use std::error::Error;
+use std::error::Error as OriginError;
 use std::{self,io};
-use std::fs::{remove_file,rename, metadata,File,read_dir};
-use std::path::{Path, PathBuf};
+use std::fs::{rename, metadata,File,read_dir};
+use std::path::PathBuf;
+use std::path::Path;
 use std::io::{copy};
-
-use CONFIG;
-
-use {TYPE_YT_PL,TYPE_YT_VIDEO};
+use lib::downloader::Filename;
 
 use std::ascii::AsciiExt;
-
-const TWITCH_FILE_PART_REGEX: &'static str = r"\d+\.part(-Frag\d+(\.part|)|)"; // regex to match twitch part files
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
+/// Struct holding all data concerning the request
+pub struct Request<'a> {
+    pub url: String,
+    pub quality: i16,
+    pub playlist: bool,
+    pub compress: bool,
+    /// query id, origin ID for un-zipped playlists
+    pub qid: i64,
+    /// ID set and used for playlist queries
+    /// should be used by single-file handlers, as it can be set by the playlist handler
+    pub internal_id: i64,
+    pub from: i32,
+    pub to: i32,
+    /// Path for save folder
+    pub path: PathBuf,
+    /// Path for temp save folder, can be changed to, for example, sub dirs
+    /// If it should differe from the default folder this folder will be deleted on failure with all it's content! 
+    pub temp_path: PathBuf,
+    pub pool: &'a MyPool,
+}
+
+impl<'a> Request<'a> {
+    fn set_dir(&mut self,new_path: &'a Path) {
+        self.path = new_path.to_path_buf();
+    }
+    fn set_int_id(&mut self, id: i64) {
+        self.internal_id = id;
+    }
+}
+
+/// Error trait
+/// HandlerWarn is NOT for errors, it's value will be inserted into the warn DB
 #[derive(Debug)]
-pub enum DownloadError{
+pub enum Error{
     DownloadError(String),
     FFMPEGError(String),
     DMCAError,
     NotAvailable,
     QualityNotAvailable,
     ExtractorError,
+    InputError(String),
     InternalError(String),
-    DBError(String),
+    DBError(MyError),
+    HandlerWarn(String),
 }
 
-impl From<MyError> for DownloadError {
-    fn from(err: MyError) -> DownloadError {
-        DownloadError::DBError(format!("{:?}",err))
+impl From<MyError> for Error {
+    fn from(err: MyError) -> Error {
+        Error::DBError(err)
     }
 }
 
-impl From<io::Error> for DownloadError {
-    fn from(err: io::Error) -> DownloadError {
-        DownloadError::InternalError(format!("{}: {:?}",err.description(), err.kind()))
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::InternalError(format!("descr:{} kind:{:?} cause:{:?} id:{:?}",err.description(), err.kind(), err.cause(), err.raw_os_error()))
     }
 }
 
-impl From<zip::result::ZipError> for DownloadError {
-    fn from(err: zip::result::ZipError) -> DownloadError {
-        DownloadError::InternalError(format!("{}: {}",err, err.description()))
+impl From<zip::result::ZipError> for Error {
+    fn from(err: zip::result::ZipError) -> Error {
+        Error::InternalError(format!("{}: {}",err, err.description()))
     }
 }
 
@@ -71,52 +101,8 @@ pub fn l_expect<T,E: std::fmt::Debug>(result: Result<T,E>, msg: &'static str) ->
     }
 }
 
-/// Return whether the quality is a split container or not
-/// as specified in the docs
-pub fn is_split_container(quality: &i16, source_type: &i16) -> bool {
-    match *source_type {
-        TYPE_YT_VIDEO | TYPE_YT_PL => {
-            if CONFIG.extensions.mp3.contains(quality) {
-            false
-            } else if CONFIG.extensions.aac.contains(quality) {
-                false
-            } else if CONFIG.extensions.m4a.contains(quality) {
-                false
-            } else {
-                true
-            }
-        },
-        _ => {
-            false
-        }
-    }
-}
-
-/// Returns the file extension to be used depending on the quality
-pub fn get_file_ext<'a>(download: &Downloader) -> &'a str {
-    if download.is_audio() {
-        if CONFIG.extensions.aac.contains(&download.ddb.quality) {
-            "aac"
-        }else if CONFIG.extensions.mp3.contains(&download.ddb.quality) {
-            "mp3"
-        }else{
-            "unknown"
-        }
-    }else{
-        if CONFIG.extensions.mp4.contains(&download.ddb.quality) {
-            "mp4"
-        } else if CONFIG.extensions.flv.contains(&download.ddb.quality) {
-            "flv"
-        } else if CONFIG.extensions.webm.contains(&download.ddb.quality) {
-            "webm"
-        } else {
-            "unknown"
-        }
-    }
-}
-
 /// Move file to location
-pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<(),DownloadError> {
+pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<(),Error> {
     match rename(original, destination) { // no try possible..
         Err(v) => Err(v.into()),
         Ok(_) => Ok(()),
@@ -136,60 +122,36 @@ pub fn url_sanitize(input: &str) -> String {
     // into container from iterator
 }
 
-/// Format temp save location, zip dependent
-/// audio files get an 'a' as suffix
-pub fn format_file_path(qid: &i64, folder: Option<String>, audio: bool) -> String {
-    let suffix = if audio {
-        "a"
-    }else {
-        ""
-    };
-    match folder {
-        Some(v) => format!("{}/{}/{}{}", &CONFIG.general.temp_dir, v, qid,suffix),
-        None => format!("{}/{}{}", &CONFIG.general.temp_dir, qid,suffix),
-    }
-}
-
 /// Returns a unique path, if the file already exists, a '-X' number will be added to it.
-pub fn format_save_path<'a>(folder: Option<String>, name: &str, extension: &'a str) -> PathBuf {
-    let clean_name = &url_sanitize(&name);
-    let mut path = if folder.is_some() {
-            PathBuf::from(&CONFIG.general.temp_dir)
-    } else {
-        PathBuf::from(&CONFIG.general.download_dir)
-    };
-	match folder {
-	    Some(v) => path.push(v),
-		None => {},
-	}
-	path.push(format!("{}.{}",clean_name,extension));
-	if metadata(path.as_path()).is_ok() { // 90% of the time we don't need this
-    	for i in 1..100 {
-    	    if metadata(path.as_path()).is_ok() {
-    	        debug!("Path exists: {}",path.to_string_lossy());
-    	        path.pop(); // we can't use set_file_name, as some extensions will overwrite the name
-    	        path.push(format!("{}-{}.{}",clean_name,i,extension));
-    	    }else{
-    	        break;
-    	    }
-    	}
-	}
-	debug!("Path: {}",path.to_string_lossy());
-    path
+pub fn format_save_path<'a>(path: &Path, fname: &Filename) -> Result<PathBuf,Error> {
+    let clean_name = &url_sanitize(&fname.name);
+    let mut path = path.to_path_buf();
+    
+    path.push(format!("{}.{}",clean_name,fname.extension));
+    if metadata(path.as_path()).is_ok() { // 90% of the time we don't need this
+        for i in 1..100 {
+            if metadata(path.as_path()).is_ok() {
+                debug!("Path exists: {}",path.to_string_lossy());
+                path.pop(); // we can't use set_file_name, as some extensions will overwrite the name
+                path.push(format!("{}-{}.{}",clean_name,i,fname.extension));
+            }else{
+                break;
+            }
+        }
+    }
+    debug!("Path: {}",path.to_string_lossy());
+    Ok(path)
 }
 
 /// Zips all files inside folder into one file
-pub fn zip_folder(folder: &str, zip_path: &PathBuf) -> Result<(), DownloadError> {
+pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
     trace!("Starting zipping..");
-    let mut dir = PathBuf::from(&CONFIG.general.temp_dir);
-    dir.push(folder);
-    
-    if try!(metadata(dir.as_path())).is_dir() {
+    if try!(metadata(folder)).is_dir() {
         
-        let output_file = try!(File::create(zip_path));
-    	let mut writer = zip::ZipWriter::new(output_file);
+        let output_file = try!(File::create(destination));
+        let mut writer = zip::ZipWriter::new(output_file);
         
-        for entry in try!(read_dir(dir)) {
+        for entry in try!(read_dir(folder)) {
             let entry = try!(entry);
             if try!(entry.metadata()).is_file() {
                 try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Deflated));
@@ -202,35 +164,8 @@ pub fn zip_folder(folder: &str, zip_path: &PathBuf) -> Result<(), DownloadError>
         trace!("finished zipping");
         Ok(())
     }else{
-        Err(DownloadError::InternalError("zip source is not a folder!".to_string()))
+        Err(Error::InternalError("zip source is not a folder!".to_string()))
     }
-}
-
-/// Cleans the temp folder from twitch part files
-/// This is necessary on failed twitch downloads as the part files remain
-pub fn cleanup_temp_folder() -> Result<(),DownloadError> {
-    let re = regex!(TWITCH_FILE_PART_REGEX);
-    
-    for entry in l_expect(read_dir(&CONFIG.general.temp_dir), "reading temp dir") {
-        let entry = try!(entry);
-        if re.is_match(&entry.file_name().to_string_lossy().into_owned()) {
-            match remove_file(&entry.path()) {
-                Err(e) => warn!("couldn't delete file {}",e),
-                Ok(_) => (),
-            }
-        }
-    }
-    
-    Ok(())
-}
-
-/// Delete all files in the list
-pub fn delete_files(files: Vec<String>) -> Result<(), DownloadError>{
-    for file in files.iter() {
-        trace!("deleting {}",file);
-        try!(remove_file(file));
-    }
-    Ok(())
 }
 
 /// Returns the current executable folder

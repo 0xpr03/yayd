@@ -4,7 +4,6 @@ use lib::get_executable_folder;
 
 use {LOG_CONFIG,LOG_PATTERN};
 use std;
-use std::path::PathBuf;
 use std::fs::metadata;
 use std::default::Default;
 
@@ -49,9 +48,9 @@ fn init_config() {
     let mut config = log4rs::config::Config::builder(root.build())
         .appender(log4rs::config::Appender::builder("console".to_string(), console).build());
     if file_success {
-		let file = Box::new(file_appender.unwrap());
+        let file = Box::new(file_appender.unwrap());
         config = config.appender(log4rs::config::Appender::builder("file".to_string(), file).build());
-	}
+    }
         
     println!("{:?}",log4rs::init_config(config.build().unwrap()));
     warn!("No log config file found, please create file {}",LOG_CONFIG);

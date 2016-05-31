@@ -1,4 +1,4 @@
-# yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=master)](https://travis-ci.org/0xpr03/yayd)
+# yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=dev)](https://travis-ci.org/0xpr03/yayd)
 ### Yet another youtube downloader - backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
 Backend for youtube-dl
