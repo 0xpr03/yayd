@@ -44,6 +44,8 @@ pub struct ConfigDB {
 /// General settings config struct
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct ConfigGen{
+    pub link_suberqueries: bool,
+    pub link_files: bool,
     pub temp_dir: String, // folder to temp. save the raw files
     pub download_dir: String, // folder to which the files should be moved
     pub mp3_quality: i16,
@@ -99,7 +101,7 @@ pub fn init_config() -> Config {
 pub fn init_config() -> Config {
     use std::env;
     macro_rules! env(
-    ($s:expr) => (match env::var($s) { Ok(val) => val, Err(e) => panic!("unable to read env var {}",$s),});
+        ($s:expr) => (match env::var($s) { Ok(val) => val, Err(_) => panic!("unable to read env var {}",$s),});
     );
 
     let data = create_config();
@@ -108,6 +110,11 @@ pub fn init_config() -> Config {
     conf.general.download_dir = env!("download_dir");
     conf.general.temp_dir = env!("temp_dir");
     conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
+    conf.db.user = env!("user");
+    conf.db.password = env!("pass");
+    conf.db.ip = env!("ip");
+    conf.db.port = env!("port").parse::<u16>().unwrap();
+    conf.db.db = env!("db");
     conf
 }
 
@@ -133,11 +140,16 @@ pub fn create_config() -> String {
     let toml = r#"[db]
 user = "user"
 password = "password"
-db = "ytdownl"
+db = "yayd"
 port = 3306
 ip = "127.0.0.1"
 
 [general]
+
+# insert subquery relations into table subqueries
+link_suberqueries = true
+# store file-query relations in query_files table
+link_files = true
 
 # temporary dir for downloads before the conversion etc
 temp_dir = "~/downloads/temp"

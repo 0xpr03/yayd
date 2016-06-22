@@ -1,7 +1,7 @@
 extern crate regex;
 
 use super::{Registry, Module, HandleData};
-use lib::{self, Error, Request, db, status};
+use lib::{self, Error, Request, db};
 use lib::downloader::Filename;
 use std::fs::remove_file;
 use std::fs::remove_dir_all;
@@ -13,6 +13,10 @@ use CONFIG;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
+);
+
+macro_rules! condition(
+    ($e:expr,$y:expr) => (match $y { true => {$e;}, false => ()} );
 );
 
 lazy_static! {
@@ -57,19 +61,18 @@ fn checker_playlist(data: &Request) -> bool {
 /// creating a file per entry.
 fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<(), Error> {
     trace!("youtube playlist handler started");
-	let state = status::Status::new(request.pool, false, &request.qid);
-	state.set_status_code(&CODE_IN_PROGRESS);
-	
-	let name = Filename {
+    db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
+    
+    let name = Filename {
             name: try!(handle_db.downloader.get_playlist_name(&request.url)),
             extension: "zip".to_string(),
     };
-	let mut counter: i32 = 0;
-	
-	state.set_status("1/3", false);
-	trace!("crawling ids");
+    let mut counter: i32 = 0;
+    
+    db::update_steps(&mut request.get_conn(), &request.qid, 1,3);
+    trace!("crawling ids");
     let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
-	
+    
     if request.compress {
         
         let save_path = try!(lib::format_save_path(&request.path, &name));;
@@ -80,15 +83,15 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         let mut current_url: String;
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
         
-        state.set_status("2/3", false);
+        db::update_steps(&mut request.get_conn(), &request.qid, 2,3);
         let max_steps = file_ids.len() as i32;
         for id in file_ids.iter() {
             counter += 1;
-            state.set_status_int(counter, max_steps);
+            db::update_steps(&mut request.get_conn(), &request.qid, counter,max_steps);
             current_url = String::from("https://www.youtube.com/watch?v=");
             current_url.push_str(&id);
             request.url = current_url.clone();
-            request.internal_id = counter as i64;
+            request.internal_id = counter as u64;
             match handle_file_int(handle_db, &request) {
                 Err(e) => {
                     warn!("error downloading {}: {:?}", id, e);
@@ -101,23 +104,22 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
 
         if warnings {
             debug!("found warnings");
-            db::add_query_status(&request.pool, &request.qid, &failed_log);
+            db::add_query_error(&mut request.get_conn(), &request.qid, &failed_log);
         }
-		
-		state.set_status("3/3", false);
-		trace!("starting zipping");
+        
+        db::update_steps(&mut request.get_conn(), &request.qid, 3,3);
+        trace!("starting zipping");
         try!(lib::zip_folder(&request.temp_path, &save_path));
         trace!("adding file");
         handle_db.addFile(&save_path, &name.full_name());
         trace!("removing dir {}",request.path.to_string_lossy());
         try!(remove_dir_all(&request.path));
         trace!("updating state");
-		state.set_status("3/3", true);
 
     } else {
 //        let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
         
-        return Err(Error::HandlerWarn("Uncompressed playlists are not supported atm!".to_string()));
+        return Err(Error::InternalError("Uncompressed playlists are not supported atm!".to_string()));
     }
 
 
@@ -145,8 +147,7 @@ fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), 
 
 /// Handler for videos
 fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
-    let state = status::Status::new(request.pool, request.playlist, &request.internal_id);
-    state.set_status_code(&CODE_IN_PROGRESS);
+    condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
     let mut temp_file_v = request.temp_path.clone();
     temp_file_v.push(request.internal_id.to_string());
     hdb.push(&temp_file_v);
@@ -173,20 +174,20 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
         CONFIG.codecs.yt.audio_normal_webm
     };
     
-    state.set_status("1/3", false);
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
     trace!("downloading video");
     try!(hdb.downloader.download_file(&request, &temp_file_v, &request.quality.to_string()));
-	
-	state.set_status("2/3", false);
+    
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
     let mut temp_file_a = request.temp_path.clone();
     temp_file_a.push(format!("{}a", request.internal_id));
     hdb.push(&temp_file_a);
     trace!("downloading audio");
     try!(hdb.downloader.download_file(&request, &temp_file_a, &audio_id.to_string()));
 
-	state.set_status("3/3", false);
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
     trace!("merging");
-    try!(hdb.converter.merge_files(&request.internal_id, &temp_file_v, &temp_file_a, &save_file));
+    try!(hdb.converter.merge_files(&request.internal_id, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn()));
     if !request.playlist {
         hdb.addFile(&save_file, &origin_name);
     }
@@ -200,8 +201,7 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
 
 /// Handler for audios
 fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
-    let state = status::Status::new(request.pool, request.playlist, &request.internal_id);
-    state.set_status_code(&CODE_IN_PROGRESS);
+    condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
     let mut dmca = false;
     let quality = try!(get_audio_quality(&request.quality));
 
@@ -209,7 +209,7 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     temp_file_v.push(request.internal_id.to_string());
     hdb.push(&temp_file_v);
 
-	state.set_status("1/3", false);
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
     let mut name = try!(get_name(&hdb, &request, false, false, &temp_file_v, &mut dmca));
 
     if dmca {
@@ -219,8 +219,8 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
         hdb.addFile(&save_file, &name.full_name());
         return Ok(());
     }
-	
-	state.set_status("2/3", false);
+    
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
     try!(hdb.downloader.download_file(&request, &temp_file_v, &quality));
 
     if request.quality == CONFIG.codecs.audio_raw ||
@@ -229,13 +229,14 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     } else if request.quality == CONFIG.codecs.audio_mp3 {
         name.extension = String::from("mp3");
     }
-	
-	state.set_status("3/3", false);
+    
+    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
     let file = try!(lib::format_save_path(&request.path, &name));
     try!(hdb.converter.extract_audio(&request.internal_id,
                                      &temp_file_v,
                                      &file,
-                                     request.quality == CONFIG.codecs.audio_mp3));
+                                     request.quality == CONFIG.codecs.audio_mp3,
+                                     &mut request.get_conn()));
     try!(remove_file(&temp_file_v));
     hdb.pop();
     if !request.playlist {
@@ -272,7 +273,7 @@ fn get_name<'a>(hdb: &HandleData,
             info!("DMCA error!");
             if CONFIG.general.lib_use {
                 if !request.compress {
-                    db::set_query_code(request.pool, &CODE_IN_PROGRESS, &request.internal_id);
+                    db::set_query_code(&mut request.get_conn(), &request.internal_id, &CODE_IN_PROGRESS);
                 }
                 match hdb.downloader.lib_request_video(1,
                                                        0,

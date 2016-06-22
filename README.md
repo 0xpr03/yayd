@@ -1,4 +1,4 @@
-# yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=dev)](https://travis-ci.org/0xpr03/yayd)
+# yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=master)](https://travis-ci.org/0xpr03/yayd)
 ### Yet another youtube downloader - backend for DB based downloading with proxy support. 
 Supports playlists & mass downloads as zip  
 Backend for youtube-dl
@@ -40,7 +40,7 @@ FFMPEG optionally
 mariadb / mysql  
   
 1. Build yayd with rust: `cargo build --release`  
-2. Create the DB according to install.sql
+2. Create the DB according to [setup.sql](setup.sql)
 3. Run it for a first time & correct the config.cfg.  
 To run yayd with a GUI you'll need to write for example a website, or use the [example](https://github.com/0xpr03/yayd-frontend). Yayd itself doesn't provide any sort of UI.  
 4. If everything is running fine, create your own log configuration if needed, see [here](https://github.com/sfackler/log4rs).

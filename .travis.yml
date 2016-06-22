@@ -17,7 +17,7 @@ before_script:
  - export PATH=$PATH:/tmp/
 script:
  - cargo build
- - db_test=true db_ip="127.0.0.1" db_port="3306" db_user=root db_password="" db_db=yayd download_dir="/tmp" temp_dir="/tmp" mbps=100 ffmpeg_dir="/tmp/ffmpeg-3.0.2-64bit-static/" cargo test
+ - RUST_BACKTRACE=1 db_test=true ip="127.0.0.1" port="3306" user=root pass="" db=yayd download_dir="/tmp" temp_dir="/tmp" mbps=100 ffmpeg_dir="/tmp/ffmpeg-3.0.2-64bit-static/" cargo test
 cache:
   apt : true
   directories:

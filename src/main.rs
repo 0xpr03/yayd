@@ -13,6 +13,7 @@ mod handler;
 use lib::downloader::Downloader;
 use lib::converter::Converter;
 use handler::init_handlers;
+use handler::Registry;
 use lib::config;
 use lib::db;
 use lib::logger;
@@ -22,6 +23,7 @@ const VERSION : &'static str = "0.6";
 const CONFIG_PATH : &'static str = "config.cfg";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
+const CODE_WAITING: i8 = -1;
 const CODE_STARTED: i8 = 0;
 const CODE_IN_PROGRESS: i8 = 1;
 const CODE_SUCCESS: i8 = 2;
@@ -29,6 +31,7 @@ const CODE_SUCCESS_WARNINGS: i8 = 3; // finished with warnings
 const CODE_FAILED_INTERNAL: i8 = 10; // internal error
 const CODE_FAILED_QUALITY: i8 = 11; // qualitz not available
 const CODE_FAILED_UNAVAILABLE: i8 = 12; // source unavailable (private / removed)
+const CODE_FAILED_UNKNOWN: i8 = 13; // URL invalid, no handler
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {
@@ -38,7 +41,6 @@ lazy_static! {
     pub static ref SLEEP_TIME: std::time::Duration = {
         std::time::Duration::new(5,0)
     };
-        
 }
 
 //#[allow(non_camel_case_types)]
@@ -53,49 +55,60 @@ lazy_static! {
 //    FailedQuality = 11,
 //    FailedUnavailable = 12,
 //}
-
+#[cfg(not(test))]
 fn main() {
     logger::initialize();
-    let pool = db::db_connect(db::mysql_options(), *SLEEP_TIME, false);
+    let pool = db::db_connect(db::mysql_options(&CONFIG), *SLEEP_TIME);
     debug!("cleaning db");
-    db::clear_query_states(&pool);
+    let mut conn = pool.get_conn().map_err(|_| panic!("Couldn't retrieve connection!")).unwrap();
+    db::clear_query_states(&mut conn);
     
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality , pool.clone());
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
     let mut handler = init_handlers(Downloader::new(&CONFIG.general),converter);
-    let mut print_pause = true;
-    debug!("finished startup");
     
+    debug!("finished startup");
+    main_loop(pool, handler);
+}
+
+fn main_loop(pool: mysql::Pool, mut handler: Registry) {
+    let mut print_pause = true;
     loop {
-        if let Some(request) = db::request_entry(& pool) {
+        if let Some(mut request) = db::request_entry(&pool) {
+            trace!("got request");
             print_pause = true;
             let qid = request.qid.clone();
-            db::set_query_code(&pool, &CODE_STARTED, &request.qid);
-            db::set_query_state(&pool.clone(),&request.qid, "started", false);
-            let code: i8 = match handler.handle(request) {
+            db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
+            db::set_query_state(&mut request.get_conn(),&request.qid, "started");
+            trace!("starting handler");
+            let code: i8 = match handler.handle(&mut request) {
                 Ok(_) => CODE_SUCCESS,
                 Err(e) => {
+                    trace!("Error: {:?}",e);
                     match e {
                         Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
                         Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
                         Error::QualityNotAvailable => CODE_FAILED_QUALITY,
-                        Error::HandlerWarn(_) => CODE_SUCCESS_WARNINGS,
+                        Error::UnknownURL => CODE_FAILED_UNKNOWN,
                         _ => {
+                            error!("Error: {:?}",e);
                             let details = match e {
                                 Error::DBError(s) => format!("{:?}",s),
                                 Error::DownloadError(s) => s,
                                 Error::FFMPEGError(s) => s,
                                 Error::InternalError(s) => s,
                                 Error::InputError(s) => s,
+                                Error::HandlerError(s) => s,
                                 _ => unreachable!(),
                             };
-                            db::add_query_status(&pool,&qid, &details);
+                            db::add_query_error(&mut request.get_conn(),&qid, &details);
                             CODE_FAILED_INTERNAL
                         },
                     }
                 }
-            }; 
-            db::set_query_code(&pool, &code,&qid);
-            db::set_null_state(&pool, &qid);
+            };
+            trace!("handler finished");
+            db::set_query_code(&mut request.get_conn(), &qid,&code);
+            db::set_null_state(&mut request.get_conn(), &qid);
             
         } else {
             if print_pause { debug!("Pausing.."); print_pause = false; }

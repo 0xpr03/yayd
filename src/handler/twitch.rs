@@ -1,7 +1,8 @@
 extern crate regex;
 
 use super::{Registry, Module, HandleData};
-use lib::{self, Error, Request, status};
+use lib::{self, Error, Request};
+use lib::db;
 use std::fs::remove_dir_all;
 use std::fs::create_dir;
 use std::fs::rename;
@@ -36,32 +37,31 @@ fn checker_file(data: &Request) -> bool {
 
 /// Handle file request
 fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error> {
-    let state = status::Status::new(request.pool, request.playlist, &request.internal_id);
-    state.set_status_code(&CODE_IN_PROGRESS);
+    db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
     
     request.temp_path.push(request.qid.to_string()); // create sub dir for part files
     try!(create_dir(&request.temp_path));
     let mut temp_file_v = request.temp_path.clone(); // create file with qid in dir
     temp_file_v.push(request.internal_id.to_string());
     hdb.push(&temp_file_v);
-	
+    
     trace!("Retriving name");
-    state.set_status("1/2", false);
+    db::update_steps(&mut request.get_conn(), &request.qid, 1,2);
     let quality = try!(get_quality(&request.quality));
     let name = try!(hdb.downloader.get_file_name(&request.url, None));
     debug!("name: {}.{}", &name.name, &name.extension);
-	
+    
     let save_file = try!(lib::format_save_path(&request.path, &name));
-	
-    state.set_status("2/2", false);
+    
+    db::update_steps(&mut request.get_conn(), &request.qid,2,2);
     trace!("downloading video");
     try!(hdb.downloader.download_file(&request, &temp_file_v, &quality));
-	try!(rename(&temp_file_v,&save_file));
-	
+    try!(rename(&temp_file_v,&save_file));
+    
     hdb.addFile(&save_file, &name.full_name());
     try!(remove_dir_all(&request.temp_path));
     hdb.pop();
-	
+    
     Ok(())
 }
 

@@ -98,15 +98,15 @@ impl<'a> Registry<'a> {
     
     /// Handle a request with it's appropriate handler, if existing
     /// Returns an error on failure
-    pub fn handle(&mut self, mut data: Request) -> Result<(),Error> {
+    pub fn handle(&mut self, data: &mut Request) -> Result<(),Error> {
         let mut handle_db = HandleData::new(&self.converter,&self.downloader);
         
         if let Some(module) = self.modules.iter()
                 .find(|module| (module.checker)(&data)) {
             
-            let result = (module.handler)(&mut handle_db,&mut data);
+            let result = (module.handler)(&mut handle_db,data);
             
-            if !handle_db.getLeftFiles().is_empty() {
+            if !handle_db.getLeftFiles().is_empty() { // cleanup if left files isn't empty
                 trace!("cleaning up files");
                 for i in handle_db.getLeftFiles() {
                     match remove_file(&i) {
@@ -116,21 +116,21 @@ impl<'a> Registry<'a> {
                 }
             }
             
-            if data.temp_path != PathBuf::from(&CONFIG.general.temp_dir) {
+            if data.temp_path != PathBuf::from(&CONFIG.general.temp_dir) { // delete temp path if different from default
                 match remove_dir_all(&data.temp_path) {
                     Ok(_) => trace!("cleaning up {:?}",data.temp_path),
                     Err(e) => warn!("unable to remove dir {:?} {}",data.temp_path,e),
                 }
             }
             
-            if !handle_db.getFiles().is_empty() {
+            if !handle_db.getFiles().is_empty() { // insert processed files into the db
                 for file in handle_db.getFiles() {
-                    try!(db::add_file_entry(data.pool, &data.qid, &file.path.file_name().unwrap().to_string_lossy(), &file.origin_name));
+                    try!(db::add_file_entry(&mut data.get_conn(), &data.qid, &file.path.file_name().unwrap().to_string_lossy(), &file.origin_name));
                 }
             }
             result
         }else{
-            Err(Error::InternalError(String::from("Unknown URL, no handler found!")))
+            Err(Error::UnknownURL)
         }
     }
 }

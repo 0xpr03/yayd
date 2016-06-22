@@ -11,7 +11,7 @@ use std::str;
 
 use lib::Error;
 
-use mysql::conn::pool::{MyPool,MyPooledConn};
+use mysql::conn::pool::PooledConn;
 use mysql::conn::Stmt;
 
 macro_rules! regex(
@@ -22,7 +22,6 @@ macro_rules! regex(
 pub struct Converter<'a> {
     ffmpeg_dir: PathBuf,
     mp3_quality: &'a i16,
-    pool: MyPool,
 }
 
 /// Struct containing file information needed for progress calculation
@@ -32,15 +31,15 @@ struct FileInfo {
 }
 
 impl<'a> Converter<'a> {
-    pub fn new(ffmpeg_dir: &'a str,mp3_quality: &'a i16, pool: MyPool) -> Converter<'a> {
+    pub fn new(ffmpeg_dir: &'a str,mp3_quality: &'a i16) -> Converter<'a> {
         debug!("ffmpeg dir: {}",ffmpeg_dir);
-        Converter{ffmpeg_dir: PathBuf::from(ffmpeg_dir),mp3_quality: mp3_quality, pool: pool}
+        Converter{ffmpeg_dir: PathBuf::from(ffmpeg_dir),mp3_quality: mp3_quality}
     }
 
     /// Merge audo & video files to one
     /// As ffmpeg uses \r for progress updates, we'll have to read untill this delimiter
     /// ffmpeg prints only to stderr
-    pub fn merge_files(&self, qid: &i64, video_file: &Path,audio_file: &Path, output_file: &Path) -> Result<(), Error>{
+    pub fn merge_files(&self, qid: &u64, video_file: &Path,audio_file: &Path, output_file: &Path, conn: &mut PooledConn) -> Result<(), Error>{
         let file_info = try!(self.get_file_info(video_file));
         trace!("Total frames: {}",file_info.frames);
 
@@ -48,8 +47,7 @@ impl<'a> Converter<'a> {
         trace!("started merge process");
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
 
-        let mut conn = self.pool.get_conn().unwrap();
-        let mut statement = self.prepare_progress_updater(&mut conn);
+        let mut statement = self.prepare_progress_updater(conn);
         let re = regex!(r"frame=\s*(\d+)");
         
         let mut buf = vec![];
@@ -86,7 +84,7 @@ impl<'a> Converter<'a> {
     
     /// Extract audio from video files
     /// If set audio will be converted to mp3 on the fly
-    pub fn extract_audio(&self, qid: &i64, video_file: &Path, output_file: &Path, convert_mp3: bool) -> Result<(), Error> {
+    pub fn extract_audio(&self, qid: &u64, video_file: &Path, output_file: &Path, convert_mp3: bool, conn: &mut PooledConn) -> Result<(), Error> {
         let file_info = try!(self.get_file_info(video_file));
         debug!("duration: {}",file_info.duration);
         
@@ -99,8 +97,7 @@ impl<'a> Converter<'a> {
         
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
         
-        let mut conn = self.pool.get_conn().unwrap();
-        let mut statement = self.prepare_progress_updater(&mut conn);
+        let mut statement = self.prepare_progress_updater(conn);
         let re = regex!(r"time=(\d+):(\d+):(\d+.?\d*)");
         
         let mut buf = vec![];
@@ -244,13 +241,12 @@ impl<'a> Converter<'a> {
     }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-    //TODO: think about generalizing this, while using the local pool
-    fn prepare_progress_updater(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
+    fn prepare_progress_updater(&'a self,conn: &'a mut PooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
         conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?").unwrap()
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &i64) -> Result<(),Error>{
+    fn update_progress(&self,stmt: &mut Stmt, progress: String, qid: &u64) -> Result<(),Error>{
         trace!("updating progress {}",progress);
         try!(stmt.execute((&progress,qid)).map(|_| Ok(())))
     }

@@ -1,56 +1,120 @@
 extern crate regex;
 extern crate zip;
 
-pub mod config;
 pub mod downloader;
 pub mod converter;
-pub mod db;
+pub mod config;
 pub mod logger;
-pub mod status;
+pub mod db;
 
-use mysql::error::MyError;
-use mysql::conn::pool::MyPool;
-use std::env::current_exe;
-use std::error::Error as OriginError;
-use std::{self,io};
-use std::fs::{rename, metadata,File,read_dir};
-use std::path::PathBuf;
-use std::path::Path;
-use std::io::{copy};
 use lib::downloader::Filename;
 
+
+use mysql::conn::pool::PooledConn;
+use mysql;
+
+use std::fs::{rename, metadata,File,read_dir};
+use std::error::Error as OriginError;
+use std::path::{PathBuf,Path};
+use std::env::current_exe;
 use std::ascii::AsciiExt;
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::io::{copy};
+use std::{self,io};
+
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
 /// Struct holding all data concerning the request
-pub struct Request<'a> {
+pub struct Request {
     pub url: String,
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
     /// query id, origin ID for un-zipped playlists
-    pub qid: i64,
+    pub qid: u64,
     /// ID set and used for playlist queries
     /// should be used by single-file handlers, as it can be set by the playlist handler
-    pub internal_id: i64,
-    pub from: i32,
-    pub to: i32,
+    /// see youtube.rs for examples
+    pub internal_id: u64,
+    /// Reserved int to specify other options in case quality & playlist codes aren't enough
+    /// Can be used for additional conversion targets etc
+    pub r_type: i16,
+    pub from: i16,
+    pub to: i16,
     /// Path for save folder
     pub path: PathBuf,
     /// Path for temp save folder, can be changed to, for example, sub dirs
     /// If it should differe from the default folder this folder will be deleted on failure with all it's content! 
     pub temp_path: PathBuf,
-    pub pool: &'a MyPool,
+    pub conn: RefCell<PooledConn>,
+    /// User ID, needed for non-zipped playlist downloads, creating new query & job entries
+    pub uid: u32
 }
 
-impl<'a> Request<'a> {
+/// Core for assertions
+#[cfg(test)]
+pub struct ReqCore {
+    url: String,
+    quality: i16,
+    playlist: bool,
+    compress: bool,
+    qid: u64,
+    internal_id: u64,
+    r_type: i16,
+    from: i16,
+    to: i16,
+    path: PathBuf,
+    temp_path: PathBuf,
+    uid: u32
+}
+
+#[cfg(test)]
+impl ReqCore {
+    pub fn new(origin: &Request) -> ReqCore{
+        ReqCore {
+            url: origin.url.clone(),
+            quality: origin.quality.clone(),
+            playlist: origin.playlist.clone(),
+            compress: origin.compress.clone(),
+            r_type: origin.r_type.clone(),
+            qid: origin.qid.clone(),
+            internal_id: origin.internal_id.clone(),
+            from: origin.from.clone(),
+            to: origin.to.clone(),
+            path: origin.path.clone(),
+            temp_path: origin.temp_path.clone(),
+            uid: origin.uid.clone()
+        }
+    }
+    
+    pub fn verify(&self, input: &Request) {
+        assert_eq!(self.url,input.url);
+        assert_eq!(self.quality,input.quality);
+        assert_eq!(self.compress,input.compress);
+        assert_eq!(self.qid,input.qid);
+        assert_eq!(self.internal_id,input.internal_id);
+        assert_eq!(self.r_type,input.r_type);
+        assert_eq!(self.from,input.from);
+        assert_eq!(self.to,input.to);
+        assert_eq!(self.playlist,input.playlist);
+        assert_eq!(self.path,input.path);
+        assert_eq!(self.temp_path,input.temp_path);
+        assert_eq!(self.uid,input.uid);
+    }
+}
+
+impl<'a> Request {
+    pub fn get_conn(&self) -> RefMut<PooledConn> {
+        self.conn.borrow_mut()
+    }
     fn set_dir(&mut self,new_path: &'a Path) {
         self.path = new_path.to_path_buf();
     }
-    fn set_int_id(&mut self, id: i64) {
+    fn set_int_id(&mut self, id: u64) {
         self.internal_id = id;
     }
 }
@@ -59,20 +123,33 @@ impl<'a> Request<'a> {
 /// HandlerWarn is NOT for errors, it's value will be inserted into the warn DB
 #[derive(Debug)]
 pub enum Error{
+    /// used by downloader lib
     DownloadError(String),
+    /// used by converter lib
     FFMPEGError(String),
+    /// Content down as of region lock, could be bypassed, see youtube handler
     DMCAError,
+    /// Unavailable (login, region lock etc)
     NotAvailable,
+    /// Quality not available => valid input, but unavailable
     QualityNotAvailable,
+    /// Error thrown by youtube-dl for some DASH containers, see youtube handler
     ExtractorError,
+    /// For wrong quality => invalid input, always unavailable
     InputError(String),
+    /// Unexpected lib internal error
     InternalError(String),
-    DBError(MyError),
-    HandlerWarn(String),
+    /// Unexpected error in handler
+    HandlerError(String),
+    /// Can't handle this URL, no valid handler found
+    UnknownURL,
+    /// used by db lib
+    DBError(mysql::Error),
 }
 
-impl From<MyError> for Error {
-    fn from(err: MyError) -> Error {
+
+impl From<mysql::Error> for Error {
+    fn from(err: mysql::Error) -> Error {
         Error::DBError(err)
     }
 }

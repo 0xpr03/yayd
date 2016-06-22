@@ -1,16 +1,17 @@
 extern crate regex;
-use mysql::conn::pool::MyPooledConn;
+use mysql::conn::pool::PooledConn;
 use mysql::conn::Stmt;
 
 use std::process::{Command, Stdio, Child};
 use std::error::Error as EType;
 use std::io::prelude::*;
-use lib::Request;
 use std::io::BufReader;
 use std::path::Path;
-use lib::config::ConfigGen;
 use std::convert::Into;
 
+use lib::db::prepare_progress_updater;
+use lib::config::ConfigGen;
+use lib::Request;
 use lib::Error;
 
 use lib;
@@ -59,9 +60,9 @@ impl<'a> Downloader<'a>{
         let stdout = BufReader::new(child.stdout.take().unwrap());
         
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
-
-        let mut conn = request.pool.get_conn().unwrap();
-        let mut statement = self.prepare_progress_updater(&mut conn);
+        
+        let mut conn = request.get_conn();
+        let mut statement = try!(prepare_progress_updater(&mut conn));
         
         for line in stdout.lines(){
             match line{
@@ -99,7 +100,7 @@ impl<'a> Downloader<'a>{
     /// Wrapper for download_file_fn to retry on Extract Error's, which are appearing randomly.
     pub fn download_file(&self, request: &Request, file_path: &Path, quality: &str) -> Result<bool,Error> {
         for attempts in 0..2 {
-            match self.download_file_in(request, file_path, quality) {
+            match self.download_file_in(&request, file_path, quality) {
                 Ok(v) => return Ok(v),
                 Err(e) => {
                     match e {
@@ -235,14 +236,14 @@ impl<'a> Downloader<'a>{
         let mut last_line = String::new();
         for line in stdout.lines(){
             match line{
-                Err(why) => {error!("couldn't read cmd stdout: {}", EType::description(&why));panic!();},
+                Err(why) => {error!("couldn't read cmd stdout: {}", EType::description(&why));panic!();}, // we'll abort, kinda the floor vanishing under the feet
                 Ok(text) => {
                         trace!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => {
                                         debug!("Match: {}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         if !request.playlist {
-                                            lib::db::update_steps(&request.pool ,&request.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps, false);
+                                            lib::db::update_steps(&mut request.get_conn() ,&request.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps);
                                         }
                                     },
                             None => {last_line = text.clone()},
@@ -374,14 +375,8 @@ impl<'a> Downloader<'a>{
         }
     }
 
-    /// Prepares the progress update statement.
-    // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-    fn prepare_progress_updater(&'a self,conn: &'a mut MyPooledConn) -> Stmt<'a> { // no livetime needed: struct livetime used
-        conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?").unwrap()
-    }
-
     /// Executes the progress update statement.
-    fn update_progress(&self,qid: &i64,stmt: &mut Stmt, progress: &str) -> Result<(),Error>{
+    fn update_progress(&self,qid: &u64,stmt: &mut Stmt, progress: &str) -> Result<(),Error>{
         try!(stmt.execute((progress,qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }

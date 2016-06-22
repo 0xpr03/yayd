@@ -18,9 +18,9 @@ log4rs = "0.3.3"
 zip = "0.1.15"
 
 [dependencies.mysql]
-mysql = "1.20.1"
+version = "5.0.0"
 default-features = false
 
 [dependencies.regex]
-regex = "0.1.47"
+version = "0.1.47"
 regex_macros = "0.1.26"
