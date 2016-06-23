@@ -20,11 +20,11 @@ macro_rules! condition(
 );
 
 lazy_static! {
-// https://regex101.com/r/lZ6lC1/2
+// https://regex101.com/r/lZ6lC1/3
 // we need to remove the / escaping!
-    pub static ref REGEX_VIDEO: regex::Regex = regex!(r"https?://(www\.)?(youtube\.[a-z]{2,3}/watch\?(feature=player_embedded&)?v=[a-zA-Z0-9_-]+|youtu\.be/[a-zA-Z0-9_-]+)");
-// https://regex101.com/r/aV1jS1/1
-    pub static ref REGEX_PLAYLIST: regex::Regex = regex!(r"https?://(www\.)?youtube\.[a-z]{2,3}/(watch\?(feature=player_embedded&)?v=[a-zA-Z0-9_-]+.*&list=[A-Za-z0-9_-]+|playlist\?list=[a-zA-Z0-9_-]+)");
+    pub static ref REGEX_VIDEO: regex::Regex = regex!(r"https?://(www\.|m\.)?(youtube\.[a-z]{2,3}/watch\?(feature=player_embedded&)?(list=[a-zA-Z0-9_-]+&)?v=[a-zA-Z0-9_-]+|youtu\.be/[a-zA-Z0-9_-]+)");
+// https://regex101.com/r/aV1jS1/2
+    pub static ref REGEX_PLAYLIST: regex::Regex = regex!(r"https?://(www\.|m\.)?youtube\.[a-z]{2,4}/(watch\?(feature=player_embedded&)?(v=[a-zA-Z0-9_-]+.*&)?list=[A-Za-z0-9_-]+|playlist\?list=[a-zA-Z0-9_-]+)");
 }
 
 /// Init youtube handler, registering it
@@ -322,13 +322,18 @@ mod test {
 
     #[test]
     fn regex() {
-        assert!(REGEX_VIDEO.is_match(r"http://youtu.be/yke-rFCOUyo"));
+		assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
+		assert!(REGEX_VIDEO.is_match(r"http://m.youtube.com/watch?v=IO-_EoRSpUA"));
+        assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?v=IO-_EoRSpUA"));
+		assert!(REGEX_VIDEO.is_match(r"http://youtu.be/IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
         assert!(!REGEX_VIDEO.is_match(r"https://www.youtube.com/playlist?list=PLJYiF4qyO-fpaYWfTylcFu3VGUCVK4xfz"));
 
+		assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/playlist?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv"));
+		assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
         assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/playlist?list=PLBCC15D0E3ED5E67A"));
-        assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=fMlZFRus5eQ&index=2&list=PLBCC15D0E3ED5E67A"));
+        assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&index=2&list=PLBCC15D0E3ED5E67A"));
         assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
         assert!(!REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
     }
