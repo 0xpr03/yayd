@@ -67,9 +67,9 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
             name: try!(handle_db.downloader.get_playlist_name(&request.url)),
             extension: "zip".to_string(),
     };
-    let mut counter: i32 = 0;
+    let mut step: i32 = 1;
     
-    db::update_steps(&mut request.get_conn(), &request.qid, 1,3);
+    db::set_query_state(&mut request.get_conn(), &request.qid, "1/?");
     trace!("crawling ids");
     let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
     
@@ -83,15 +83,15 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         let mut current_url: String;
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
         
-        db::update_steps(&mut request.get_conn(), &request.qid, 2,3);
-        let max_steps = file_ids.len() as i32;
+        let max_steps = file_ids.len() as i32 + 2;
+		db::update_steps(&mut request.get_conn(), &request.qid, 2,max_steps);
         for id in file_ids.iter() {
-            counter += 1;
-            db::update_steps(&mut request.get_conn(), &request.qid, counter,max_steps);
+            step += 1;
+            db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
             current_url = String::from("https://www.youtube.com/watch?v=");
             current_url.push_str(&id);
             request.url = current_url.clone();
-            request.internal_id = counter as u64;
+            request.internal_id = step as u64;
             match handle_file_int(handle_db, &request) {
                 Err(e) => {
                     warn!("error downloading {}: {:?}", id, e);
@@ -107,7 +107,8 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
             db::add_query_error(&mut request.get_conn(), &request.qid, &failed_log);
         }
         
-        db::update_steps(&mut request.get_conn(), &request.qid, 3,3);
+		step += 1;
+        db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
         trace!("starting zipping");
         try!(lib::zip_folder(&request.temp_path, &save_path));
         trace!("adding file");

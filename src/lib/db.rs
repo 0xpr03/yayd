@@ -127,7 +127,7 @@ pub fn set_query_code(conn: &mut PooledConn, qid: &u64, code: &i8) { // same her
 }
 
 /// Update progress steps for db entrys
-pub fn update_steps(conn: &mut PooledConn, qid: &u64, step: i32, max_steps: i32){
+pub fn update_steps(conn: &mut PooledConn, qid: &u64, ref step: i32,ref max_steps: i32){
     trace!("Updating steps to {} for id {}",step, qid);
     set_query_state(conn,qid, &format!("{}|{}", step, max_steps));
 }
