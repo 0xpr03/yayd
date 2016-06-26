@@ -19,6 +19,8 @@ macro_rules! condition(
     ($e:expr,$y:expr) => (match $y { true => {$e;}, false => ()} );
 );
 
+const YT_VIDEO_URL: &'static str = "https://www.youtube.com/watch?v=";
+
 lazy_static! {
 // https://regex101.com/r/lZ6lC1/3
 // we need to remove the / escaping!
@@ -84,11 +86,11 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
         
         let max_steps = file_ids.len() as i32 + 2;
-		db::update_steps(&mut request.get_conn(), &request.qid, 2,max_steps);
+        db::update_steps(&mut request.get_conn(), &request.qid, 2,max_steps);
         for id in file_ids.iter() {
             step += 1;
             db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
-            current_url = String::from("https://www.youtube.com/watch?v=");
+            current_url = String::from(YT_VIDEO_URL);
             current_url.push_str(&id);
             request.url = current_url.clone();
             request.internal_id = step as u64;
@@ -107,7 +109,7 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
             db::add_query_error(&mut request.get_conn(), &request.qid, &failed_log);
         }
         
-		step += 1;
+        step += 1;
         db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
         trace!("starting zipping");
         try!(lib::zip_folder(&request.temp_path, &save_path));
@@ -118,9 +120,13 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         trace!("updating state");
 
     } else {
-//        let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
-        
-        return Err(Error::InternalError("Uncompressed playlists are not supported atm!".to_string()));
+        trace!("creating new requests for playlist entries");
+        let mut current_url: String;
+        for id in file_ids.iter() {
+            current_url = String::from(YT_VIDEO_URL);
+            current_url.push_str(&id);
+            try!(db::add_sub_query(&current_url,&request));
+        }
     }
 
 
@@ -323,16 +329,16 @@ mod test {
 
     #[test]
     fn regex() {
-		assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
-		assert!(REGEX_VIDEO.is_match(r"http://m.youtube.com/watch?v=IO-_EoRSpUA"));
+        assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
+        assert!(REGEX_VIDEO.is_match(r"http://m.youtube.com/watch?v=IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?v=IO-_EoRSpUA"));
-		assert!(REGEX_VIDEO.is_match(r"http://youtu.be/IO-_EoRSpUA"));
+        assert!(REGEX_VIDEO.is_match(r"http://youtu.be/IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
         assert!(!REGEX_VIDEO.is_match(r"https://www.youtube.com/playlist?list=PLJYiF4qyO-fpaYWfTylcFu3VGUCVK4xfz"));
 
-		assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/playlist?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv"));
-		assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
+        assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/playlist?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv"));
+        assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
         assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/playlist?list=PLBCC15D0E3ED5E67A"));
         assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&index=2&list=PLBCC15D0E3ED5E67A"));
         assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
