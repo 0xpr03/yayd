@@ -42,7 +42,7 @@ fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error>
     request.temp_path.push(request.qid.to_string()); // create sub dir for part files
     try!(create_dir(&request.temp_path));
     let mut temp_file_v = request.temp_path.clone(); // create file with qid in dir
-    temp_file_v.push(request.internal_id.to_string());
+    temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
     
     trace!("Retriving name");

@@ -93,7 +93,6 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
             current_url = String::from(YT_VIDEO_URL);
             current_url.push_str(&id);
             request.url = current_url.clone();
-            request.internal_id = step as u64;
             match handle_file_int(handle_db, &request) {
                 Err(e) => {
                     warn!("error downloading {}: {:?}", id, e);
@@ -156,7 +155,7 @@ fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), 
 fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
     let mut temp_file_v = request.temp_path.clone();
-    temp_file_v.push(request.internal_id.to_string());
+    temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
 
     let mut dmca = false;
@@ -187,14 +186,14 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
     let mut temp_file_a = request.temp_path.clone();
-    temp_file_a.push(format!("{}a", request.internal_id));
+    temp_file_a.push(format!("{}a", request.qid));
     hdb.push(&temp_file_a);
     trace!("downloading audio");
     try!(hdb.downloader.download_file(&request, &temp_file_a, &audio_id.to_string()));
 
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
     trace!("merging");
-    try!(hdb.converter.merge_files(&request.internal_id, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn()));
+    try!(hdb.converter.merge_files(&request.qid, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn()));
     if !request.playlist {
         hdb.addFile(&save_file, &origin_name);
     }
@@ -213,7 +212,7 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     let quality = try!(get_audio_quality(&request.quality));
 
     let mut temp_file_v = request.temp_path.clone();
-    temp_file_v.push(request.internal_id.to_string());
+    temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
 
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
@@ -239,7 +238,7 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
     let file = try!(lib::format_save_path(&request.path, &name));
-    try!(hdb.converter.extract_audio(&request.internal_id,
+    try!(hdb.converter.extract_audio(&request.qid,
                                      &temp_file_v,
                                      &file,
                                      request.quality == CONFIG.codecs.audio_mp3,
@@ -280,7 +279,7 @@ fn get_name<'a>(hdb: &HandleData,
             info!("DMCA error!");
             if CONFIG.general.lib_use {
                 if !request.compress {
-                    db::set_query_code(&mut request.get_conn(), &request.internal_id, &CODE_IN_PROGRESS);
+                    db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
                 }
                 match hdb.downloader.lib_request_video(1,
                                                        0,

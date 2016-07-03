@@ -34,12 +34,8 @@ pub struct Request {
     pub quality: i16,
     pub playlist: bool,
     pub compress: bool,
-    /// query id, origin ID for un-zipped playlists
+    /// query id
     pub qid: u64,
-    /// ID set and used for playlist queries
-    /// should be used by single-file handlers, as it can be set by the playlist handler
-    /// see youtube.rs for examples
-    pub internal_id: u64,
     /// Reserved int to specify other options in case quality & playlist codes aren't enough
     /// Can be used for additional conversion targets etc
     pub r_type: i16,
@@ -63,7 +59,6 @@ pub struct ReqCore {
     playlist: bool,
     compress: bool,
     qid: u64,
-    internal_id: u64,
     r_type: i16,
     from: i16,
     to: i16,
@@ -82,7 +77,6 @@ impl ReqCore {
             compress: origin.compress.clone(),
             r_type: origin.r_type.clone(),
             qid: origin.qid.clone(),
-            internal_id: origin.internal_id.clone(),
             from: origin.from.clone(),
             to: origin.to.clone(),
             path: origin.path.clone(),
@@ -96,7 +90,6 @@ impl ReqCore {
         assert_eq!(self.quality,input.quality);
         assert_eq!(self.compress,input.compress);
         assert_eq!(self.qid,input.qid);
-        assert_eq!(self.internal_id,input.internal_id);
         assert_eq!(self.r_type,input.r_type);
         assert_eq!(self.from,input.from);
         assert_eq!(self.to,input.to);
@@ -113,9 +106,6 @@ impl<'a> Request {
     }
     fn set_dir(&mut self,new_path: &'a Path) {
         self.path = new_path.to_path_buf();
-    }
-    fn set_int_id(&mut self, id: u64) {
-        self.internal_id = id;
     }
 }
 

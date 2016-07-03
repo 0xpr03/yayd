@@ -247,8 +247,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
     let request = Request {
         url: take_value!(row,"url"),
         quality: take_value!(row,"quality"),
-        qid: get_value!(row,"qid"),
-        internal_id: take_value!(row,"qid"),
+        qid: take_value!(row,"qid"),
         r_type: take_value!(row,"type"),
         conn: RefCell::new(db_conn),
         playlist: playlist,
@@ -356,7 +355,6 @@ mod test {
             url: String::from("test.com"),
             quality: 1,
             qid: 1,
-            internal_id: 1,
             playlist: false,
             compress: false,
             r_type: -2,
@@ -440,7 +438,6 @@ mod test {
             setup(&mut conn);
             let id = insert_query_core(&request, &mut conn).unwrap();
             request.qid = id;
-            request.internal_id = id.clone();
             
             let out_req = request_entry(conn).unwrap();
             request.verify(&out_req);
@@ -453,7 +450,6 @@ mod test {
             setup(&mut conn);
             let id = insert_query_core(&request, &mut conn).unwrap();
             request.qid = id;
-            request.internal_id = id.clone();
             
             let out_req = request_entry(conn).unwrap();
             request.verify(&out_req);
