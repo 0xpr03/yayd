@@ -1,52 +1,81 @@
 # yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=master)](https://travis-ci.org/0xpr03/yayd)
-### Yet another youtube downloader - backend for DB based downloading with proxy support. 
-Supports playlists & mass downloads as zip  
-Backend for youtube-dl
-
 ## Currently under rewrite, see dev branch!
 
-## Features:  
-* Download Playlists complete as zip from youtube
-* Support newest youtube codecs without recompilation
-* Convert to mp3
-* Download original audio
-* Download twitch videos (archived streams) 
-* Multi-User support
-* Own library embeddable for downloads not available from your country
-  (Streaming those from other online services for example)
-* Runnable from any VPS probably even from raspis
-* Log any error occurring
-* Extendable to support many more sites
-* Bullet proof, no left over files on errors
-* Terminable download rates
-  
-This project was born out of ISP related connection problems with youtube.
-It's purpose is mainly to download youtube videos or convert them to audio files. 
-It is supposed to run on a server, as it's using a DBMS like MySQL/mariaDB.
-You can for example write a website which communicates over the DB with yayd.
-By this, one can A: surrogate the ISP peering problem by download over the server, B have all the 
-advantages yayd has aside from this. [GUI Example](yayd_gui.png)  
-If you're too lazy or want a fast setup see below for a working, installable frontend.
-
-All failures like undownloadable files & unavailable formats are reported back via codes. 
-See [codes.md](codes.md) for more information. Complete failures are logged in the table querystatus.
-  
-One such GUI/Frontend/Website could look like in yayd_gui.png 
-Please look into the repo [yayd-frontend](https://github.com/0xpr03/yayd-frontend) for an example.
+## About:  
+YAYD is intended as a backend for youtube-dl, processing download jobs fetched from a Database. You probably want to
+let it run over a webserver, providing it as online service.
+It was born out of ISP related problems and has multi-user support, can delete stored files from jobs after a time and supports proxies.
+Currently there are only modules for youtube, twitch and soundcloud, feel free to extend them. (See [Hacking Yayd](#hacking-yayd))
 
 ## Installation
-Needed: [youtube-dl](https://github.com/rg3/youtube-dl)  
-FFMPEG optionally  
-mariadb / mysql  
-  
-1. Build yayd with rust: `cargo build --release`  
-2. Create the DB according to [setup.sql](setup.sql)
-3. Run it for a first time & correct the config.cfg.  
-To run yayd with a GUI you'll need to write for example a website, or use the [example](https://github.com/0xpr03/yayd-frontend). Yayd itself doesn't provide any sort of UI.  
-4. If everything is running fine, create your own log configuration if needed, see [here](https://github.com/sfackler/log4rs).
-  
-## About quality codes, queries & the config
-Each download task is an entry in the DB, this 'query' entry is containing the wished target, quality etc  
+
+Required: - FFMPEG for conversions
+          - [youtube-dl](https://github.com/rg3/youtube-dl)
+mariaDB/MySQL
+
+1. Build yayd with rust: `cargo build --release`
+2. Use and run [setup.sql](setup.sql) to create the tables, according to your requirements.
+3. Run yayd for a first time, edit the config file, see [Config](#Configuration)
+4. Create your own logging configuration  
+Yayd doesn't provide any sort of UI, beeing a backend, see down below for an example.
+
+## GUI / Frontend for yayd
+
+A frontend example is currently under [yayd-frontend](https://github.com/0xpr03/yayd-frontend) and [looks like this](docs/yayd_gui.png)
+
+## Hacking Yayd
+
+Every supported site has a handlers module inside [src/handler](src/handler/)  
+All library stuff, including youtube-dl and ffmpeg bindings are inside [src/lib](src/lib/)  
+The Request struct used by every handler is inside [lib/mod.rs](src/lib/mod.rs#L32).
+In general every request has an URL, quality code and information about wether it's an playlist request or not.
+(A youtube URL for a single video can include a playlist URL, thus it's required to be set.)
+
+Handlers are consisting of a function called at program startup to register which URLs it's capable to handle
+and the function that handles those. Handlers can register multiple modules, for example for split up playlist and file handling.
+
+For an exmaple see [youtube.rs](src/handler/youtube.rs)
+
+## DB System and quality codes
+
+The DB sceme can be seen in [this picture.](docs/rdm.png)
+
+## Status codes from yayd
+
+| Code | Meaning |
+|---|---|
+| -1 | waiting |
+| 0 | started |
+| 1 | running |
+| 2 | finished |
+| 3 | finished, warnings |
+| 10 | internal error |
+| 11 | wrong quality |
+| 12 | source unavailable |
+
+## Quality Codes
+
+These are the current quality codes per module:
+
+### Youtube Module
+
+Code explanation see [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
+Audio and video files have to be cut together, thus FFMPEG is required.
+
+| Code/iTag | Description |
+| --- | --- |
+| -1 | mp3 converted from source |
+| -2 | AAC MQ general |
+| -3 | AAC HQ general |
+| 133 | 240p |
+| 134 | 360p |
+| 135 | 480p |
+| 136 | 720p |
+| 137 | 1080p |
+| 298 | 720p, 60 fps |
+| 303 | 1080p, 60 fps |
+
+iTag explanation:  
 Youtube-Videos are consisting of two DASH-Files. One is only Video, in the quality you want.
 The other one is a qualitatively bad video but audio containing DASH-File.  
 These two are merged by yayd and thus if you specify the wanted quality [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats) in you query (queries.quality) 
@@ -58,16 +87,16 @@ WebM (303) doesn't have this problem.
   
 (WebM is using VP9 as codec, MP4 h264)
 
-The quality column (see db.md -> quality) is using positive values for youtube, as it changes it's formats over time. Negative values are thus reserved to static values like twitchs quality (which is not numeric) or the codec for internal music conversion. This gives you the option to choose by yourself which
-youtube quality you want to use.
+### Twitch
 
-### Recommended itags
-140,251 AAC extraction (mq,hq)  
-133,134,135,136,137,298,303: 240, 360, 480, 720, 1080p @30; 720, 1080p @60fps  
-cut together with 140 (which is aac mp4 with very low video quality)  
+| Code | Desciption |
+| --- | --- |
+| -10 | Mobile |
+| -11 | Low |
+| -12 | Medium |
+| -13 | High |
+| -14 | Source |
 
 # Notes
-Multithreading for downloads isn't planned as the one-by-one system is a natural limiter, preventing possible DDOS-Blocks (captcha) & saving bandwidth  
-I'm open for other ideas or implementations but it's not my main goal at the moment.
 
-### DB-Setup & internal quality code explanations see db.md
+There is currently no multithreading support, meaning one job at a time. This is intentional and prevents DOS-Blocks (captcha requests) by some sites.
