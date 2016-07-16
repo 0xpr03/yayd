@@ -173,10 +173,13 @@ temp_dir = "~/downloads/temp"
 
 # final destination of downloaded files / playlists
 download_dir = "~/downloads"
-download_mbps = 48 # MBit/s limit
-mp3_quality = 3 #see https://trac.ffmpeg.org/wiki/Encode/MP3
 
-# folder in which the ffmpeg binary lies
+# download speed limit
+download_mbps = 48 # MBit/s limit
+# mp3 quality to use for conversion, see https://trac.ffmpeg.org/wiki/Encode/MP3
+mp3_quality = 2
+
+# folder in which the ffmpeg binaries are lying
 ffmpeg_bin_dir = "~/ffmpeg/ffmpeg-2.6.2-64bit-static/"
 
 # additional lib callable in case of country-locks
@@ -213,6 +216,7 @@ delete_interval = 900
 delete_request = false
 
 [codecs]
+# general audio only quality ids, if supported by the handler
 # audio type : quality value
 audio_mp3 = -1
 audio_raw = -2

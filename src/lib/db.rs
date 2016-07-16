@@ -47,7 +47,7 @@ macro_rules! get_value {
     })
 }
 
-const DEFAULT_PLAYLIST_VAL: i16 = -2;
+const DEFAULT_PLAYLIST_VAL: i16 = -2; // for non-playlists
 const REQ_DB_TABLES:[&'static str; 5]  = ["queries","querydetails","playlists","subqueries","query_files"];
 
 pub enum DeleteRequestType<'a> {
@@ -184,7 +184,7 @@ pub fn add_sub_query(url: &str, request: &Request) -> Result<u64,Error> {
     if CONFIG.general.link_subqueries {
         let mut conn = request.get_conn();
         let mut stmt = try!(conn.prepare("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)"));
-           try!(stmt.execute((&id,&request.qid)));
+        try!(stmt.execute((&id,&request.qid)));
     }
     
     Ok(id)
@@ -319,29 +319,8 @@ pub fn mysql_options(conf: &lib::config::Config) -> Opts {
     builder.into()
 }
 
-/// Cleans all tables, only for testing
-#[cfg(test)]
-fn clean_db(conn: &mut PooledConn) {
-    use std::env;
-    let mut tables: Vec<String> = Vec::new();
-    {
-        let mut stmt = conn.prepare("SELECT `TABLE_NAME` FROM information_schema.`TABLES` WHERE `TABLE_SCHEMA` = ?").unwrap();
-        
-        for row in stmt.execute((env::var("db").unwrap(),)).unwrap(){
-            let mut row_u = row.unwrap();
-            tables.push(row_u.take("TABLE_NAME").unwrap());
-        }
-    }
-    
-    conn.prep_exec("SET FOREIGN_KEY_CHECKS=0;",()).unwrap(); // disable key checks, avoiding theoretical problems
-    for tbl in tables {
-        println!("tbl: {}",tbl);
-        conn.prep_exec(format!("TRUNCATE `{}`",tbl),()).unwrap();
-    }
-}
-
 /// Setup tables
-/// Create as temporary if specified
+/// Created as temporary if specified (valid for the current connection)
 fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(),Error> {
     let tables = get_db_create_sql();
     for a in tables {
@@ -477,7 +456,26 @@ mod test {
         result.next().unwrap().unwrap().take("msg")
     }
     
-    /// Test wrapper, accepting ReqCore structs
+    /// Cleans all tables, only for testing
+    fn clean_db(conn: &mut PooledConn) {
+        use std::env;
+        let mut tables: Vec<String> = Vec::new();
+        {
+            let mut stmt = conn.prepare("SELECT `TABLE_NAME` FROM information_schema.`TABLES` WHERE `TABLE_SCHEMA` = ?").unwrap();
+            
+            for row in stmt.execute((env::var("db").unwrap(),)).unwrap(){
+                let mut row_u = row.unwrap();
+                tables.push(row_u.take("TABLE_NAME").unwrap());
+            }
+        }
+        
+        conn.prep_exec("SET FOREIGN_KEY_CHECKS=0;",()).unwrap(); // disable key checks, avoiding theoretical problems
+        for tbl in tables {
+            conn.prep_exec(format!("TRUNCATE `{}`",tbl),()).unwrap();
+        }
+    }
+    
+    /// Test wrapper, accepting ReqCore structs, with additional playlist insertion over _insert_query
     fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64,Error> {
         let qid = try!(super::_insert_query(&req.url, &req.quality,&req.uid, &req.r_type,conn));
         if req.playlist {

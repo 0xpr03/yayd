@@ -108,7 +108,7 @@ fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
                         Error::QualityNotAvailable => CODE_FAILED_QUALITY,
                         Error::UnknownURL => CODE_FAILED_UNKNOWN,
                         _ => {
-                            error!("Error: {:?}",e);
+                            error!("Unknown Error: {:?}",e);
                             let details = match e {
                                 Error::DBError(s) => format!("{:?}",s),
                                 Error::DownloadError(s) => s,
@@ -129,7 +129,7 @@ fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
             db::set_null_state(&mut request.get_conn(), &qid);
             
         } else {
-            if print_pause { debug!("Pausing.."); print_pause = false; }
+            if print_pause { trace!("Idle.."); print_pause = false; }
             std::thread::sleep(*SLEEP_TIME);
         }
     }

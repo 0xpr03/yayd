@@ -9,7 +9,7 @@
 
 /*
  * Setup SQL for required tables
- * Leave the uid in queries even if you don't want multi-user support
+ * Please leave the uid column in `queries` even if you don't want multi-user support
  */
  
  

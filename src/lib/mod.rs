@@ -58,6 +58,7 @@ pub struct Request {
 
 /// Core for assertions
 #[cfg(test)]
+#[derive(Clone, Debug)]
 pub struct ReqCore {
     url: String,
     quality: i16,
