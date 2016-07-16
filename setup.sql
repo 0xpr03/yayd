@@ -100,5 +100,6 @@ CREATE TABLE `query_files` (
  `qid` int(11) unsigned NOT NULL,
  `fid` int(10) unsigned NOT NULL,
  UNIQUE KEY `qid` (`qid`,`fid`),
- KEY `qid_2` (`qid`)
+ KEY `qid_2` (`qid`),
+ KEY `fid` (`fid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
