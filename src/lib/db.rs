@@ -216,9 +216,9 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
     let mut row;
     {
         let mut stmt = try_reoption!(db_conn.prepare(
-        "SELECT queries.qid,url,quality,`compress`,`from`,`to`,uid,`type` FROM querydetails \
         INNER JOIN queries \
         ON querydetails.qid = queries.qid \
+        "SELECT queries.qid,url,quality,`split`,`from`,`to`,uid,`type` FROM queries \
         LEFT JOIN playlists ON queries.qid = playlists.qid \
         WHERE querydetails.code = -1 \
         ORDER BY queries.created \
@@ -230,19 +230,19 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
     trace!("row: {:?}", row);
     let from: i16;
     let to: i16;
-    let compress: bool;
+    let split: bool;
     
     let temp: Value = get_value!(row,"from");
     let playlist: bool = temp != Value::NULL;
     debug!("playlist: {}",playlist);
     if playlist {
-        compress = take_value!(row,"compress");
+        split = take_value!(row,"split");
         from = take_value!(row,"from");
         to = take_value!(row,"to");
     } else {
         from = DEFAULT_PLAYLIST_VAL;
         to = DEFAULT_PLAYLIST_VAL;
-        compress = false;
+        split = false;
     }
     let request = Request {
         url: take_value!(row,"url"),
@@ -251,7 +251,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
         r_type: take_value!(row,"type"),
         conn: RefCell::new(db_conn),
         playlist: playlist,
-        compress: compress,
+        split: split,
         from: from,
         to: to,
         path: PathBuf::from(&CONFIG.general.download_dir),
@@ -356,7 +356,7 @@ mod test {
             quality: 1,
             qid: 1,
             playlist: false,
-            compress: false,
+            split: false,
             r_type: -2,
             from: DEFAULT_PLAYLIST_VAL,
             to: DEFAULT_PLAYLIST_VAL,
@@ -369,7 +369,7 @@ mod test {
             req.playlist = true;
             req.from = 0;
             req.to = 100;
-            req.compress = true;
+            req.split = true;
         }
         req
     }
@@ -401,8 +401,8 @@ mod test {
     fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64,Error> {
         let qid = try!(super::_insert_query(&req.url, &req.quality,&req.uid, &req.r_type,conn));
         if req.playlist {
-            let mut stmt = try!(conn.prepare("INSERT INTO `playlists` (`qid`,`from`,`to`,`compress`) VALUES(?,?,?,?)"));
-            let _ = try!(stmt.execute((qid,req.from,req.to,req.compress)));
+            let mut stmt = try!(conn.prepare("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)"));
+            let _ = try!(stmt.execute((qid,req.from,req.to,req.split)));
         }
         Ok(qid)
     }

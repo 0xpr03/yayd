@@ -34,12 +34,13 @@ CREATE TABLE `queries` (
 /*
  * If a query is an playlist job, all details are stored in this table.
  * Otherwise there's not entry in this table for this job
+ * split: create a new query for every entry in the playlist (thus one file per entry)
  */
 CREATE TABLE `playlists` (
  `qid` int(10) unsigned NOT NULL,
  `from` smallint(6) NOT NULL,
  `to` smallint(6) NOT NULL,
- `compress` tinyint(1) NOT NULL,
+ `split` tinyint(1) NOT NULL,
  PRIMARY KEY (`qid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 

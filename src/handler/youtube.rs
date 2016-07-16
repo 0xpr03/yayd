@@ -75,7 +75,7 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
     trace!("crawling ids");
     let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
     
-    if request.compress {
+    if request.split {
         
         let save_path = try!(lib::format_save_path(&request.path, &name));;
         request.temp_path.push(request.qid.to_string());
@@ -278,7 +278,7 @@ fn get_name<'a>(hdb: &HandleData,
             // now request via lib.. // k if( k == Err(DownloadError::DMCAError) )
             info!("DMCA error!");
             if CONFIG.general.lib_use {
-                if !request.compress {
+                if !request.split {
                     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
                 }
                 match hdb.downloader.lib_request_video(1,

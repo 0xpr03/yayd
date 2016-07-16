@@ -33,7 +33,8 @@ pub struct Request {
     pub url: String,
     pub quality: i16,
     pub playlist: bool,
-    pub compress: bool,
+    /// split up a playlist request into multiple requests instead of one big file
+    pub split: bool,
     /// query id
     pub qid: u64,
     /// Reserved int to specify other options in case quality & playlist codes aren't enough
@@ -57,7 +58,7 @@ pub struct ReqCore {
     url: String,
     quality: i16,
     playlist: bool,
-    compress: bool,
+    split: bool,
     qid: u64,
     r_type: i16,
     from: i16,
@@ -74,7 +75,7 @@ impl ReqCore {
             url: origin.url.clone(),
             quality: origin.quality.clone(),
             playlist: origin.playlist.clone(),
-            compress: origin.compress.clone(),
+            split: origin.split.clone(),
             r_type: origin.r_type.clone(),
             qid: origin.qid.clone(),
             from: origin.from.clone(),
@@ -88,7 +89,7 @@ impl ReqCore {
     pub fn verify(&self, input: &Request) {
         assert_eq!(self.url,input.url);
         assert_eq!(self.quality,input.quality);
-        assert_eq!(self.compress,input.compress);
+        assert_eq!(self.split,input.split);
         assert_eq!(self.qid,input.qid);
         assert_eq!(self.r_type,input.r_type);
         assert_eq!(self.from,input.from);

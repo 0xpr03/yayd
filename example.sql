@@ -42,7 +42,7 @@ BEGIN
 	INSERT INTO `querydetails` (qid,`code`,`status`) VALUES (var_qID,@default_code,@default_status);
 	
 	IF ( parameter_from != @no_playlist_from ) THEN
-		INSERT INTO `playlists` (`qid`,`from`,`to`, `compress`) VALUES (var_qID,parameter_from,parameter_to,parameter_compress);
+		INSERT INTO `playlists` (`qid`,`from`,`to`, `split`) VALUES (var_qID,parameter_from,parameter_to,parameter_compress);
 	END IF;
 	
 	SET out_qid = var_qID;
@@ -76,7 +76,7 @@ BEGIN
 	INSERT INTO `querydetails` (qid,`code`,`status`) VALUES (var_qID,@default_code,@default_status);
 	
 	IF ( parameter_from != @no_playlist_from ) THEN
-		INSERT INTO `playlists` (`qid`,`from`,`to`, `compress`) VALUES (var_qID,parameter_from,parameter_to,parameter_compress);
+		INSERT INTO `playlists` (`qid`,`from`,`to`, `split`) VALUES (var_qID,parameter_from,parameter_to,parameter_compress);
 	END IF;
 	
 	SET out_qid = var_qID;
