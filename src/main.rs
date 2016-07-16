@@ -6,6 +6,8 @@ extern crate log;
 extern crate log4rs;
 #[macro_use]
 extern crate lazy_static;
+extern crate timer;
+extern crate chrono;
 
 mod lib;
 mod handler;
@@ -14,6 +16,8 @@ use lib::downloader::Downloader;
 use lib::converter::Converter;
 use handler::init_handlers;
 use handler::Registry;
+use timer::{Timer,Guard};
+use std::sync::Arc;
 use lib::config;
 use lib::db;
 use lib::logger;
@@ -43,6 +47,8 @@ lazy_static! {
     };
 }
 
+macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {error!("{}",e);return; },}) }
+
 //#[allow(non_camel_case_types)]
 //#[derive(Clone, Eq, PartialEq, Debug, Copy)]
 //#[repr(i8)]// broken, enum not usable as of #10292
@@ -58,22 +64,34 @@ lazy_static! {
 #[cfg(not(test))]
 fn main() {
     logger::initialize();
-    let pool = db::db_connect(db::mysql_options(&CONFIG), *SLEEP_TIME);
+    let pool = Arc::new(db::db_connect(db::mysql_options(&CONFIG), *SLEEP_TIME));
     debug!("cleaning db");
     let mut conn = pool.get_conn().map_err(|_| panic!("Couldn't retrieve connection!")).unwrap();
     db::clear_query_states(&mut conn);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
-    let mut handler = init_handlers(Downloader::new(&CONFIG.general),converter);
+    let handler = init_handlers(Downloader::new(&CONFIG.general),converter);
+    
+    let timer = timer::Timer::new();
+    debug!("Auto cleanup old files: {}",CONFIG.cleanup.auto_delete_files);
+    if CONFIG.cleanup.delete_files {
+        run_auto_cleanup_thread(pool.clone(), &timer);
+    }
+    
+    debug!("Cleanup marked: {}",CONFIG.cleanup.delete_files);
+    if CONFIG.cleanup.delete_files {
+        run_cleanup_thread(pool.clone(), &timer);
+    }
     
     debug!("finished startup");
-    main_loop(pool, handler);
+    main_loop(&*pool, handler);
 }
 
-fn main_loop(pool: mysql::Pool, mut handler: Registry) {
+fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
     let mut print_pause = true;
+    
     loop {
-        if let Some(mut request) = db::request_entry(&pool) {
+        if let Some(mut request) = db::request_entry(pool) {
             trace!("got request");
             print_pause = true;
             let qid = request.qid.clone();
@@ -116,6 +134,37 @@ fn main_loop(pool: mysql::Pool, mut handler: Registry) {
         }
     }
 }
+
+/// Auto cleanup task
+fn run_auto_cleanup_thread<'a>(pool: Arc<mysql::conn::pool::Pool>, timer: &'a Timer) {
+    let path = std::path::PathBuf::from(&CONFIG.general.download_dir);
+    let a = timer.schedule_repeating(chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64), move || {
+        trace!("performing auto cleanup");
+        let local_pool = &*pool;
+        let val = lib::delete_files(local_pool,db::DeleteRequestType::Aged_min(&CONFIG.cleanup.auto_delete_age),&path);
+        match val {
+            Ok(_) => (),
+            Err(e) => error!("Couldn't auto cleanup! {:?}",e),
+        }
+    });
+    a.ignore();
+}
+
+/// Cleanup requested task
+fn run_cleanup_thread<'a>(pool: Arc<mysql::conn::pool::Pool>, timer: &'a Timer) {
+    let path = std::path::PathBuf::from(&CONFIG.general.download_dir);
+    let a = timer.schedule_repeating(chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64), move || {
+        trace!("performing deletion requests");
+        let local_pool = &*pool;
+        let val = lib::delete_files(local_pool,db::DeleteRequestType::Marked,&path);
+        match val {
+            Ok(_) => (),
+            Err(e) => error!("Couldn't perform deletions! {:?}",e),
+        }
+    });
+    a.ignore();
+}
+
 /*
 #[cfg(test)]
 mod test {

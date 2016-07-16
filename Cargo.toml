@@ -16,6 +16,8 @@ rustc-serialize = "0.3.16"
 log = "0.3.4"
 log4rs = "0.3.3"
 zip = "0.1.15"
+timer = "0.1.6"
+chrono = "0.2.22"
 
 [dependencies.mysql]
 version = "5.0.0"

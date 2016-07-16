@@ -3,13 +3,14 @@ extern crate regex;
 use mysql::conn::pool::{PooledConn,Pool};
 use mysql::conn::{Opts, OptsBuilder};
 use mysql::conn::Stmt;
-use mysql::value::Value;
+use mysql::value::{Value,from_row_opt};
 
 use std::time::Duration;
 use std::cell::RefCell;
 use std::thread::sleep;
 use std::path::PathBuf;
 use std::boxed::Box;
+use chrono::naive::datetime::NaiveDateTime;
 
 use super::{Error,Request};
 
@@ -47,6 +48,13 @@ macro_rules! get_value {
 }
 
 const DEFAULT_PLAYLIST_VAL: i16 = -2;
+const REQ_DB_TABLES:[&'static str; 5]  = ["queries","querydetails","playlists","subqueries","query_files"];
+
+pub enum DeleteRequestType<'a> {
+    Marked, // delete = 1
+    Aged_min(&'a u16) // valid = 1, age
+}
+
 
 /// Connection wrapper, allowing to get an Pool or an PooledConn
 pub enum STConnection<'a> {
@@ -142,7 +150,7 @@ pub fn prepare_progress_updater(conn: &mut PooledConn) -> Result<Stmt,Error> {
 }
 
 /// Add file to db including it's name & fid based on the qid
-pub fn add_file_entry(conn: &mut PooledConn, qid: &u64, name: &str, real_name: &str) -> Result<(), Error> {
+pub fn add_file_entry(conn: &mut PooledConn, qid: &u64, name: &str, real_name: &str) -> Result<u64, Error> {
     trace!("name: {}",name);
     let fid: u64;
     {
@@ -156,7 +164,7 @@ pub fn add_file_entry(conn: &mut PooledConn, qid: &u64, name: &str, real_name: &
                try!(stmt.execute((&qid,&fid)));
         }
     }
-    Ok(())
+    Ok(fid)
 }
 
 /// Add query status msg for error reporting
@@ -216,9 +224,8 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
     let mut row;
     {
         let mut stmt = try_reoption!(db_conn.prepare(
-        INNER JOIN queries \
-        ON querydetails.qid = queries.qid \
         "SELECT queries.qid,url,quality,`split`,`from`,`to`,uid,`type` FROM queries \
+        JOIN querydetails ON queries.qid = querydetails.qid \
         LEFT JOIN playlists ON queries.qid = playlists.qid \
         WHERE querydetails.code = -1 \
         ORDER BY queries.created \
@@ -259,6 +266,46 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
         uid: take_value!(row,"uid")
     };
     Some(request)
+}
+
+/// set delete flag on files
+pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<(),Error> {
+    let mut stmt = try!(conn.prepare("UPDATE files SET `delete` = ? WHERE fid = ?"));
+    try!(stmt.execute((delete,fid)));
+    Ok(())
+}
+
+/// (Auto) file deletion retriver
+/// Returns a tuple of Vec<qid> and Vec<fid,file name> older then age
+pub fn get_files_to_delete(conn: &mut PooledConn, del_type: DeleteRequestType) -> Result<(Vec<u64>,Vec<(u64,String)>),Error> {
+    let mut sql = String::from("SELECT `query_files`.`qid`,`files`.`fid`,`name` FROM files \
+            LEFT JOIN `query_files` ON files.fid = query_files.fid ");
+    let sql = sql+&match del_type {
+        DeleteRequestType::Aged_min(x) => String::from("WHERE `valid` = 1 AND `created` < (NOW() - INTERVAL %min% DAY_MINUTE)").replace("%min%", &x.to_string()),
+        DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1")
+    };
+    debug!("sql: {}",sql);
+    let mut stmt = try!(conn.prepare(&sql));
+    let mut qids = Vec::new();
+    let mut files = Vec::new();
+    for result in try!(stmt.execute(())) {
+        let (qid,fid,name) = try!(from_row_opt::<(u64,u64,String)>(try!(result)));
+        qids.push(qid);
+        files.push((fid,name));
+    }
+    drop(stmt);
+    qids.sort();
+    qids.dedup();
+    Ok((qids,files))
+}
+
+/// Set file deleted flag
+pub fn set_file_deleted(conn: &mut PooledConn, fid: &u64) -> Result<(),Error> {
+    let mut stmt = try!(conn.prepare("UPDATE `files` SET `valid` = false WHERE `fid` = ?"));
+    if try!(stmt.execute((fid,))).affected_rows() != 1 {
+        return Err(Error::InternalError(String::from(format!("Invalid affected lines count!"))));
+    }
+    Ok(())
 }
 
 /// Set DBMS connection settings
@@ -309,6 +356,31 @@ fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(),Error> {
     Ok(())
 }
 
+/// Delete request or file entry
+/// If a qid is specified, all file entries will also be erased
+/// For files to be erased the `link_files` config has to be enabled
+/// On deletion error all is rolled back to avoid data inconsistency
+pub fn delete_requests(conn: &mut PooledConn, qids: Vec<u64>,files: Vec<(u64,String)> ) -> Result<(),Error> {
+    let mut transaction = try!(conn.start_transaction(false,None,None));
+    
+    {
+        let mut stmt = try!(transaction.prepare("DELETE FROM files WHERE fid = ?"));
+        for (fid,ref file) in files {
+            try!(stmt.execute((&fid,)));
+        }
+    }
+    
+    let DEL_SQL_TEMPLATE = "DELETE FROM %db% WHERE qid = ?";
+    for db in REQ_DB_TABLES.iter() {
+        let mut stmt = try!(transaction.prepare(DEL_SQL_TEMPLATE.replace("%db%",db)));
+        for qid in &qids {
+            try!(stmt.execute((qid,)));
+        }
+    }
+    try!(transaction.commit());
+    Ok(())
+}
+
 /// Returns a vector of table setup sql
 fn get_db_create_sql<'a>() -> Vec<String> {
     let raw_sql = include_str!("../../setup.sql");
@@ -340,11 +412,19 @@ mod test {
     use std::path::PathBuf;
     
     use super::*;// import only public items
-    use super::{clean_db,DEFAULT_PLAYLIST_VAL,get_db_create_sql};
+    use super::{DEFAULT_PLAYLIST_VAL,get_db_create_sql,REQ_DB_TABLES};
     use std::cell::RefCell;
     use mysql::conn::pool::{PooledConn,Pool};
+    use mysql::value::from_row;
     use mysql;
     
+    use chrono::naive::datetime::NaiveDateTime;
+    use chrono::offset::local::Local;
+    use chrono::datetime::DateTime;
+    use chrono::duration::Duration;
+    use chrono;
+    
+    use lib::logger;
     use lib::ReqCore;
     use lib::Request;
     use lib::Error;
@@ -407,6 +487,32 @@ mod test {
         Ok(qid)
     }
     
+    /// Set last update check date, used for deletion checks
+    fn set_file_created(conn: &mut PooledConn,qid: &u64, date: NaiveDateTime) {
+        let mut stmt = conn.prepare("UPDATE files SET `created`= ? WHERE fid = ?").unwrap();
+        assert!(stmt.execute((date,qid)).is_ok());
+    }
+    
+    /// Retrieve NaiveDateTime LUC from querydetails
+    fn get_luc(conn: &mut PooledConn,qid: &u64) -> NaiveDateTime {
+        let mut stmt = conn.prepare("SELECT luc from querydetails WHERE qid = ?").unwrap();
+        let mut result = stmt.execute((qid,)).unwrap();
+        result.next().unwrap().unwrap().take("luc").unwrap()
+    }
+    
+    /// Get fid,name, r_name of files for qid to test against an insertion
+    /// Retrusn an Vec<(fid,name,rname)>
+    fn get_files(conn: &mut PooledConn, qid: &u64) -> Vec<(u64,String,String)> {
+        let mut stmt = conn.prepare("SELECT files.fid,name, rname FROM files \
+            JOIN `query_files` ON files.fid = query_files.fid \
+            WHERE query_files.qid = ? ORDER BY fid").unwrap();
+        let result = stmt.execute((qid,)).unwrap();
+        let a: Vec<(u64,String,String)> = result.map( |row| {
+            from_row(row.unwrap())
+        }).collect();
+        a
+    }
+    
     #[test]
     fn sql_test() {
         get_db_create_sql();
@@ -422,15 +528,160 @@ mod test {
     fn insert_query_test() {
         let (conf,pool) = connect();
         let mut conn = pool.get_conn().unwrap();
-        let request = create_request(false, &conf);
+        let request = create_request(true, &conf);
         setup(&mut conn);
         insert_query_core(&request, &mut conn).unwrap();
     }
     
     #[test]
-    fn query_test() {
+    fn file_test() {
         lib::config::init_config();
         
+        let (conf,pool) = connect();
+        let mut conn = pool.get_conn().unwrap();
+        let mut request = create_request(false, &conf);
+        setup(&mut conn);
+        request.qid = insert_query_core(&request, &mut conn).unwrap();
+        
+        let f_name = "f_test";
+        let f_r_name = "f_r_test";
+        let n_fid = add_file_entry(&mut conn, &request.qid, &f_name,&f_r_name).unwrap();
+        let (fid,ref retr_name,ref retr_r_name) = get_files(&mut conn,&request.qid)[0];
+        assert_eq!(retr_name,f_name);
+        assert_eq!(retr_r_name,f_r_name);
+        assert_eq!(n_fid,fid);
+        assert!(set_file_deleted(&mut conn, &fid).is_ok());
+    }
+    
+    #[test]
+    fn query_delete_test() {
+        lib::config::init_config();
+        let (conf,pool) = connect();
+        let mut conn = pool.get_conn().unwrap();
+        setup(&mut conn);
+        
+        let mut request = create_request(true, &conf);
+        request.qid = insert_query_core(&request, &mut conn).unwrap();
+        
+        let fid = add_file_entry(&mut conn, &request.qid, &"test", &"test").unwrap();
+        
+        let mut files = Vec::new();
+        files.push((fid,"asd".to_string()));
+        let mut qids = Vec::new();
+        qids.push(request.qid.clone());
+        
+        delete_requests(&mut conn,qids,files).unwrap();
+        
+        let SQL = "SELECT COUNT(*) as amount FROM %db% WHERE 1";
+        for db in REQ_DB_TABLES.iter() {
+            let mut res = conn.prep_exec(SQL.replace("%db%",db),()).unwrap();
+            let amount: i32 = res.next().unwrap().unwrap().take("amount").unwrap();
+            assert_eq!(amount,0);
+        }
+    }
+    
+    #[test]
+    fn file_delete_sql_test() {
+        lib::config::init_config();
+        
+        const age: u16 = 60 * 25; // min, age subtracted per iter
+        const max_age_diff: u16 = age - 10;
+        const affected_invalid: i16 = 2; // i count file which will be invalidated
+        const AMOUNT_FILES: i16 = 8;
+        const AGE_DEL_RATIO: i16 = 50;
+        
+        let (conf,pool) = connect();
+        let mut conn = pool.get_conn().unwrap();
+        setup(&mut conn);
+        
+        let start_time = Local::now();
+        let mut requests = Vec::new();
+        {
+            let mut time = start_time.naive_local();
+            let subtr_time = Duration::days(1);
+            let req_template = create_request(false, &conf);
+            
+            let treshold = AGE_DEL_RATIO * AMOUNT_FILES / 100;
+            
+            for i in 0..AMOUNT_FILES { // insert some files
+                let mut req_new = req_template.clone();
+                req_new.qid = insert_query_core(&req_new, &mut conn).unwrap();
+                let f_name = format!("f_{}",i);
+                let f_r_name = format!("f_r_{}", i);
+                let fid = add_file_entry(&mut conn, &req_new.qid, &f_name,&f_r_name).unwrap();
+                let delete = i > treshold;
+                
+                let valid = match i == affected_invalid {
+                    true => {assert!(set_file_deleted(&mut conn, &fid).is_ok()); false},
+                    false => true,
+                };
+                set_file_created(&mut conn, &fid,time);
+                
+                if delete {
+                    assert!(set_file_delete_flag(&mut conn, &fid, true).is_ok());
+                }
+                
+                requests.push((req_new.qid,fid,time.clone(),f_name,f_r_name,valid,delete));
+                time = time - subtr_time;
+            }
+            
+            
+        }
+        
+        assert!((Local::now() - start_time).num_milliseconds() < 1_000); // took too long to be accurate at retrieving
+        
+        { // aged files test
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
+        // Vec<u64>,Vec<(u64,String)>
+        assert_eq!(files.is_empty(),false);
+        for (fid,name) in files { // check file for file that all data is correct
+            let mut iter = requests.iter().filter(|&&(_,ref r_fid,_,_,_,_,_)| r_fid == &fid);
+            let &(ref r_qid,ref r_fid,ref time,ref f_name,_,ref r_valid,ref r_delete) = iter.next().unwrap();
+            assert_eq!(f_name,&name);
+            assert_eq!(r_valid,&true);
+            assert_eq!(r_delete,&false);
+            assert_eq!(r_fid,&fid);
+            let diff = start_time - Duration::minutes(max_age_diff as i64);
+            assert!(time <= &diff.naive_local() );
+            assert!(qids.contains(&r_qid));
+            assert!(iter.next().is_none());
+            assert!(set_file_deleted(&mut conn, &fid).is_ok());
+        }
+        // re-check that no results remain
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
+        assert!(qids.is_empty());
+        assert!(files.is_empty());
+        }
+        
+        { // delete marked test
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Marked).unwrap();
+        // Vec<u64>,Vec<(u64,String)>
+        assert_eq!(files.is_empty(),false);
+        for (fid,name) in files { // check file for file that all data is correct
+            let mut iter = requests.iter().filter(|&&(_,ref r_fid,_,_,_,_,_)| r_fid == &fid);
+            let &(ref r_qid,ref r_fid,ref time,ref f_name,_,ref r_valid,ref r_delete) = iter.next().unwrap();
+            assert_eq!(f_name,&name);
+            assert_eq!(r_valid,&true);
+            assert_eq!(r_delete,&true);
+            assert_eq!(r_fid,&fid);
+            let diff = start_time - Duration::minutes(max_age_diff as i64);
+            assert!(time <= &diff.naive_local() );
+            assert!(qids.contains(&r_qid));
+            assert!(iter.next().is_none());
+            assert!(set_file_deleted(&mut conn, &fid).is_ok());
+            assert!(set_file_delete_flag(&mut conn, &fid,false).is_ok());
+        }
+        // re-check that no results remain
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Marked).unwrap();
+        assert!(qids.is_empty());
+        assert!(files.is_empty());
+        }
+    }
+    
+    #[test]
+    fn query_test() {
+        logger::init_config();
+        lib::config::init_config();
         {
             let (conf,pool) = connect();
             let mut conn = pool.get_conn().unwrap();

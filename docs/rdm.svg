@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg
+PUBLIC "-//W3C//DTD SVG 1.1//EN"
+       "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg viewBox="52 7 480 542" width="428px" height="535px" xmlns="http://www.w3.org/2000/svg" version="1.1">
+   <rect width="71" height="20" x="394" y="176" style="fill:#007;stroke:black;"/>
+   <text width="71" height="20" x="399" y="190" style="fill:#fff;" font-family="Arial" font-size="16px"> files</text>
+   <rect width="71" height="20" x="394" y="196" style="fill:#aea;stroke:black;"/>
+   <text width="71" height="20" x="399" y="210" style="fill:black;" font-family="Arial" font-size="16px">fid</text>
+   <rect width="71" height="20" x="394" y="216" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="230" style="fill:black;" font-family="Arial" font-size="16px">name</text>
+   <rect width="71" height="20" x="394" y="236" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="250" style="fill:black;" font-family="Arial" font-size="16px">rname</text>
+   <rect width="71" height="20" x="394" y="256" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="270" style="fill:black;" font-family="Arial" font-size="16px">valid</text>
+   <rect width="71" height="20" x="394" y="276" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="290" style="fill:black;" font-family="Arial" font-size="16px">delete</text>
+   <rect width="71" height="20" x="394" y="296" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="310" style="fill:black;" font-family="Arial" font-size="16px">created</text>
+   <rect width="71" height="20" x="394" y="316" style="fill:none;stroke:black;"/>
+   <text width="71" height="20" x="399" y="330" style="fill:black;" font-family="Arial" font-size="16px">changed</text>
+   <rect width="63" height="20" x="70" y="427" style="fill:#007;stroke:black;"/>
+   <text width="63" height="20" x="75" y="441" style="fill:#fff;" font-family="Arial" font-size="16px"> playlists</text>
+   <rect width="63" height="20" x="70" y="447" style="fill:#aea;stroke:black;"/>
+   <text width="63" height="20" x="75" y="461" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="63" height="20" x="70" y="467" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="75" y="481" style="fill:black;" font-family="Arial" font-size="16px">from</text>
+   <rect width="63" height="20" x="70" y="487" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="75" y="501" style="fill:black;" font-family="Arial" font-size="16px">to</text>
+   <rect width="63" height="20" x="70" y="507" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="75" y="521" style="fill:black;" font-family="Arial" font-size="16px">split</text>
+   <rect width="63" height="20" x="68" y="171" style="fill:#007;stroke:black;"/>
+   <text width="63" height="20" x="73" y="185" style="fill:#fff;" font-family="Arial" font-size="16px"> queries</text>
+   <rect width="63" height="20" x="68" y="191" style="fill:#aea;stroke:black;"/>
+   <text width="63" height="20" x="73" y="205" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="63" height="20" x="68" y="211" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="73" y="225" style="fill:black;" font-family="Arial" font-size="16px">url</text>
+   <rect width="63" height="20" x="68" y="231" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="73" y="245" style="fill:black;" font-family="Arial" font-size="16px">quality</text>
+   <rect width="63" height="20" x="68" y="251" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="73" y="265" style="fill:black;" font-family="Arial" font-size="16px">type</text>
+   <rect width="63" height="20" x="68" y="271" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="73" y="285" style="fill:black;" font-family="Arial" font-size="16px">created</text>
+   <rect width="63" height="20" x="68" y="291" style="fill:none;stroke:black;"/>
+   <text width="63" height="20" x="73" y="305" style="fill:black;" font-family="Arial" font-size="16px">uid</text>
+   <rect width="93" height="20" x="67" y="22" style="fill:#007;stroke:black;"/>
+   <text width="93" height="20" x="72" y="36" style="fill:#fff;" font-family="Arial" font-size="16px"> querydetails</text>
+   <rect width="93" height="20" x="67" y="42" style="fill:#aea;stroke:black;"/>
+   <text width="93" height="20" x="72" y="56" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="93" height="20" x="67" y="62" style="fill:none;stroke:black;"/>
+   <text width="93" height="20" x="72" y="76" style="fill:black;" font-family="Arial" font-size="16px">code</text>
+   <rect width="93" height="20" x="67" y="82" style="fill:none;stroke:black;"/>
+   <text width="93" height="20" x="72" y="96" style="fill:black;" font-family="Arial" font-size="16px">progress</text>
+   <rect width="93" height="20" x="67" y="102" style="fill:none;stroke:black;"/>
+   <text width="93" height="20" x="72" y="116" style="fill:black;" font-family="Arial" font-size="16px">status</text>
+   <rect width="93" height="20" x="67" y="122" style="fill:none;stroke:black;"/>
+   <text width="93" height="20" x="72" y="136" style="fill:black;" font-family="Arial" font-size="16px">luc</text>
+   <rect width="82" height="20" x="69" y="346" style="fill:#007;stroke:black;"/>
+   <text width="82" height="20" x="74" y="360" style="fill:#fff;" font-family="Arial" font-size="16px"> queryerror</text>
+   <rect width="82" height="20" x="69" y="366" style="fill:#aea;stroke:black;"/>
+   <text width="82" height="20" x="74" y="380" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="82" height="20" x="69" y="386" style="fill:none;stroke:black;"/>
+   <text width="82" height="20" x="74" y="400" style="fill:black;" font-family="Arial" font-size="16px">msg</text>
+   <rect width="80" height="20" x="239" y="175" style="fill:#007;stroke:black;"/>
+   <text width="80" height="20" x="244" y="189" style="fill:#fff;" font-family="Arial" font-size="16px"> query_files</text>
+   <rect width="80" height="20" x="239" y="195" style="fill:none;stroke:black;"/>
+   <text width="80" height="20" x="244" y="209" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="80" height="20" x="239" y="215" style="fill:none;stroke:black;"/>
+   <text width="80" height="20" x="244" y="229" style="fill:black;" font-family="Arial" font-size="16px">fid</text>
+   <rect width="88" height="20" x="230" y="431" style="fill:#007;stroke:black;"/>
+   <text width="88" height="20" x="235" y="445" style="fill:#fff;" font-family="Arial" font-size="16px"> subqueries</text>
+   <rect width="88" height="20" x="230" y="451" style="fill:#aea;stroke:black;"/>
+   <text width="88" height="20" x="235" y="465" style="fill:black;" font-family="Arial" font-size="16px">qid</text>
+   <rect width="88" height="20" x="230" y="471" style="fill:#aea;stroke:black;"/>
+   <text width="88" height="20" x="235" y="485" style="fill:black;" font-family="Arial" font-size="16px">origin_id</text>
+</svg>

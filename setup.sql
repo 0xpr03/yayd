@@ -58,14 +58,20 @@ CREATE TABLE `querydetails` (
 
 /*
  * Table storing the name of a file, and `rname` for the name actually used on the HDD (ASCII sanitized).
- * Deleted files are marked as `valid: false`.
+ * delete: files yayd should delete, marker for deletion, user triggered
+ * valid: false if file was deleted
  */
 CREATE TABLE `files` (
  `fid` int(10) unsigned NOT NULL AUTO_INCREMENT,
  `name` varchar(100) CHARACTER SET ascii NOT NULL,
  `rname` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
- `valid` int(11) NOT NULL,
- PRIMARY KEY (`fid`) USING BTREE
+ `valid` tinyint(1) NOT NULL,
+ `delete` tinyint(1) NOT NULL DEFAULT '0',
+ `created` TIMESTAMP NOT NULL,
+ `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (`fid`) USING BTREE,
+ KEY `valid` (`valid`),
+ KEY `delete` (`delete`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 
 /*
@@ -87,7 +93,8 @@ CREATE TABLE `subqueries` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 
 /*
- * For file-query relations, if enabled in the config
+ * For file-query relations
+ * Required for auto deletion of queries of old files
  */
 CREATE TABLE `query_files` (
  `qid` int(11) unsigned NOT NULL,

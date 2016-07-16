@@ -9,6 +9,7 @@ pub mod db;
 
 use lib::downloader::Filename;
 
+use timer::{Timer,Guard};
 
 use mysql::conn::pool::PooledConn;
 use mysql;
@@ -16,13 +17,16 @@ use mysql;
 use std::fs::{rename, metadata,File,read_dir};
 use std::error::Error as OriginError;
 use std::path::{PathBuf,Path};
+use std::fs::remove_file;
 use std::env::current_exe;
 use std::ascii::AsciiExt;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::io::{copy};
 use std::{self,io};
+use std::vec::Vec;
 
+use CONFIG;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -242,3 +246,41 @@ pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
     folder.pop();
     Ok(folder)
 }
+
+/// Delete files aged or marked for removal
+/// Additionally erases the DB entries if configured to do so
+/// dir_path markes the directory the files are located in
+pub fn delete_files(pool: &mysql::conn::pool::Pool, delete_type: db::DeleteRequestType, dir_path: &Path) -> Result<(),Error> {
+    let mut conn = try!(pool.get_conn());
+    let (qids,mut files) = try!(db::get_files_to_delete(&mut conn,delete_type));
+    //for (fid,url) in files{
+    debug!("Len before: {}",files.len());
+    files.retain(|&(fid,ref url)| { // remove all not matching
+        trace!("deleting {:?}",url);
+        let mut path = dir_path.to_path_buf();
+        path.push(url);
+        match remove_file(&path) {
+            Ok(_) => true,
+            Err(e) => {
+                if path.exists() {
+                    error!("Couldn't delete file {:?} {:?}",path,e);
+                    false
+                }else{
+                    warn!("File was already deleted: {:?}",path);
+                    true
+                }
+            }
+        }
+    });
+    debug!("Len after: {}",files.len());
+    if CONFIG.cleanup.auto_delete_request {
+        try!(db::delete_requests(&mut conn,qids,files));
+    }else{
+        for (fid,_) in files {
+            try!(db::set_file_delete_flag(&mut conn,&fid,false));
+            try!(db::set_file_deleted(&mut conn,&fid));
+        }
+    }
+    Ok(())
+}
+

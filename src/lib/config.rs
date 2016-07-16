@@ -28,6 +28,7 @@ pub enum ConfigError {
 pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
+    pub cleanup: ConfigCleanup,
     pub codecs: ConfigCodecs,
 }
 
@@ -55,6 +56,18 @@ pub struct ConfigGen{
     pub lib_dir: String,
     pub lib_bin: String,
     pub lib_args: Vec<String>,
+}
+
+/// Cleanup settings config struct
+#[derive(Clone, Debug, RustcDecodable)]
+pub struct ConfigCleanup{
+    pub auto_delete_files: bool, // auto delete files
+    pub auto_delete_age: u16, // max age s
+    pub auto_delete_interval: u16, // cleanup interval
+    pub auto_delete_request: bool, // delete also the request: db entries of these files
+    pub delete_files: bool, // delete files requested
+    pub delete_request: bool, // delete also the request itself
+    pub delete_interval: u16, // execution interval
 }
 
 /// Codec config struct
@@ -110,11 +123,14 @@ pub fn init_config() -> Config {
     conf.general.download_dir = env!("download_dir");
     conf.general.temp_dir = env!("temp_dir");
     conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
+    conf.general.link_files = true;
+    conf.general.link_subqueries = true;
     conf.db.user = env!("user");
     conf.db.password = env!("pass");
     conf.db.ip = env!("ip");
     conf.db.port = env!("port").parse::<u16>().unwrap();
     conf.db.db = env!("db");
+    conf.cleanup.auto_delete_request = true;
     conf
 }
 
@@ -149,6 +165,7 @@ ip = "127.0.0.1"
 # insert subquery relations into table subqueries
 link_subqueries = true
 # store file-query relations in query_files table
+# this is required for auto_delete_files!
 link_files = true
 
 # temporary dir for downloads before the conversion etc
@@ -169,6 +186,31 @@ lib_use = false
 lib_bin = "/binary" # path to binary
 lib_args = ["arg1", "arg2"] # additional arguments
 lib_dir = "/" # working dir to use
+
+# clean the temp dir on startup (deletes ALL files insides!)
+# for crash cleanups at debugging
+clean_temp_dir = false
+
+[cleanup]
+# auto delete files older then X minutes
+auto_delete_files = true
+auto_delete_age = 4320
+# delete execution interval: minutes
+auto_delete_interval = 1440
+# set to true to also delete the DB entries along with those files
+# requires link_files
+auto_delete_request = false
+
+# delete marked files
+# deletes files marked with the "delete" flag
+# by this all delete IO is handled by yayd and not the webserver
+# this can also be used to give the web server only read access
+delete_files = true
+# delete interval (re-check for entries) minutes
+delete_interval = 900
+# delte the request db entry along with the file
+# requires link_files
+delete_request = false
 
 [codecs]
 # audio type : quality value
