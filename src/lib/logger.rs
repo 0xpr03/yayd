@@ -8,6 +8,7 @@ use std::fs::metadata;
 use std::default::Default;
 
 /// Initializes the logger.
+#[cfg(not(test))]
 pub fn initialize() {
     let mut log_path = get_executable_folder().unwrap_or(std::path::PathBuf::from("/"));
     log_path.set_file_name(LOG_CONFIG);
@@ -19,6 +20,7 @@ pub fn initialize() {
 }
 
 /// Initialize log config from file
+#[cfg(not(test))]
 fn init_file() {
     match log4rs::init_file(LOG_CONFIG, Default::default()) {
         Ok(_) => (),
@@ -28,6 +30,7 @@ fn init_file() {
 
 /// Initialize a fallback configurated logger.
 /// Conisiting of log to conole & if possible to file.
+#[cfg(not(test))]
 fn init_config() {
     let console = Box::new(log4rs::appender::ConsoleAppender::builder()
         .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
@@ -56,4 +59,20 @@ fn init_config() {
     warn!("No log config file found, please create file {}",LOG_CONFIG);
     warn!("According to https://github.com/sfackler/log4rs");
     info!("Using internal logging configuration on most verbose level.");
+}
+
+/// Test logger configuration, without file support, ignoring external config
+#[cfg(test)]
+pub fn init_config() {
+    let console = Box::new(log4rs::appender::ConsoleAppender::builder()
+        .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
+        .build());
+    
+    let mut root = log4rs::config::Root::builder(log::LogLevelFilter::max())
+        .appender("console".to_string());
+    
+    let mut config = log4rs::config::Config::builder(root.build())
+        .appender(log4rs::config::Appender::builder("console".to_string(), console).build());
+        
+    info!("Test logger configuration");
 }
