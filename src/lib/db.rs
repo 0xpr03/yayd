@@ -173,7 +173,7 @@ pub fn add_query_error(conn: &mut PooledConn, qid: &u64, status: &str){
 pub fn add_sub_query(url: &str, request: &Request) -> Result<u64,Error> {
     let id: u64 = try!(insert_query(url, request));
     
-    if CONFIG.general.link_suberqueries {
+    if CONFIG.general.link_subqueries {
         let mut conn = request.get_conn();
         let mut stmt = try!(conn.prepare("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)"));
            try!(stmt.execute((&id,&request.qid)));

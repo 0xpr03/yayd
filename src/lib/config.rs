@@ -44,7 +44,7 @@ pub struct ConfigDB {
 /// General settings config struct
 #[derive(Clone, Debug, RustcDecodable)]
 pub struct ConfigGen{
-    pub link_suberqueries: bool,
+    pub link_subqueries: bool,
     pub link_files: bool,
     pub temp_dir: String, // folder to temp. save the raw files
     pub download_dir: String, // folder to which the files should be moved
@@ -147,7 +147,7 @@ ip = "127.0.0.1"
 [general]
 
 # insert subquery relations into table subqueries
-link_suberqueries = true
+link_subqueries = true
 # store file-query relations in query_files table
 link_files = true
 
