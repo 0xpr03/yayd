@@ -22,8 +22,6 @@ use CODE_WAITING;
 use CODE_STARTED;
 use CONFIG;
 
-
-
 ///Move result value out, return with none on err & print
 macro_rules! try_reoption { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return None; },}) }
 macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {warn!("{}",e);return; },}) }

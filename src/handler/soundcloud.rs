@@ -5,9 +5,9 @@ use lib::{Error,Request};
 pub fn init(registry: &mut Registry){
     
     registry.register(Module {
-    	checker: Box::new(checker),
-    	handler: Box::new(handler),
-    	extended_cleanup: false,
+        checker: Box::new(checker),
+        handler: Box::new(handler),
+        extended_cleanup: false,
     });
 }
 
