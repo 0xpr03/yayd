@@ -68,7 +68,7 @@ These are the current quality codes per module:
 
 ### Youtube Module
 
-Code explanation see [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats)
+Code explanation see [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats).  
 Audio and video files have to be cut together, thus FFMPEG is required.
 
 | Code/iTag | Description |

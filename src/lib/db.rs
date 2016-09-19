@@ -10,6 +10,8 @@ use std::cell::RefCell;
 use std::thread::sleep;
 use std::path::PathBuf;
 use std::boxed::Box;
+use std::convert::From;
+
 use chrono::naive::datetime::NaiveDateTime;
 
 use super::{Error,Request};
@@ -153,7 +155,7 @@ pub fn add_file_entry(conn: &mut PooledConn, qid: &u64, name: &str, real_name: &
     let fid: u64;
     {
         let mut stmt = conn.prepare("INSERT INTO files (rname,name,valid) VALUES (?,?,?)").unwrap();
-        let result = try!(stmt.execute((&real_name,&name,&1)));
+        let result = try!(stmt.execute((&real_name,&name,&true)));
         fid = result.last_insert_id();
     }
     {

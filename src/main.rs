@@ -23,7 +23,7 @@ use lib::db;
 use lib::logger;
 use lib::Error;
 
-const VERSION : &'static str = "0.6";
+const VERSION : &'static str = "0.6.2";
 const CONFIG_PATH : &'static str = "config.cfg";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";

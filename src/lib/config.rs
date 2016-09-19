@@ -56,6 +56,7 @@ pub struct ConfigGen{
     pub lib_dir: String,
     pub lib_bin: String,
     pub lib_args: Vec<String>,
+    pub clean_temp_dir: bool, // debug function deleting all files inside the temp folder on startup
 }
 
 /// Cleanup settings config struct
@@ -230,6 +231,10 @@ audio_source_hq = -3
 audio_normal_mp4 = 140
 audio_normal_webm = 171
 audio_hq = 22
+
+#[codecs.twitch]
+# supported twitch options
+#supported = ["Source","High","Medium","Low","Mobile"]
     "#;
     trace!("Raw new config: {:?}", toml);
     
