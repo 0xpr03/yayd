@@ -23,7 +23,7 @@
  */
 CREATE TABLE `queries` (
  `qid` int(10) unsigned NOT NULL AUTO_INCREMENT,
- `url` varchar(100) NOT NULL,
+ `url` varchar(125) NOT NULL,
  `quality` smallint(6) NOT NULL,
  `type` smallint(6) NOT NULL,
  `created` datetime NOT NULL,
@@ -63,11 +63,11 @@ CREATE TABLE `querydetails` (
  */
 CREATE TABLE `files` (
  `fid` int(10) unsigned NOT NULL AUTO_INCREMENT,
- `name` varchar(100) CHARACTER SET ascii NOT NULL,
- `rname` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+ `name` varchar(125) CHARACTER SET ascii NOT NULL,
+ `rname` varchar(125) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
  `valid` tinyint(1) NOT NULL,
  `delete` tinyint(1) NOT NULL DEFAULT '0',
- `created` TIMESTAMP NOT NULL,
+ `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
  `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY (`fid`) USING BTREE,
  KEY `valid` (`valid`),
