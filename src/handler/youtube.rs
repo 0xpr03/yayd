@@ -76,7 +76,14 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
     let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
     
     if request.split {
-        
+        trace!("creating new requests for playlist entries");
+        let mut current_url: String;
+        for id in file_ids.iter() {
+            current_url = String::from(YT_VIDEO_URL);
+            current_url.push_str(&id);
+            try!(db::add_sub_query(&current_url,&request));
+        }
+    } else {
         let save_path = try!(lib::format_save_path(&request.path, &name));;
         request.temp_path.push(request.qid.to_string());
         request.path = request.temp_path.clone();
@@ -117,15 +124,6 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         trace!("removing dir {}",request.path.to_string_lossy());
         try!(remove_dir_all(&request.path));
         trace!("updating state");
-
-    } else {
-        trace!("creating new requests for playlist entries");
-        let mut current_url: String;
-        for id in file_ids.iter() {
-            current_url = String::from(YT_VIDEO_URL);
-            current_url.push_str(&id);
-            try!(db::add_sub_query(&current_url,&request));
-        }
     }
 
 
@@ -221,8 +219,10 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     if dmca {
         let save_file = try!(lib::format_save_path(&request.path, &name));
         try!(lib::move_file(&temp_file_v, &save_file));
-        hdb.pop();
-        hdb.addFile(&save_file, &name.full_name());
+        if !request.playlist {
+            hdb.pop();
+            hdb.addFile(&save_file, &name.full_name());
+        }
         return Ok(());
     }
     
