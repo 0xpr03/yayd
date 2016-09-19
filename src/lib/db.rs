@@ -266,7 +266,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
     Some(request)
 }
 
-/// set delete flag on files
+/// Mark file as to be deleted via delete flag
 pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<(),Error> {
     let mut stmt = try!(conn.prepare("UPDATE files SET `delete` = ? WHERE fid = ?"));
     try!(stmt.execute((delete,fid)));
@@ -280,7 +280,7 @@ pub fn get_files_to_delete(conn: &mut PooledConn, del_type: DeleteRequestType) -
             LEFT JOIN `query_files` ON files.fid = query_files.fid ");
     let sql = sql+&match del_type {
         DeleteRequestType::Aged_min(x) => String::from("WHERE `valid` = 1 AND `created` < (NOW() - INTERVAL %min% DAY_MINUTE)").replace("%min%", &x.to_string()),
-        DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1")
+        DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1 AND `valid` = 1")
     };
     debug!("sql: {}",sql);
     let mut stmt = try!(conn.prepare(&sql));
@@ -297,10 +297,10 @@ pub fn get_files_to_delete(conn: &mut PooledConn, del_type: DeleteRequestType) -
     Ok((qids,files))
 }
 
-/// Set file deleted flag
-pub fn set_file_deleted(conn: &mut PooledConn, fid: &u64) -> Result<(),Error> {
-    let mut stmt = try!(conn.prepare("UPDATE `files` SET `valid` = false WHERE `fid` = ?"));
-    if try!(stmt.execute((fid,))).affected_rows() != 1 {
+/// Set file valid flag
+pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<(),Error> {
+    let mut stmt = try!(conn.prepare("UPDATE `files` SET `valid` = ? WHERE `fid` = ?"));
+    if try!(stmt.execute((valid,fid))).affected_rows() != 1 {
         return Err(Error::InternalError(String::from(format!("Invalid affected lines count!"))));
     }
     Ok(())
@@ -370,7 +370,7 @@ fn get_db_create_sql<'a>() -> Vec<String> {
     
     debug!("\n\nSQL: {}\n\n",raw_sql);
     
-    let mut split_sql:Vec<String> = raw_sql.split(";").filter_map(|x| // split at `;`, filter_map on iterator
+    let split_sql:Vec<String> = raw_sql.split(";").filter_map(|x| // split at `;`, filter_map on iterator
         if x != "" { // check if it's an empty group (last mostly)
             Some(x.to_owned()) // &str to String
         } else {
@@ -546,7 +546,7 @@ mod test {
         assert_eq!(retr_name,f_name);
         assert_eq!(retr_r_name,f_r_name);
         assert_eq!(n_fid,fid);
-        assert!(set_file_deleted(&mut conn, &fid).is_ok());
+        assert!(set_file_valid_flag(&mut conn, &fid,false).is_ok());
     }
     
     #[test]
@@ -580,10 +580,10 @@ mod test {
     fn file_delete_sql_test() {
         lib::config::init_config();
         
-        const age: u16 = 60 * 25; // min, age subtracted per iter
+        const age: u16 = 60 * 25; // minutes, age subtracted per iter
         const max_age_diff: u16 = age - 10;
         const affected_invalid: i16 = 2; // i count file which will be invalidated
-        const AMOUNT_FILES: i16 = 8;
+        const AMOUNT_FILES: i16 = 16;
         const AGE_DEL_RATIO: i16 = 50;
         
         let (conf,pool) = connect();
@@ -595,26 +595,30 @@ mod test {
         {
             let mut time = start_time.naive_local();
             let subtr_time = Duration::days(1);
+            //let deleteSwitchTime = Duration::days()
             let req_template = create_request(false, &conf);
             
             let treshold = AGE_DEL_RATIO * AMOUNT_FILES / 100;
+            let mut amount_flagged_delete = 0;
             
-            for i in 0..AMOUNT_FILES { // insert some files
+            for i in 0..AMOUNT_FILES { // create AMOUNT_FILES files, affected_invalid of them are marked
+                                       // as deleted, AGE_DEL_RATIO of them are marked with the delete flag
                 let mut req_new = req_template.clone();
                 req_new.qid = insert_query_core(&req_new, &mut conn).unwrap();
                 let f_name = format!("f_{}",i);
                 let f_r_name = format!("f_r_{}", i);
                 let fid = add_file_entry(&mut conn, &req_new.qid, &f_name,&f_r_name).unwrap();
-                let delete = i > treshold;
+                let delete = amount_flagged_delete < treshold;
                 
                 let valid = match i == affected_invalid {
-                    true => {assert!(set_file_deleted(&mut conn, &fid).is_ok()); false},
+                    true => {assert!(set_file_valid_flag(&mut conn, &fid,false).is_ok()); false},
                     false => true,
                 };
                 set_file_created(&mut conn, &fid,time);
                 
-                if delete {
+                if delete && valid {
                     assert!(set_file_delete_flag(&mut conn, &fid, true).is_ok());
+                    amount_flagged_delete += 1;
                 }
                 
                 requests.push((req_new.qid,fid,time.clone(),f_name,f_r_name,valid,delete));
@@ -626,7 +630,7 @@ mod test {
         
         assert!((Local::now() - start_time).num_milliseconds() < 1_000); // took too long to be accurate at retrieving
         
-        { // aged files test
+        { // get aged files-test
         let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
         // Vec<u64>,Vec<(u64,String)>
         assert_eq!(files.is_empty(),false);
@@ -635,13 +639,12 @@ mod test {
             let &(ref r_qid,ref r_fid,ref time,ref f_name,_,ref r_valid,ref r_delete) = iter.next().unwrap();
             assert_eq!(f_name,&name);
             assert_eq!(r_valid,&true);
-            assert_eq!(r_delete,&false);
             assert_eq!(r_fid,&fid);
             let diff = start_time - Duration::minutes(max_age_diff as i64);
             assert!(time <= &diff.naive_local() );
             assert!(qids.contains(&r_qid));
             assert!(iter.next().is_none());
-            assert!(set_file_deleted(&mut conn, &fid).is_ok());
+            assert!(set_file_valid_flag(&mut conn, &fid,false).is_ok());
         }
         // re-check that no results remain
         let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
@@ -661,11 +664,11 @@ mod test {
             assert_eq!(r_delete,&true);
             assert_eq!(r_fid,&fid);
             let diff = start_time - Duration::minutes(max_age_diff as i64);
-            assert!(time <= &diff.naive_local() );
+            assert!(time >= &diff.naive_local() );
             assert!(qids.contains(&r_qid));
             assert!(iter.next().is_none());
-            assert!(set_file_deleted(&mut conn, &fid).is_ok());
-            assert!(set_file_delete_flag(&mut conn, &fid,false).is_ok());
+            assert!(set_file_valid_flag(&mut conn, &fid,false).is_ok());// set as invalid: deleted
+            assert!(set_file_delete_flag(&mut conn, &fid,false).is_ok()); // set to be deleted: false
         }
         // re-check that no results remain
         let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Marked).unwrap();

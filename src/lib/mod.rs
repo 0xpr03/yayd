@@ -279,7 +279,7 @@ pub fn delete_files(pool: &mysql::conn::pool::Pool, delete_type: db::DeleteReque
     }else{
         for (fid,_) in files {
             try!(db::set_file_delete_flag(&mut conn,&fid,false));
-            try!(db::set_file_deleted(&mut conn,&fid));
+            try!(db::set_file_valid_flag(&mut conn,&fid,false));
         }
     }
     Ok(())
