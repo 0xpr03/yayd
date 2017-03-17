@@ -9,10 +9,7 @@ use std::time::Duration;
 use std::cell::RefCell;
 use std::thread::sleep;
 use std::path::PathBuf;
-use std::boxed::Box;
 use std::convert::From;
-
-use chrono::naive::datetime::NaiveDateTime;
 
 use super::{Error,Request};
 
@@ -47,12 +44,15 @@ macro_rules! get_value {
     })
 }
 
-const DEFAULT_PLAYLIST_VAL: i16 = -2; // for non-playlists
+/// from,to non playlist value
+const DEFAULT_PLAYLIST_VAL: i16 = -2;
+
+/// Required database tables to be checked on deletion
 const REQ_DB_TABLES:[&'static str; 5]  = ["queries","querydetails","playlists","subqueries","query_files"];
 
 pub enum DeleteRequestType<'a> {
     Marked, // delete = 1
-    Aged_min(&'a u16) // valid = 1, age
+    AgedMin(&'a u16) // valid = 1, age
 }
 
 
@@ -278,10 +278,10 @@ pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> R
 /// (Auto) file deletion retriver
 /// Returns a tuple of Vec<qid> and Vec<fid,file name> older then age
 pub fn get_files_to_delete(conn: &mut PooledConn, del_type: DeleteRequestType) -> Result<(Vec<u64>,Vec<(u64,String)>),Error> {
-    let mut sql = String::from("SELECT `query_files`.`qid`,`files`.`fid`,`name` FROM files \
+    let sql = String::from("SELECT `query_files`.`qid`,`files`.`fid`,`name` FROM files \
             LEFT JOIN `query_files` ON files.fid = query_files.fid ");
     let sql = sql+&match del_type {
-        DeleteRequestType::Aged_min(x) => String::from("WHERE `valid` = 1 AND `created` < (NOW() - INTERVAL %min% DAY_MINUTE)").replace("%min%", &x.to_string()),
+        DeleteRequestType::AgedMin(x) => String::from("WHERE `valid` = 1 AND `created` < (NOW() - INTERVAL %min% DAY_MINUTE)").replace("%min%", &x.to_string()),
         DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1 AND `valid` = 1")
     };
     debug!("sql: {}",sql);
@@ -319,8 +319,34 @@ pub fn mysql_options(conf: &lib::config::Config) -> Opts {
     builder.into()
 }
 
+/// Delete request or file entry
+/// If a qid is specified, all file entries will also be erased
+/// For files to be erased the `link_files` config has to be enabled
+/// On deletion error all is rolled back to avoid data inconsistency
+pub fn delete_requests(conn: &mut PooledConn, qids: Vec<u64>,files: Vec<(u64,String)> ) -> Result<(),Error> {
+    let mut transaction = try!(conn.start_transaction(false,None,None));
+    
+    {
+        let mut stmt = try!(transaction.prepare("DELETE FROM files WHERE fid = ?"));
+        for (fid,_) in files {
+            try!(stmt.execute((&fid,)));
+        }
+    }
+    
+    let delete_sql_tmpl = "DELETE FROM %db% WHERE qid = ?";
+    for db in REQ_DB_TABLES.iter() {
+        let mut stmt = try!(transaction.prepare(delete_sql_tmpl.replace("%db%",db)));
+        for qid in &qids {
+            try!(stmt.execute((qid,)));
+        }
+    }
+    try!(transaction.commit());
+    Ok(())
+}
+
 /// Setup tables
 /// Created as temporary if specified (valid for the current connection)
+#[cfg(test)]
 fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(),Error> {
     let tables = get_db_create_sql();
     for a in tables {
@@ -335,32 +361,8 @@ fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(),Error> {
     Ok(())
 }
 
-/// Delete request or file entry
-/// If a qid is specified, all file entries will also be erased
-/// For files to be erased the `link_files` config has to be enabled
-/// On deletion error all is rolled back to avoid data inconsistency
-pub fn delete_requests(conn: &mut PooledConn, qids: Vec<u64>,files: Vec<(u64,String)> ) -> Result<(),Error> {
-    let mut transaction = try!(conn.start_transaction(false,None,None));
-    
-    {
-        let mut stmt = try!(transaction.prepare("DELETE FROM files WHERE fid = ?"));
-        for (fid,ref file) in files {
-            try!(stmt.execute((&fid,)));
-        }
-    }
-    
-    let DEL_SQL_TEMPLATE = "DELETE FROM %db% WHERE qid = ?";
-    for db in REQ_DB_TABLES.iter() {
-        let mut stmt = try!(transaction.prepare(DEL_SQL_TEMPLATE.replace("%db%",db)));
-        for qid in &qids {
-            try!(stmt.execute((qid,)));
-        }
-    }
-    try!(transaction.commit());
-    Ok(())
-}
-
 /// Returns a vector of table setup sql
+#[cfg(test)]
 fn get_db_create_sql<'a>() -> Vec<String> {
     let raw_sql = include_str!("../../setup.sql");
     
@@ -633,7 +635,7 @@ mod test {
         assert!((Local::now() - start_time).num_milliseconds() < 1_000); // took too long to be accurate at retrieving
         
         { // get aged files-test
-        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::AgedMin(&max_age_diff)).unwrap();
         // Vec<u64>,Vec<(u64,String)>
         assert_eq!(files.is_empty(),false);
         for (fid,name) in files { // check file for file that all data is correct
@@ -649,7 +651,7 @@ mod test {
             assert!(set_file_valid_flag(&mut conn, &fid,false).is_ok());
         }
         // re-check that no results remain
-        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::Aged_min(&max_age_diff)).unwrap();
+        let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::AgedMin(&max_age_diff)).unwrap();
         assert!(qids.is_empty());
         assert!(files.is_empty());
         }

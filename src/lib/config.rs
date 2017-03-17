@@ -223,7 +223,7 @@ auto_delete_request = false
 # by this all delete IO is handled by yayd and not the webserver
 # this can also be used to give the web server only read access
 delete_files = true
-# delete interval (re-check for entries) minutes
+# delete interval (re-check for entries) in minutes
 delete_interval = 900
 # delte the request db entry along with the file
 # requires link_files

@@ -297,7 +297,7 @@ pub fn delete_files(pool: &mysql::conn::pool::Pool, delete_type: db::DeleteReque
     let (qids,mut files) = try!(db::get_files_to_delete(&mut conn,delete_type));
     //for (fid,url) in files{
     debug!("Len before: {}",files.len());
-    files.retain(|&(fid,ref url)| { // remove all not matching
+    files.retain(|&(_,ref url)| { // remove all not matching
         trace!("deleting {:?}",url);
         let mut path = dir_path.to_path_buf();
         path.push(url);
@@ -325,4 +325,3 @@ pub fn delete_files(pool: &mysql::conn::pool::Pool, delete_type: db::DeleteReque
     }
     Ok(())
 }
-
