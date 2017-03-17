@@ -75,6 +75,12 @@ fn main() {
     db::clear_query_states(&mut conn);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
+	
+	if !converter.startup_test() {
+		error!("Converter self test failed! Exiting");
+		return;
+	}
+	
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
 	
     let handler = init_handlers(downloader.clone(),converter);
