@@ -10,19 +10,24 @@ name = "yayd-backend"
 #lto = true
 
 [dependencies]
-lazy_static = "0.1.15"
-toml = "0.1.25"
-rustc-serialize = "0.3.16"
-log = "0.3.4"
-log4rs = "0.3.3"
-zip = "0.1.15"
-timer = "0.1.6"
-chrono = "0.2.22"
+lazy_static = ">= 0.1.15"
+toml = ">= 0.1.25"
+rustc-serialize = ">= 0.3.16"
+log = ">= 0.3.4"
+log4rs = ">= 0.3.3"
+zip = ">= 0.1.15"
+timer = ">= 0.1.6"
+chrono = ">= 0.2.22"
+hyper = ">= 0.9.10"
+json = ">= 0.10.2"
+flate2 = ">= 0.2.11"
+quick-error = ">= 1.1.0"
+sha2 = ">= 0.4.2"
 
 [dependencies.mysql]
-version = "5.0.0"
+version = ">= 5.0.0"
 default-features = false
 
 [dependencies.regex]
-version = "0.1.47"
-regex_macros = "0.1.26"
+version = ">= 0.1.47"
+regex_macros = ">= 0.1.26"

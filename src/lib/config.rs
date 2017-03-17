@@ -57,6 +57,8 @@ pub struct ConfigGen{
     pub lib_bin: String,
     pub lib_args: Vec<String>,
     pub clean_temp_dir: bool, // debug function deleting all files inside the temp folder on startup
+	pub youtube_dl_dir: String,
+	pub youtube_dl_auto_update: bool,
 }
 
 /// Cleanup settings config struct
@@ -194,6 +196,17 @@ lib_dir = "/" # working dir to use
 # clean the temp dir on startup (deletes ALL files insides!)
 # for crash cleanups at debugging
 clean_temp_dir = false
+
+# auto update youtube-dl
+# if set to false you've to provide youtube-dl yourself and keep it up to date
+# to guarantee keeping up with website changes
+# (the command youtube-dl has to be availble from the command line)
+youtube_dl_auto_update = true
+
+# folder of youtube-dl (yt-dl.org)
+# if youtube_dl_dir is true, this will also be the update directory
+# so make sure yayd has write permission on it
+youtube_dl_dir = "/path/to/ytdl/"
 
 [cleanup]
 # auto delete files older then X minutes

@@ -8,6 +8,10 @@ extern crate log4rs;
 extern crate lazy_static;
 extern crate timer;
 extern crate chrono;
+extern crate hyper;
+extern crate json;
+extern crate flate2;
+extern crate sha2;
 
 mod lib;
 mod handler;
@@ -16,15 +20,16 @@ use lib::downloader::Downloader;
 use lib::converter::Converter;
 use handler::init_handlers;
 use handler::Registry;
-use timer::{Timer,Guard};
+use timer::{Timer};
 use std::sync::Arc;
 use lib::config;
 use lib::db;
 use lib::logger;
 use lib::Error;
 
-const VERSION : &'static str = "0.6.2";
-const CONFIG_PATH : &'static str = "config.cfg";
+const VERSION: &'static str = "0.6.2";
+const CONFIG_PATH: &'static str = "config.cfg";
+const USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
 const LOG_CONFIG: &'static str = "log.conf";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
 const CODE_WAITING: i8 = -1;
@@ -70,7 +75,9 @@ fn main() {
     db::clear_query_states(&mut conn);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
-    let handler = init_handlers(Downloader::new(&CONFIG.general),converter);
+    let downloader = Arc::new(Downloader::new(&CONFIG.general));
+	
+    let handler = init_handlers(downloader.clone(),converter);
     
     let timer = timer::Timer::new();
     debug!("Auto cleanup old files: {}",CONFIG.cleanup.auto_delete_files);
@@ -82,6 +89,12 @@ fn main() {
     if CONFIG.cleanup.delete_files {
         run_cleanup_thread(pool.clone(), &timer);
     }
+	
+	match downloader.update_downloader() {
+		Ok(_) => (),
+		Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
+	}
+	run_update_thread(downloader.clone(), &timer);
     
     debug!("finished startup");
     main_loop(&*pool, handler);
@@ -92,42 +105,41 @@ fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
     
     loop {
         if let Some(mut request) = db::request_entry(pool) {
-            trace!("got request");
-            print_pause = true;
-            let qid = request.qid.clone();
-            db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
-            db::set_query_state(&mut request.get_conn(),&request.qid, "started");
-            trace!("starting handler");
-            let code: i8 = match handler.handle(&mut request) {
-                Ok(_) => CODE_SUCCESS,
-                Err(e) => {
-                    trace!("Error: {:?}",e);
-                    match e {
-                        Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
-                        Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
-                        Error::QualityNotAvailable => CODE_FAILED_QUALITY,
-                        Error::UnknownURL => CODE_FAILED_UNKNOWN,
-                        _ => {
-                            error!("Unknown Error: {:?}",e);
-                            let details = match e {
-                                Error::DBError(s) => format!("{:?}",s),
-                                Error::DownloadError(s) => s,
-                                Error::FFMPEGError(s) => s,
-                                Error::InternalError(s) => s,
-                                Error::InputError(s) => s,
-                                Error::HandlerError(s) => s,
-                                _ => unreachable!(),
-                            };
-                            db::add_query_error(&mut request.get_conn(),&qid, &details);
-                            CODE_FAILED_INTERNAL
-                        },
-                    }
-                }
-            };
-            trace!("handler finished");
-            db::set_query_code(&mut request.get_conn(), &qid,&code);
-            db::set_null_state(&mut request.get_conn(), &qid);
-            
+			trace!("got request");
+			print_pause = true;
+			let qid = request.qid.clone();
+			db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
+			db::set_query_state(&mut request.get_conn(),&request.qid, "started");
+			trace!("starting handler");
+			let code: i8 = match handler.handle(&mut request) {
+				Ok(_) => CODE_SUCCESS,
+				Err(e) => {
+					trace!("Error: {:?}",e);
+					match e {
+						Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
+						Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
+						Error::QualityNotAvailable => CODE_FAILED_QUALITY,
+						Error::UnknownURL => CODE_FAILED_UNKNOWN,
+						_ => {
+							error!("Unknown Error: {:?}",e);
+							let details = match e {
+								Error::DBError(s) => format!("{:?}",s),
+								Error::DownloadError(s) => s,
+								Error::FFMPEGError(s) => s,
+								Error::InternalError(s) => s,
+								Error::InputError(s) => s,
+								Error::HandlerError(s) => s,
+								_ => unreachable!(),
+							};
+							db::add_query_error(&mut request.get_conn(),&qid, &details);
+							CODE_FAILED_INTERNAL
+						},
+					}
+				}
+			};
+			trace!("handler finished");
+			db::set_query_code(&mut request.get_conn(), &qid,&code);
+			db::set_null_state(&mut request.get_conn(), &qid);
         } else {
             if print_pause { trace!("Idle.."); print_pause = false; }
             std::thread::sleep(*SLEEP_TIME);
@@ -281,3 +293,13 @@ mod test {
         Ok(())
     }
 }*/
+/// youtube-dl update task
+fn run_update_thread<'a>(downloader: Arc<Downloader>,timer: &'a Timer) {
+    let a = timer.schedule_repeating(chrono::Duration::hours(24), move || {
+	match downloader.update_downloader() {
+		Ok(_) => (),
+		Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
+	}
+    });
+    a.ignore(); // ignore schedule guard a
+}

@@ -8,6 +8,7 @@ use std::fs::remove_dir_all;
 use std::fs::remove_file;
 use std::path::PathBuf;
 use std::path::Path;
+use std::sync::Arc;
 use std::vec::Vec;
 use lib::Request;
 use lib::Error;
@@ -24,7 +25,7 @@ struct HandleData<'a> {
     files: Vec<FileEntry>,
     /// Processed files, which should be downloaded by the user at the end
     left_files: Vec<PathBuf>,
-    pub downloader: &'a Downloader<'a>,
+    pub downloader: &'a Downloader,
     pub converter: &'a Converter<'a>,
 }
 
@@ -82,12 +83,12 @@ pub struct Module {
 /// Registry holding all available modules
 pub struct Registry<'a> {
     modules: Vec<Module>,
-    downloader: Downloader<'a>,
+    downloader: Arc<Downloader>,
     converter: Converter<'a>,
 }
 
 impl<'a> Registry<'a> {
-    pub fn new(downloader: Downloader<'a>, converter: Converter<'a>) -> Registry<'a> {
+    pub fn new(downloader: Arc<Downloader>, converter: Converter<'a>) -> Registry<'a> {
         Registry {downloader: downloader, converter: converter,modules: Vec::new()}
     }
     
@@ -136,7 +137,7 @@ impl<'a> Registry<'a> {
 }
 
 /// Init handlers
-pub fn init_handlers<'a>(downloader: Downloader<'a>, converter: Converter<'a>) -> Registry<'a> {
+pub fn init_handlers<'a>(downloader: Arc<Downloader>, converter: Converter<'a>) -> Registry<'a> {
     let mut registry = Registry::new(downloader,converter);
     youtube::init(&mut registry);
     twitch::init(&mut registry);

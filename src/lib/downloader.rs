@@ -1,34 +1,52 @@
 extern crate regex;
-use mysql::conn::pool::PooledConn;
 use mysql::conn::Stmt;
 
 use std::process::{Command, Stdio, Child};
 use std::error::Error as EType;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path,PathBuf};
 use std::convert::Into;
+
+use std::sync::RwLock;
 
 use lib::db::prepare_progress_updater;
 use lib::config::ConfigGen;
 use lib::Request;
 use lib::Error;
 
+use json::JsonValue;
+
 use lib;
+
+const UPDATE_VERSION_URL: &'static str = "https://rg3.github.io/youtube-dl/update/versions.json"; // youtube-dl version check url
+const UPDATE_DOWNLOAD_URL: &'static str = "https://yt-dl.org/downloads/latest/youtube-dl"; // youtube-dl update url
+const UPDATE_VERSION_KEY: &'static str = "latest"; // key in the json map
+const VERSIONS_KEY: &'static str = "versions"; // key for versions sub group
+const VERSION_BIN_KEY: &'static str = "bin"; // key for versions sub group
+const VERSION_SHA_INDEX: usize = 1;
+const YTDL_NAME: &'static str = "youtube-dl"; // name of the python program file
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
+pub struct Version {
+	version: String,
+	sha256: String,
+}
+
 lazy_static! {
     // [download]  13.4% of 275.27MiB at 525.36KiB/s ETA 07:52
     // we need to remove the / escaping!
-    pub static ref regex_name: regex::Regex = regex!(r"(.*)\.([a-zA-Z0-9]+)\z");
-    pub static ref regex_progress: regex::Regex = regex!(r"(\d+\.\d)%");
+    pub static ref REGEX_NAME: regex::Regex = regex!(r"(.*)\.([a-zA-Z0-9]+)\z");
+    pub static ref REGEX_PROGRESS: regex::Regex = regex!(r"(\d+\.\d)%");
 }
 
-pub struct Downloader<'a> {
-    defaults: &'a ConfigGen,
+pub struct Downloader {
+    defaults: &'static ConfigGen,
+	lock: RwLock<()>,
+	cmd_path: PathBuf,
 }
 
 /// Filename and extension storage
@@ -43,9 +61,22 @@ impl Filename {
     }
 }
 
-impl<'a> Downloader<'a>{
-    pub fn new(defaults: &'a ConfigGen) -> Downloader<'a>{
-        Downloader {defaults: defaults}
+impl Downloader{
+    pub fn new(defaults:  &'static ConfigGen) -> Downloader{
+        Downloader {defaults: defaults, lock: RwLock::new(()),cmd_path: PathBuf::from(&defaults.youtube_dl_dir)}
+    }
+    
+	/// Returns the version
+	/// Does not check for the guard!
+    pub fn version(&self) -> Result<String,Error> {
+        let result = self.ytdl_base()
+        .arg("--version")
+        .output()?;
+        if result.status.success() {
+            Ok(String::from_utf8_lossy(&result.stdout).trim().to_string())
+        } else {
+            Err(Error::InternalError("Process errored".into()))
+        }
     }
     
     /// Downloads the requested file.
@@ -69,7 +100,7 @@ impl<'a> Downloader<'a>{
                 Err(why) => {error!("couldn't read cmd stdout: {}", EType::description(&why)); panic!();},
                 Ok(text) => {
                         trace!("Out: {}",text);
-                        match regex_progress.captures(&text) {
+                        match REGEX_PROGRESS.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
                                         debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
                                         try!(self.update_progress(&request.qid,&mut statement, cap.at(1).unwrap()));
@@ -99,6 +130,7 @@ impl<'a> Downloader<'a>{
     
     /// Wrapper for download_file_fn to retry on Extract Error's, which are appearing randomly.
     pub fn download_file(&self, request: &Request, file_path: &Path, quality: &str) -> Result<bool,Error> {
+		let _guard = try!(self.lock.read());
         for attempts in 0..2 {
             match self.download_file_in(&request, file_path, quality) {
                 Ok(v) => return Ok(v),
@@ -117,6 +149,7 @@ impl<'a> Downloader<'a>{
     /// As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
     /// Through specifying a quality it's possible to get extension specific for the format.
     pub fn get_file_name(&self, url: &str, quality: Option<String>) -> Result<Filename,Error> {
+		let _guard = try!(self.lock.read());
         for attempts in 0..2 {
             let mut child = try!(self.run_filename_process(url,quality.as_ref()));
             let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
@@ -128,7 +161,7 @@ impl<'a> Downloader<'a>{
             try!(stderr_buffer.read_to_string(&mut stderr));
     
             try!(child.wait());
-            let capture = regex_name.captures(&stdout.trim());
+            let capture = REGEX_NAME.captures(&stdout.trim());
             if stderr.is_empty() && capture.is_some() {
                 let caps = capture.unwrap();
                 debug!("get_file_name: {:?}", stdout);
@@ -151,6 +184,7 @@ impl<'a> Downloader<'a>{
     /// Gets the playlist ids needed for furture download requests.
     /// The output is a vector of IDs
     pub fn get_playlist_ids(&self, request: &Request) -> Result<Vec<String>,Error> {
+		let _guard = try!(self.lock.read());
         let mut child = try!(self.run_playlist_extract(request));
         trace!("retrieving playlist ids");
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -190,6 +224,7 @@ impl<'a> Downloader<'a>{
     
     /// Retrives the playlist name, will kill the process due to yt-dl starting detailed retrieval afterwards.
     pub fn get_playlist_name(&self, url: &str) -> Result<String,Error> {
+		let _guard = try!(self.lock.read());
         let mut child = try!(self.run_playlist_get_name(url));
         let stdout = BufReader::new(child.stdout.take().unwrap());
 
@@ -226,7 +261,8 @@ impl<'a> Downloader<'a>{
     /// The returned value has to contain the original video name, the lib has to download & save
     /// the file to the given location
     pub fn lib_request_video(&self, current_steps: i32,max_steps: i32, file_path: &Path, request: &Request, quality: &str, get_video: bool) -> Result<Filename,Error> {
-        let mut child = try!(self.lib_request_video_cmd(&request.url,file_path,quality,get_video));
+        let _guard = try!(self.lock.read());
+		let mut child = try!(self.lib_request_video_cmd(&request.url,file_path,quality,get_video));
         trace!("Requesting video via lib..");
         let stdout = BufReader::new(try!(child.stdout.take().ok_or(Error::InternalError("stdout socket error!".into()))));
         let mut stderr_buffer = BufReader::new(try!(child.stderr.take().ok_or(Error::InternalError("stderr socket error".into()))));
@@ -267,16 +303,23 @@ impl<'a> Downloader<'a>{
         //this ONLY works because `filename: ` is ASCII..
         let mut out = last_line[last_line.find("filename: ").unwrap()+9..].trim().to_string();
         out = lib::url_sanitize(&out);
-        if let Some(caps) = regex_name.captures(&out) {
+        if let Some(caps) = REGEX_NAME.captures(&out) {
             Ok(Filename {name: caps[1].to_string(),extension: caps[2].to_string()})
         } else {
             return Err(Error::InternalError(format!("no name match! {}",out)));
         }
     }
+	
+	/// Provides the base of the youtube-dl command
+	fn ytdl_base(&self) -> Command {
+		let mut cmd = Command::new(self.cmd_path.join(YTDL_NAME));
+		cmd.current_dir(&self.defaults.youtube_dl_dir);
+		cmd
+	}
 
     /// Formats the download command.
     fn run_download_process(&self, file_path: &Path, url: &str,quality: &str) -> Result<Child,Error> {
-        match Command::new("youtube-dl")
+        match self.ytdl_base()
         .arg("--newline")
         .arg("--no-warnings")
         .args(&["-r", &format!("{}M",self.defaults.download_mbps / 8)]) // yt-dl uses MB/s, we're using MBit/s
@@ -297,8 +340,9 @@ impl<'a> Downloader<'a>{
     
     /// Runs the filename retrival process.
     fn run_filename_process(&self, url: &str, quality: Option<&String>) -> Result<Child,Error> {
-        let mut cmd = Command::new("youtube-dl");
+        let mut cmd = self.ytdl_base();
         cmd.arg("--get-filename")
+		.arg("--no-warnings")
         .args(&["-o","%(title)s.%(ext)s"]);
         if quality.is_some() {
             cmd.args(&["-f",&quality.unwrap()]);
@@ -339,8 +383,8 @@ impl<'a> Downloader<'a>{
     
     /// Runs the playlist extraction process.
     fn run_playlist_extract(&self, request: &Request) -> Result<Child,Error> {
-        let mut cmd = Command::new("youtube-dl");
-        cmd.arg("-s").arg("--dump-json").arg("--flat-playlist");
+        let mut cmd = self.ytdl_base();
+        cmd.arg("-s").arg("--dump-json").arg("--flat-playlist").arg("--no-warnings");
         if request.from > 0 {
             cmd.arg("--playlist-start");
             cmd.arg(request.from.to_string());
@@ -361,7 +405,7 @@ impl<'a> Downloader<'a>{
     
     /// Runs the playlist name retrival process.
     fn run_playlist_get_name(&self, url: &str) -> Result<Child,Error> {
-        match Command::new("youtube-dl")
+        match self.ytdl_base()
         .arg("-s")
         .arg("--no-warnings")
         .args(&["--playlist-start","1"])
@@ -380,6 +424,70 @@ impl<'a> Downloader<'a>{
         try!(stmt.execute((progress,qid)).map(|_| Ok(())))
         //-> only return errors, ignore the return value of stmt.execute
     }
+	
+	/// Returns the latest upstream version number and sha256
+	pub fn get_latest_version() -> Result<Version,Error> {
+		let mut json = try!(lib::http::http_json_get(UPDATE_VERSION_URL));
+		let version = match &mut json[UPDATE_VERSION_KEY] {
+			&mut JsonValue::Null => return Err(Error::InternalError("Version key not found!".into())),
+			r_version => r_version.take_string().ok_or(Error::InternalError("Version value is not a str!".into()))?,
+		};
+	    let sha256 = match &mut json[VERSIONS_KEY][&version][VERSION_BIN_KEY][VERSION_SHA_INDEX] { // [VERSION_BIN_KEY];
+			&mut JsonValue::Null => return Err(Error::InternalError("SHA256 key not found!".into())),
+			r_sha256 => {debug!("sha: {:?}",r_sha256); r_sha256.take_string().ok_or(Error::InternalError("SHA256 value is not an str!".into()))? },
+		};
+		Ok(Version {version: version, sha256: sha256})	
+	}
+	 
+	/// Update youtube-dl
+	/// Check for version, download update and check for sha2
+	/// W-Lcok
+	pub fn update_downloader(&self) -> Result<(),Error> {
+		use std::fs::{rename,remove_file};
+		
+		let guard_ = try!(self.lock.write());
+		// check for existence of lib
+		let download_file = self.cmd_path.join(YTDL_NAME);
+		let backup_file = self.cmd_path.join("ytdl_backup");
+		let r_version = try!(Downloader::get_latest_version());
+		debug!("Latest version: {}",r_version.version);
+		if download_file.exists() {
+			let version = self.version()?;
+			debug!("Current version: {}",version);
+			if version != r_version.version {
+				match self.inner_update(&download_file,&r_version.sha256) {
+					Ok(_) => {},
+					Err(v) => { // rollback to old version
+						info!("Update failed, doing rollback");
+						if download_file.exists() {
+							remove_file(&download_file)?;
+						}
+						rename(&backup_file,&download_file)?;
+						return Err(v);
+					}
+				}
+			}else{
+				trace!("equal version");
+			}
+		} else {
+			self.inner_update(&download_file,&r_version.sha256)?;
+		}
+		drop(guard_);
+		Ok(())
+	}
+	
+	/// download & verify update
+	/// does NOT lock!
+	fn inner_update(&self, file_path: &Path, sha2: &str) -> Result<(),Error> {
+		use lib::http;
+		
+		try!(http::http_download(UPDATE_DOWNLOAD_URL,&file_path));
+		debug!("Downloaded updated");
+		match lib::check_SHA256(&file_path,sha2)? {
+			true => Ok(()),
+			false => Err(Error::InternalError("Hash mismatch".into()))
+		}
+	}
 }
 
 #[cfg(test)]
@@ -388,8 +496,13 @@ mod test {
     
     #[test]
     fn filenames() {
-        assert!(regex_name.is_match("A#B\"C.ABCÜ02.mp4"));
-        assert!(regex_name.is_match("A#B\"C.ABCÜ02.webm"));
-        assert!(!regex_name.is_match("A#B\"C.ABCÜ02."));
+        assert!(REGEX_NAME.is_match("A#B\"C.ABCÜ02.mp4"));
+        assert!(REGEX_NAME.is_match("A#B\"C.ABCÜ02.webm"));
+        assert!(!REGEX_NAME.is_match("A#B\"C.ABCÜ02."));
     }
+	
+	#[test]
+	fn latest_version() {
+		assert!(Downloader::get_latest_version().is_ok())
+	}
 }

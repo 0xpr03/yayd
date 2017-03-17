@@ -5,14 +5,15 @@ pub mod downloader;
 pub mod converter;
 pub mod config;
 pub mod logger;
+pub mod http;
 pub mod db;
 
 use lib::downloader::Filename;
 
-use timer::{Timer,Guard};
-
 use mysql::conn::pool::PooledConn;
 use mysql;
+
+use hyper;
 
 use std::fs::{rename, metadata,File,read_dir};
 use std::error::Error as OriginError;
@@ -24,7 +25,6 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::io::{copy};
 use std::{self,io};
-use std::vec::Vec;
 
 use CONFIG;
 
@@ -160,6 +160,47 @@ impl From<zip::result::ZipError> for Error {
     fn from(err: zip::result::ZipError) -> Error {
         Error::InternalError(format!("{}: {}",err, err.description()))
     }
+}
+
+impl From<hyper::Error> for Error {
+	fn from(err: hyper::Error) -> Error {
+		Error::InternalError(format!("{}: {}",err,err.description()))
+	}
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+    fn from(err: std::sync::PoisonError<T>) -> Error {
+        Error::InternalError(format!("descr:{} cause:{:?}",err.description(), err.cause()))
+    }
+}
+
+/// Check the SHA256 of a given file against the provided expected output
+/// The expected value has to be in lowercase
+#[allow(non_snake_case)]
+pub fn check_SHA256<P:AsRef<Path>>(path: P, expected: &str) -> Result<bool,Error> {
+	use std::io::{Read,ErrorKind};
+	use sha2::{Sha256,Digest};
+	trace!("Checking SHA256..");
+	
+	let mut file = try!(File::open(path));
+	let mut sha2 = Sha256::new();
+	let mut buf = [0; 1024];
+	loop {
+        let len = match file.read(&mut buf) {
+            Ok(0) => break,
+            Ok(len) => len,
+            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e.into()),
+        };
+        sha2.input(&buf[..len]);
+    }
+	let result = format!("{:X}",sha2.result());
+	let result = result.to_lowercase();
+	let is_matching = result == expected;
+	if !is_matching {
+		debug!("SHA Expected: {} Result: {}",expected,result);
+	}
+	Ok(is_matching)
 }
 
 /// Custom expect function logging errors plus custom messages on panic
