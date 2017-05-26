@@ -111,8 +111,8 @@ impl<'a> Converter<'a> {
                 let line = str::from_utf8(&buf).unwrap();
                 debug!("ffmpeg: {}",line);
                 if let Some(cap) = re.captures(&line) {
-                    debug!("frame: {}", cap.at(1).unwrap());
-                    cur_frame = cap.at(1).unwrap().parse::<f32>().unwrap();
+                    debug!("frame: {}", cap.get(1).unwrap().as_str());
+                    cur_frame = cap.get(1).unwrap().as_str().parse::<f32>().unwrap();
                     try!(self.update_progress(&mut statement, format!("{:.2}",(cur_frame / file_info.frames ) * 100.0), qid)
                     );
                 }
@@ -159,10 +159,10 @@ impl<'a> Converter<'a> {
                 let line = str::from_utf8(&buf).unwrap();
                 debug!("ffmpeg: {}",line);
                 if let Some(cap) = re.captures(&line) {
-                    let mut seconds: i32 = cap.at(2).unwrap().parse::<i32>().unwrap() * 60; // minutes
-                    seconds += cap.at(1).unwrap().parse::<i32>().unwrap() * 60 * 60 ; // hours
+                    let mut seconds: i32 = cap.get(2).unwrap().as_str().parse::<i32>().unwrap() * 60; // minutes
+                    seconds += cap.get(1).unwrap().as_str().parse::<i32>().unwrap() * 60 * 60 ; // hours
                     
-                    let seconds: f32 = seconds as f32 + cap.at(3).unwrap().parse::<f32>().unwrap();
+                    let seconds: f32 = seconds as f32 + cap.get(3).unwrap().as_str().parse::<f32>().unwrap();
                     try!(self.update_progress(&mut statement, format!("{:.2}",(seconds / file_info.duration ) * 100.0), qid)
                     );
                 }
@@ -187,11 +187,11 @@ impl<'a> Converter<'a> {
         
         if let Some(cap) = regex_duration.captures(&stdout) {
             let mut file_info = FileInfo { duration: -1.0, frames: -1.0 };
-            file_info.duration = cap.at(1).unwrap().parse::<f32>().unwrap();
+            file_info.duration = cap.get(1).unwrap().as_str().parse::<f32>().unwrap();
             
             if let Some(cap) = regex_fps.captures(&stdout) {
-                let x: f32 = cap.at(1).unwrap().parse::<f32>().unwrap();
-                let y: f32 = cap.at(2).unwrap().parse::<f32>().unwrap();
+                let x: f32 = cap.get(1).unwrap().as_str().parse::<f32>().unwrap();
+                let y: f32 = cap.get(2).unwrap().as_str().parse::<f32>().unwrap();
                 file_info.frames =  ( x / y ) * file_info.duration;
             }
         
@@ -215,8 +215,12 @@ impl<'a> Converter<'a> {
                 let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
                 let mut stdout: String = String::new();
                   try!(stdout_buffer.read_to_string(&mut stdout));
+				  let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
+                let mut stderr: String = String::new();
+                  try!(stderr_buffer.read_to_string(&mut stderr));
                   try!(process.wait());
                   debug!("ffprobe: {}",stdout);
+				  warn!("ffprobe err: {}",stderr);
                   Ok(stdout)
             },
         }

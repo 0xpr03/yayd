@@ -115,6 +115,11 @@ impl<'a> Request {
     }
 }
 
+/*#[derive(Debug)]
+pub struct Error {
+	message: String
+}*/
+
 /// Error trait
 /// HandlerWarn is NOT for errors, it's value will be inserted into the warn DB
 #[derive(Debug)]
@@ -183,7 +188,7 @@ pub fn check_SHA256<P:AsRef<Path>>(path: P, expected: &str) -> Result<bool,Error
 	trace!("Checking SHA256..");
 	
 	let mut file = try!(File::open(path));
-	let mut sha2 = Sha256::new();
+	let mut sha2 = Sha256::default();
 	let mut buf = [0; 1024];
 	loop {
         let len = match file.read(&mut buf) {
@@ -268,7 +273,9 @@ pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
         for entry in try!(read_dir(folder)) {
             let entry = try!(entry);
             if try!(entry.metadata()).is_file() {
-                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), zip::CompressionMethod::Deflated));
+                let mut f_options = zip::write::FileOptions::default();
+                f_options = f_options.compression_method(zip::CompressionMethod::Deflated);
+                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), f_options));
                 let mut reader = try!(File::open(entry.path()));
                 let _ = reader.sync_data();
                 try!(copy(& mut reader,& mut writer));

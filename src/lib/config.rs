@@ -1,4 +1,4 @@
-use toml::decode_str;
+use toml::from_str;
 
 use std::io::Write;
 use std::io::Read;
@@ -24,7 +24,7 @@ pub enum ConfigError {
 }
 
 /// Main config struct
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub db: ConfigDB,
     pub general: ConfigGen,
@@ -33,7 +33,7 @@ pub struct Config {
 }
 
 /// Config struct DBMS related
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 pub struct ConfigDB {
     pub user: String,
     pub password: String,
@@ -43,7 +43,7 @@ pub struct ConfigDB {
 }
 
 /// General settings config struct
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ConfigGen{
     pub link_subqueries: bool,
     pub link_files: bool,
@@ -62,7 +62,7 @@ pub struct ConfigGen{
 }
 
 /// Cleanup settings config struct
-#[derive(Clone, Debug, RustcDecodable)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ConfigCleanup{
     pub auto_delete_files: bool, // auto delete files
     pub auto_delete_age: u16, // max age s
@@ -74,7 +74,7 @@ pub struct ConfigCleanup{
 }
 
 /// Codec config struct
-#[derive(Debug, RustcDecodable,Clone)]
+#[derive(Debug, Deserialize,Clone)]
 pub struct ConfigCodecs {
     pub audio_raw: i16,
     pub audio_source_hq: i16,
@@ -83,7 +83,7 @@ pub struct ConfigCodecs {
 }
 
 /// Youtube config struct
-#[derive(Debug, RustcDecodable,Clone)]
+#[derive(Debug, Deserialize,Clone)]
 pub struct ConfigYT {
     pub audio_normal_mp4: i16,
     pub audio_normal_webm: i16,
@@ -139,9 +139,9 @@ pub fn init_config() -> Config {
 
 /// Parse input toml to config struct
 fn parse_config(input: String) -> Result<Config, ConfigError> {
-    match decode_str(&input) {
-        None => Err(ConfigError::ParseError),
-        Some(dconfig) => Ok(dconfig),
+    match from_str(&input) {
+        Err(e) => { error!("{}",e); Err(ConfigError::ParseError) },
+        Ok(dconfig) => Ok(dconfig),
     }
 }
 

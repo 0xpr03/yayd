@@ -1,9 +1,13 @@
 extern crate mysql;
+
 extern crate toml;
-extern crate rustc_serialize;
+#[macro_use]
+extern crate serde_derive;
+
 #[macro_use]
 extern crate log;
 extern crate log4rs;
+
 #[macro_use]
 extern crate lazy_static;
 extern crate timer;
@@ -30,7 +34,7 @@ use lib::Error;
 const VERSION: &'static str = "0.6.2";
 const CONFIG_PATH: &'static str = "config.cfg";
 const USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
-const LOG_CONFIG: &'static str = "log.conf";
+const LOG_CONFIG: &'static str = "logger.yaml";
 const LOG_PATTERN: &'static str = "%d{%d-%m-%Y %H:%M:%S}\t[%l]\t%f:%L \t%m";
 const CODE_WAITING: i8 = -1;
 const CODE_STARTED: i8 = 0;

@@ -6,25 +6,27 @@ use {LOG_CONFIG,LOG_PATTERN};
 use std;
 use std::fs::metadata;
 use std::default::Default;
+use std::path::Path;
 
 /// Initializes the logger.
 #[cfg(not(test))]
 pub fn initialize() {
     let mut log_path = get_executable_folder().unwrap_or(std::path::PathBuf::from("/"));
-    log_path.set_file_name(LOG_CONFIG);
-    if metadata(log_path.as_path()).is_ok() {
-        init_file();
-    }else{
-        init_config();
-    }
+    log_path.push(LOG_CONFIG);
+	println!("Logging file: {:?}",log_path);
+	match metadata(log_path.as_path()) {
+		Ok(v) => { if v.is_file() { init_file(&log_path); return; } },
+		Err(e) => println!("Error for log config: {:?}",e),
+	}
+	//init_config();
 }
 
 /// Initialize log config from file
 #[cfg(not(test))]
-fn init_file() {
-    match log4rs::init_file(LOG_CONFIG, Default::default()) {
+fn init_file(conf: &Path) {
+    match log4rs::init_file(conf, Default::default()) {
         Ok(_) => (),
-        Err(e) => panic!("Log initialisation failed! {:?}",e),
+        Err(e) => panic!("Log initialization failed! {:?}",e),
     }
 }
 
@@ -32,7 +34,7 @@ fn init_file() {
 /// Conisiting of log to conole & if possible to file.
 #[cfg(not(test))]
 fn init_config() {
-    let console = Box::new(log4rs::appender::ConsoleAppender::builder()
+    /*let console = Box::new(log4rs::appender::ConsoleAppender::builder()
         .pattern(log4rs::pattern::PatternLayout::new(LOG_PATTERN).unwrap())
         .build());
     
@@ -58,7 +60,7 @@ fn init_config() {
     println!("{:?}",log4rs::init_config(config.build().unwrap()));
     warn!("No log config file found, please create file {}",LOG_CONFIG);
     warn!("According to https://github.com/sfackler/log4rs");
-    info!("Using internal logging configuration on most verbose level.");
+    info!("Using internal logging configuration on most verbose level.");*/
 }
 
 /// Test logger configuration, without file support, ignoring external config

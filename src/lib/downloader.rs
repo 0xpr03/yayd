@@ -102,8 +102,8 @@ impl Downloader{
                         trace!("Out: {}",text);
                         match REGEX_PROGRESS.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
-                                        debug!("{}",  cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        try!(self.update_progress(&request.qid,&mut statement, cap.at(1).unwrap()));
+                                        debug!("{}",  cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
+                                        try!(self.update_progress(&request.qid,&mut statement, cap.get(1).unwrap().as_str()));
                                     },
                             None => (),
                         }
@@ -123,6 +123,7 @@ impl Downloader{
         } else if stderr.contains("ExtractorError") {   
             Err(Error::ExtractorError)
         } else {
+			warn!("Unknown error at download");
             Err(Error::InternalError(stderr))
         }
 
@@ -200,8 +201,8 @@ impl Downloader{
                         trace!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => { //println!("Match at {}", s.0);
-                                        debug!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        id_list.push(cap.at(1).unwrap().to_string());
+                                        debug!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
+                                        id_list.push(cap.get(1).unwrap().as_str().to_string());
                                     },
                             None => (),
                         }
@@ -239,8 +240,8 @@ impl Downloader{
                         println!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => {
-                                        trace!("{}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
-                                        name = cap.at(1).unwrap().to_string();
+                                        trace!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
+                                        name = cap.get(1).unwrap().as_str().to_string();
                                         try!(child.wait());
                                         trace!("done");
                                         return Ok(name);
@@ -277,9 +278,9 @@ impl Downloader{
                         trace!("Out: {}",text);
                         match re.captures(&text) {
                             Some(cap) => {
-                                        debug!("Match: {}", cap.at(1).unwrap()); // ONLY with ASCII chars makeable!
+                                        debug!("Match: {}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
                                         if !request.playlist {
-                                            lib::db::update_steps(&mut request.get_conn() ,&request.qid, current_steps + &cap.at(1).unwrap().parse::<i32>().unwrap(), max_steps);
+                                            lib::db::update_steps(&mut request.get_conn() ,&request.qid, current_steps + &cap.get(1).unwrap().as_str().parse::<i32>().unwrap(), max_steps);
                                         }
                                     },
                             None => {last_line = text.clone()},
