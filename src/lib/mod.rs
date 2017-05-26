@@ -117,7 +117,7 @@ impl<'a> Request {
 
 /*#[derive(Debug)]
 pub struct Error {
-	message: String
+    message: String
 }*/
 
 /// Error trait
@@ -168,9 +168,9 @@ impl From<zip::result::ZipError> for Error {
 }
 
 impl From<hyper::Error> for Error {
-	fn from(err: hyper::Error) -> Error {
-		Error::InternalError(format!("{}: {}",err,err.description()))
-	}
+    fn from(err: hyper::Error) -> Error {
+        Error::InternalError(format!("{}: {}",err,err.description()))
+    }
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {
@@ -183,14 +183,14 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
 /// The expected value has to be in lowercase
 #[allow(non_snake_case)]
 pub fn check_SHA256<P:AsRef<Path>>(path: P, expected: &str) -> Result<bool,Error> {
-	use std::io::{Read,ErrorKind};
-	use sha2::{Sha256,Digest};
-	trace!("Checking SHA256..");
-	
-	let mut file = try!(File::open(path));
-	let mut sha2 = Sha256::default();
-	let mut buf = [0; 1024];
-	loop {
+    use std::io::{Read,ErrorKind};
+    use sha2::{Sha256,Digest};
+    trace!("Checking SHA256..");
+    
+    let mut file = try!(File::open(path));
+    let mut sha2 = Sha256::default();
+    let mut buf = [0; 1024];
+    loop {
         let len = match file.read(&mut buf) {
             Ok(0) => break,
             Ok(len) => len,
@@ -199,13 +199,13 @@ pub fn check_SHA256<P:AsRef<Path>>(path: P, expected: &str) -> Result<bool,Error
         };
         sha2.input(&buf[..len]);
     }
-	let result = format!("{:X}",sha2.result());
-	let result = result.to_lowercase();
-	let is_matching = result == expected;
-	if !is_matching {
-		debug!("SHA Expected: {} Result: {}",expected,result);
-	}
-	Ok(is_matching)
+    let result = format!("{:X}",sha2.result());
+    let result = result.to_lowercase();
+    let is_matching = result == expected;
+    if !is_matching {
+        debug!("SHA Expected: {} Result: {}",expected,result);
+    }
+    Ok(is_matching)
 }
 
 /// Custom expect function logging errors plus custom messages on panic

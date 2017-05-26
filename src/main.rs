@@ -79,14 +79,14 @@ fn main() {
     db::clear_query_states(&mut conn);
     
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
-	
-	if !converter.startup_test() {
-		error!("Converter self test failed! Exiting");
-		return;
-	}
-	
+    
+    if !converter.startup_test() {
+        error!("Converter self test failed! Exiting");
+        return;
+    }
+    
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
-	
+    
     let handler = init_handlers(downloader.clone(),converter);
     
     let timer = timer::Timer::new();
@@ -99,16 +99,16 @@ fn main() {
     if CONFIG.cleanup.delete_files {
         run_cleanup_thread(pool.clone(), &timer);
     }
-	
-	match downloader.update_downloader() {
-		Ok(_) => (),
-		Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
-	}
-	run_update_thread(downloader.clone(), &timer);
     
+    match downloader.update_downloader() {
+        Ok(_) => (),
+        Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
+    }
+    run_update_thread(downloader.clone(), &timer);
+        
     debug!("finished startup");
     main_loop(&*pool, handler);
-	//drop(update_thread);
+    //drop(update_thread);
 }
 
 fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
@@ -116,41 +116,41 @@ fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
     
     loop {
         if let Some(mut request) = db::request_entry(pool) {
-			trace!("got request");
-			print_pause = true;
-			let qid = request.qid.clone();
-			db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
-			db::set_query_state(&mut request.get_conn(),&request.qid, "started");
-			trace!("starting handler");
-			let code: i8 = match handler.handle(&mut request) {
-				Ok(_) => CODE_SUCCESS,
-				Err(e) => {
-					trace!("Error: {:?}",e);
-					match e {
-						Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
-						Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
-						Error::QualityNotAvailable => CODE_FAILED_QUALITY,
-						Error::UnknownURL => CODE_FAILED_UNKNOWN,
-						_ => {
-							error!("Unknown Error: {:?}",e);
-							let details = match e {
-								Error::DBError(s) => format!("{:?}",s),
-								Error::DownloadError(s) => s,
-								Error::FFMPEGError(s) => s,
-								Error::InternalError(s) => s,
-								Error::InputError(s) => s,
-								Error::HandlerError(s) => s,
-								_ => unreachable!(),
-							};
-							db::add_query_error(&mut request.get_conn(),&qid, &details);
-							CODE_FAILED_INTERNAL
-						},
-					}
-				}
-			};
-			trace!("handler finished");
-			db::set_query_code(&mut request.get_conn(), &qid,&code);
-			db::set_null_state(&mut request.get_conn(), &qid);
+            trace!("got request");
+            print_pause = true;
+            let qid = request.qid.clone();
+            db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
+            db::set_query_state(&mut request.get_conn(),&request.qid, "started");
+            trace!("starting handler");
+            let code: i8 = match handler.handle(&mut request) {
+                Ok(_) => CODE_SUCCESS,
+                Err(e) => {
+                    trace!("Error: {:?}",e);
+                    match e {
+                        Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
+                        Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
+                        Error::QualityNotAvailable => CODE_FAILED_QUALITY,
+                        Error::UnknownURL => CODE_FAILED_UNKNOWN,
+                        _ => {
+                            error!("Unknown Error: {:?}",e);
+                            let details = match e {
+                                Error::DBError(s) => format!("{:?}",s),
+                                Error::DownloadError(s) => s,
+                                Error::FFMPEGError(s) => s,
+                                Error::InternalError(s) => s,
+                                Error::InputError(s) => s,
+                                Error::HandlerError(s) => s,
+                                _ => unreachable!(),
+                            };
+                            db::add_query_error(&mut request.get_conn(),&qid, &details);
+                            CODE_FAILED_INTERNAL
+                        },
+                    }
+                }
+            };
+            trace!("handler finished");
+            db::set_query_code(&mut request.get_conn(), &qid,&code);
+            db::set_null_state(&mut request.get_conn(), &qid);
         } else {
             if print_pause { trace!("Worker idle.."); print_pause = false; }
             std::thread::sleep(*SLEEP_TIME);
@@ -191,10 +191,10 @@ fn run_cleanup_thread<'a>(pool: Arc<mysql::conn::pool::Pool>, timer: &'a Timer) 
 /// youtube-dl update task
 fn run_update_thread<'a>(downloader: Arc<Downloader>,timer: &'a Timer) {
     let a = timer.schedule_repeating(chrono::Duration::hours(24), move || {
-	match downloader.update_downloader() {
-		Ok(_) => (),
-		Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
-	}
+    match downloader.update_downloader() {
+        Ok(_) => (),
+        Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
+    }
     });
     a.ignore(); // ignore schedule guard a
 }

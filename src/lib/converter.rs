@@ -35,51 +35,51 @@ impl<'a> Converter<'a> {
         debug!("ffmpeg dir: {}",ffmpeg_dir);
         Converter{ffmpeg_dir: PathBuf::from(ffmpeg_dir),mp3_quality: mp3_quality}
     }
-	
-	/// Run a self-test checking for ffmpeg binaries
-	/// Returns true on success
-	pub fn startup_test(&self) -> bool {
-		info!("Testing converter settings");
-		let mut result = self.test_cmd("ffmpeg");
-		match result {
-			Ok(v) => {
-				if v {
-					result = self.test_cmd("ffprobe");
-				}
-			},
-			_ => {},
-		}
-		match result {
-			Ok(v) => v,
-			Err(e) => { error!("Error on converter self test: {:?}",e); false },
-		}
-	}
-	
-	/// Calls the provided binary of ffmpeg, expecting a '[binary] version] response on stdout
-	/// Returns true on success
-	fn test_cmd(&self, command: &str) -> Result<bool,Error> {
-		let mut cmd = self.create_ffmpeg_base(command);
-		cmd.arg("-version");
-		
-		match cmd.spawn() {
-			Err(why) => { error!("Error on converter test for {}: {}",command,why); return Ok(false); },
-			Ok(mut process) => {
-				let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
+    
+    /// Run a self-test checking for ffmpeg binaries
+    /// Returns true on success
+    pub fn startup_test(&self) -> bool {
+        info!("Testing converter settings");
+        let mut result = self.test_cmd("ffmpeg");
+        match result {
+            Ok(v) => {
+                if v {
+                    result = self.test_cmd("ffprobe");
+                }
+            },
+            _ => {},
+        }
+        match result {
+            Ok(v) => v,
+            Err(e) => { error!("Error on converter self test: {:?}",e); false },
+        }
+    }
+    
+    /// Calls the provided binary of ffmpeg, expecting a '[binary] version] response on stdout
+    /// Returns true on success
+    fn test_cmd(&self, command: &str) -> Result<bool,Error> {
+        let mut cmd = self.create_ffmpeg_base(command);
+        cmd.arg("-version");
+        
+        match cmd.spawn() {
+            Err(why) => { error!("Error on converter test for {}: {}",command,why); return Ok(false); },
+            Ok(mut process) => {
+                let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
                 let mut stdout: String = String::new();
-				try!(stdout_buffer.read_to_string(&mut stdout));
-				let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
+                try!(stdout_buffer.read_to_string(&mut stdout));
+                let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
                 let mut stderr: String = String::new();
-				try!(stderr_buffer.read_to_string(&mut stderr));
-				try!(process.wait());
-				trace!("{} stdout: {}",command,stdout);
-				if !stderr.is_empty() {
-					warn!("{} test stderr: {}",command,stderr);
-					return Ok(false);
-				}
-				Ok(stdout.contains(&format!("{} version", command)))
-			}
-		}
-	}
+                try!(stderr_buffer.read_to_string(&mut stderr));
+                try!(process.wait());
+                trace!("{} stdout: {}",command,stdout);
+                if !stderr.is_empty() {
+                    warn!("{} test stderr: {}",command,stderr);
+                    return Ok(false);
+                }
+                Ok(stdout.contains(&format!("{} version", command)))
+            }
+        }
+    }
 
     /// Merge audo & video files to one
     /// As ffmpeg uses \r for progress updates, we'll have to read untill this delimiter
@@ -215,12 +215,12 @@ impl<'a> Converter<'a> {
                 let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
                 let mut stdout: String = String::new();
                   try!(stdout_buffer.read_to_string(&mut stdout));
-				  let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
+                  let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
                 let mut stderr: String = String::new();
                   try!(stderr_buffer.read_to_string(&mut stderr));
                   try!(process.wait());
                   debug!("ffprobe: {}",stdout);
-				  warn!("ffprobe err: {}",stderr);
+                  warn!("ffprobe err: {}",stderr);
                   Ok(stdout)
             },
         }

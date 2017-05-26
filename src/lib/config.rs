@@ -57,8 +57,8 @@ pub struct ConfigGen{
     pub lib_bin: String,
     pub lib_args: Vec<String>,
     pub clean_temp_dir: bool, // debug function deleting all files inside the temp folder on startup
-	pub youtube_dl_dir: String,
-	pub youtube_dl_auto_update: bool,
+    pub youtube_dl_dir: String,
+    pub youtube_dl_auto_update: bool,
 }
 
 /// Cleanup settings config struct

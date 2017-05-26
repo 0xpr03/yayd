@@ -19,7 +19,7 @@ use USER_AGENT;
 
 /// Do an http(s) get request, returning JSON
 pub fn http_json_get(url: &str) -> Result<JsonValue,Error> {
-	trace!("Starting request {}",url);
+    trace!("Starting request {}",url);
     let client = Client::new();
     let builder = client.get(url);
     let mut res = try!(builder.headers(create_headers()).send());
@@ -41,28 +41,28 @@ pub fn http_json_get(url: &str) -> Result<JsonValue,Error> {
     }else{
         try!(res.read_to_string(&mut body));
     }
-	
-	json::parse(&body).map_err(|e| Error::InternalError(format!("Parsing error {}",e)))
+    
+    json::parse(&body).map_err(|e| Error::InternalError(format!("Parsing error {}",e)))
 }
 
 /// Download from an http origin
 pub fn http_download<P: AsRef<Path>>(url: &str, target: P) -> Result<(),Error> {
-	trace!("Starting download");
-	let client = Client::new();
-	trace!("Creating builder");
-	let builder = client.get(url);
-	trace!("Creating target file");
-	let mut target_file = try!(File::create(target));
-	trace!("starting file stream");
-	let mut res = try!(builder.headers(create_headers()).send());
-	try!(copy(&mut res, &mut target_file));
-	trace!("finished http download");
-	Ok(())
+    trace!("Starting download");
+    let client = Client::new();
+    trace!("Creating builder");
+    let builder = client.get(url);
+    trace!("Creating target file");
+    let mut target_file = try!(File::create(target));
+    trace!("starting file stream");
+    let mut res = try!(builder.headers(create_headers()).send());
+    try!(copy(&mut res, &mut target_file));
+    trace!("finished http download");
+    Ok(())
 }
 
 /// Create headers
 fn create_headers() -> Headers {
-	let mut headers = Headers::new();
+    let mut headers = Headers::new();
     
     headers.set(
         AcceptEncoding(vec![
