@@ -70,6 +70,7 @@ impl Downloader{
     /// depending on the config
     /// Returns true on success
     pub fn startup_test(&self) -> bool {
+        info!("Testing yt-dl settings");
         if self.defaults.youtube_dl_auto_update {
             match self.update_downloader() {
                 Ok(_) => true,
@@ -500,7 +501,7 @@ impl Downloader{
         use lib::http;
         
         try!(http::http_download(UPDATE_DOWNLOAD_URL,&file_path));
-        debug!("Downloaded updated");
+        debug!("yt-dl updated");
         match lib::check_SHA256(&file_path,sha2)? {
             true => Ok(()),
             false => Err(Error::InternalError("Hash mismatch".into()))

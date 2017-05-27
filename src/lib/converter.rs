@@ -220,7 +220,7 @@ impl<'a> Converter<'a> {
                   try!(stderr_buffer.read_to_string(&mut stderr));
                   try!(process.wait());
                   debug!("ffprobe: {}",stdout);
-                  warn!("ffprobe err: {}",stderr);
+                  debug!("ffprobe err: {}",stderr);
                   Ok(stdout)
             },
         }

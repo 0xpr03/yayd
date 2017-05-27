@@ -32,7 +32,7 @@ use lib::db;
 use lib::logger;
 use lib::Error;
 
-const VERSION: &'static str = "0.6.2";
+const VERSION: &'static str = "0.6.3";
 const CONFIG_PATH: &'static str = "config.cfg";
 const USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
 const LOG_CONFIG: &'static str = "logger.yaml";
