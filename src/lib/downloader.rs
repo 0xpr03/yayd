@@ -66,6 +66,23 @@ impl Downloader{
         Downloader {defaults: defaults, lock: RwLock::new(()),cmd_path: PathBuf::from(&defaults.youtube_dl_dir)}
     }
     
+    /// Run a self-test checking for either yt-dl binaries or update failure
+    /// depending on the config
+    /// Returns true on success
+    pub fn startup_test(&self) -> bool {
+        if self.defaults.youtube_dl_auto_update {
+            match self.update_downloader() {
+                Ok(_) => true,
+                Err(e) => {error!("Failed updating yt-dl {:?}",e); false}
+            }
+        } else {
+            match self.version() {
+                Ok(_) => true,
+                Err(e) => {error!("Failed retrieving version of yt-dl {:?}",e); false }
+            }
+        }
+    }
+    
     /// Returns the version
     /// Does not check for the guard!
     pub fn version(&self) -> Result<String,Error> {

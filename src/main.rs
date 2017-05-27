@@ -13,6 +13,7 @@ extern crate lazy_static;
 extern crate timer;
 extern crate chrono;
 extern crate hyper;
+extern crate hyper_native_tls;
 extern crate json;
 extern crate flate2;
 extern crate sha2;
@@ -87,6 +88,11 @@ fn main() {
     
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
     
+    if !downloader.startup_test() {
+        error!("Downloader self test failed! Exiting");
+        return;
+    }
+    
     let handler = init_handlers(downloader.clone(),converter);
     
     let timer = timer::Timer::new();
@@ -100,11 +106,10 @@ fn main() {
         run_cleanup_thread(pool.clone(), &timer);
     }
     
-    match downloader.update_downloader() {
-        Ok(_) => (),
-        Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
+    debug!("Auto-Update yt-dl: {}",CONFIG.general.youtube_dl_auto_update);
+    if CONFIG.general.youtube_dl_auto_update {
+        run_update_thread(downloader.clone(), &timer);
     }
-    run_update_thread(downloader.clone(), &timer);
         
     debug!("finished startup");
     main_loop(&*pool, handler);
