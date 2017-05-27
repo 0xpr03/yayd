@@ -8,6 +8,9 @@ use hyper::header::{Headers,AcceptEncoding,Connection,ConnectionOption,AcceptCha
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use hyper::client::Client;
 
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
+
 use json::JsonValue;
 use json;
 
@@ -20,9 +23,12 @@ use USER_AGENT;
 /// Do an http(s) get request, returning JSON
 pub fn http_json_get(url: &str) -> Result<JsonValue,Error> {
     trace!("Starting request {}",url);
-    let client = Client::new();
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    
+    let client = Client::with_connector(connector);
     let builder = client.get(url);
-    let mut res = try!(builder.headers(create_headers()).send());
+    let mut res = builder.headers(create_headers()).send()?;
     debug!("Response header: {:?}",res.headers);
     debug!("Response status: {:?}",res.status);
     debug!("Response http version: {:?}",res.version);
@@ -48,7 +54,10 @@ pub fn http_json_get(url: &str) -> Result<JsonValue,Error> {
 /// Download from an http origin
 pub fn http_download<P: AsRef<Path>>(url: &str, target: P) -> Result<(),Error> {
     trace!("Starting download");
-    let client = Client::new();
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    
+    let client = Client::with_connector(connector);
     trace!("Creating builder");
     let builder = client.get(url);
     trace!("Creating target file");
@@ -90,4 +99,14 @@ fn create_headers() -> Headers {
     
     debug!("Headers: {}",headers);
     headers
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    
+    #[test]
+    fn get_ajax() {
+        assert!(http_json_get("https://httpbin.org/user-agent").is_ok());
+    }
 }

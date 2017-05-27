@@ -367,7 +367,7 @@ fn get_db_create_sql<'a>() -> Vec<String> {
     let raw_sql = include_str!("../../setup.sql");
     
     let reg = regex::Regex::new(r"(/\*(.|\s)*?\*/)").unwrap(); // https://regex101.com/r/bG6aF2/6, replace `\/` with `/`
-    let raw_sql: String = reg.replace_all(raw_sql, "");
+    let raw_sql = reg.replace_all(raw_sql,"");
     
     let raw_sql = raw_sql.replace("\n","");
     let raw_sql = raw_sql.replace("\r","");
@@ -402,7 +402,7 @@ mod test {
     use chrono::naive::datetime::NaiveDateTime;
     use chrono::offset::local::Local;
     use chrono::datetime::DateTime;
-    use chrono::duration::Duration;
+    use chrono::Duration;
     use chrono;
     
     use lib::logger;
@@ -632,7 +632,7 @@ mod test {
             
         }
         
-        assert!((Local::now() - start_time).num_milliseconds() < 1_000); // took too long to be accurate at retrieving
+        assert!((Local::now().signed_duration_since(start_time)).num_milliseconds() < 1_000); // took too long to be accurate at retrieving
         
         { // get aged files-test
         let (qids,files) = get_files_to_delete(&mut conn,DeleteRequestType::AgedMin(&max_age_diff)).unwrap();
