@@ -28,7 +28,9 @@ CREATE TABLE `queries` (
  `type` smallint(6) NOT NULL,
  `created` datetime NOT NULL,
  `uid` int(11) unsigned NOT NULL,
- PRIMARY KEY (`qid`)
+ PRIMARY KEY (`qid`),
+ KEY `created` (`created`),
+ KEY `uid` (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 
 /*
@@ -53,7 +55,9 @@ CREATE TABLE `querydetails` (
  `progress` double DEFAULT NULL,
  `status` varchar(10) DEFAULT NULL,
  `luc` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY (`qid`)
+ PRIMARY KEY (`qid`),
+ KEY `code` (`code`),
+ KEY `luc` (`luc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 /*
@@ -71,7 +75,8 @@ CREATE TABLE `files` (
  `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  PRIMARY KEY (`fid`) USING BTREE,
  KEY `valid` (`valid`),
- KEY `delete` (`delete`)
+ KEY `delete` (`delete`),
+ KEY `created` (`created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
 
 /*
