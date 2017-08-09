@@ -10,6 +10,7 @@ Currently there are only modules for youtube, twitch and soundcloud, feel free t
 
 Required:  
 * [FFMPEG] for conversions ([linux static builds](https://www.johnvansickle.com/ffmpeg/))
+* [python] 2.6, 2.7, or 3.2+ for [youtube-dl], which is called & kept up to date by yayd
 * [mariaDB]/MySQL
 
 1. Use a [release] build or build yayd from source with [rust]: `cargo build --release`
@@ -118,3 +119,4 @@ There is currently no multithreading support, meaning one job at a time. This is
    [release]: <https://github.com/0xpr03/yayd/releases>
    [setup.sql]: <setup.sql>
    [itag]: <https://en.wikipedia.org/wiki/YouTube#Quality_and_formats>
+   [python]: <https://www.python.org/>
