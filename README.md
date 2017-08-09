@@ -10,7 +10,6 @@ Currently there are only modules for youtube, twitch and soundcloud, feel free t
 
 Required:  
 * [FFMPEG] for conversions ([linux static builds](https://www.johnvansickle.com/ffmpeg/))
-* [youtube-dl] (on  [github](https://github.com/rg3/youtube-dl))
 * [mariaDB]/MySQL
 
 1. Use a [release] build or build yayd from source with [rust]: `cargo build --release`
@@ -50,6 +49,7 @@ The DB scheme can be seen in [this picture.](docs/rdm.svg)
 
 ## Status codes from yayd
 `code` in `querydetails`, `status` although misleading is for step updates ("2|3")
+
 | Code | Meaning |
 |---|---|
 | -1 | waiting |
