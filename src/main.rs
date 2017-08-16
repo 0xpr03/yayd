@@ -97,7 +97,7 @@ fn main() {
     
     let timer = timer::Timer::new();
     debug!("Auto cleanup old files: {}",CONFIG.cleanup.auto_delete_files);
-    if CONFIG.cleanup.delete_files {
+    if CONFIG.cleanup.auto_delete_files {
         run_auto_cleanup_thread(pool.clone(), &timer);
     }
     
