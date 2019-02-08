@@ -40,26 +40,26 @@ fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error>
     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
     
     request.temp_path.push(request.qid.to_string()); // create sub dir for part files
-    try!(create_dir(&request.temp_path));
+    create_dir(&request.temp_path)?;
     let mut temp_file_v = request.temp_path.clone(); // create file with qid in dir
     temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
     
     trace!("Retriving name");
     db::update_steps(&mut request.get_conn(), &request.qid, 1,2);
-    let quality = try!(get_quality(&request.quality));
-    let name = try!(hdb.downloader.get_file_name(&request.url, None));
+    let quality = get_quality(&request.quality)?;
+    let name = hdb.downloader.get_file_name(&request.url, None)?;
     debug!("name: {}.{}", &name.name, &name.extension);
     
-    let save_file = try!(lib::format_save_path(&request.path, &name));
+    let save_file = lib::format_save_path(&request.path, &name)?;
     
     db::update_steps(&mut request.get_conn(), &request.qid,2,2);
     trace!("downloading video");
-    try!(hdb.downloader.download_file(&request, &temp_file_v, &quality));
-    try!(rename(&temp_file_v,&save_file));
+    hdb.downloader.download_file(&request, &temp_file_v, &quality)?;
+    rename(&temp_file_v,&save_file)?;
     
     hdb.addFile(&save_file, &name.full_name());
-    try!(remove_dir_all(&request.temp_path));
+    remove_dir_all(&request.temp_path)?;
     hdb.pop();
     
     Ok(())

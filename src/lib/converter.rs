@@ -74,11 +74,11 @@ impl<'a> Converter<'a> {
             Ok(mut process) => {
                 let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
                 let mut stdout: String = String::new();
-                try!(stdout_buffer.read_to_string(&mut stdout));
+                stdout_buffer.read_to_string(&mut stdout)?;
                 let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
                 let mut stderr: String = String::new();
-                try!(stderr_buffer.read_to_string(&mut stderr));
-                try!(process.wait());
+                stderr_buffer.read_to_string(&mut stderr)?;
+                process.wait()?;
                 trace!("{} stdout: {}", command, stdout);
                 if !stderr.is_empty() {
                     warn!("{} test stderr: {}", command, stderr);
@@ -100,10 +100,10 @@ impl<'a> Converter<'a> {
         output_file: &Path,
         conn: &mut PooledConn,
     ) -> Result<(), Error> {
-        let file_info = try!(self.get_file_info(video_file));
+        let file_info = self.get_file_info(video_file)?;
         trace!("Total frames: {}", file_info.frames);
 
-        let mut child = try!(self.run_merge_cmd(audio_file, video_file, output_file));
+        let mut child = self.run_merge_cmd(audio_file, video_file, output_file)?;
         trace!("started merge process");
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
 
@@ -131,18 +131,18 @@ impl<'a> Converter<'a> {
                 if let Some(cap) = re.captures(&line) {
                     debug!("frame: {}", cap.get(1).unwrap().as_str());
                     cur_frame = cap.get(1).unwrap().as_str().parse::<f32>().unwrap();
-                    try!(self.update_progress(
+                    self.update_progress(
                         &mut statement,
                         format!("{:.2}", (cur_frame / file_info.frames) * 100.0),
-                        qid
-                    ));
+                        qid,
+                    )?;
                 }
             }
 
             buf.clear();
         }
 
-        try!(child.wait());
+        child.wait()?;
 
         Ok(())
     }
@@ -157,14 +157,14 @@ impl<'a> Converter<'a> {
         convert_mp3: bool,
         conn: &mut PooledConn,
     ) -> Result<(), Error> {
-        let file_info = try!(self.get_file_info(video_file));
+        let file_info = self.get_file_info(video_file)?;
         debug!("duration: {}", file_info.duration);
 
         let mut child;
         if convert_mp3 {
-            child = try!(self.run_audio_extract_to_mp3(video_file, output_file));
+            child = self.run_audio_extract_to_mp3(video_file, output_file)?;
         } else {
-            child = try!(self.run_audio_extract(video_file, output_file));
+            child = self.run_audio_extract(video_file, output_file)?;
         }
 
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
@@ -195,25 +195,25 @@ impl<'a> Converter<'a> {
 
                     let seconds: f32 =
                         seconds as f32 + cap.get(3).unwrap().as_str().parse::<f32>().unwrap();
-                    try!(self.update_progress(
+                    self.update_progress(
                         &mut statement,
                         format!("{:.2}", (seconds / file_info.duration) * 100.0),
                         qid
-                    ));
+                    )?;
                 }
             }
 
             buf.clear();
         }
 
-        try!(child.wait());
+        child.wait()?;
 
         Ok(())
     }
 
     /// Retrive file information
     fn get_file_info(&self, video_file: &Path) -> Result<FileInfo, Error> {
-        let stdout = try!(self.run_file_probe(video_file));
+        let stdout = self.run_file_probe(video_file)?;
 
         let regex_duration = regex!(r"duration=(\d+\.?\d*)");
         let regex_fps = regex!(r"r_frame_rate=(\d+)/(\d+)");
@@ -253,11 +253,11 @@ impl<'a> Converter<'a> {
             Ok(mut process) => {
                 let mut stdout_buffer = BufReader::new(process.stdout.take().unwrap());
                 let mut stdout: String = String::new();
-                try!(stdout_buffer.read_to_string(&mut stdout));
+                stdout_buffer.read_to_string(&mut stdout)?;
                 let mut stderr_buffer = BufReader::new(process.stderr.take().unwrap());
                 let mut stderr: String = String::new();
-                try!(stderr_buffer.read_to_string(&mut stderr));
-                try!(process.wait());
+                stderr_buffer.read_to_string(&mut stderr)?;
+                process.wait()?;
                 debug!("ffprobe: {}", stdout);
                 debug!("ffprobe err: {}", stderr);
                 Ok(stdout)
@@ -347,17 +347,6 @@ impl<'a> Converter<'a> {
     ///updater called from the stdout progress
     fn update_progress(&self, stmt: &mut Stmt, progress: String, qid: &u64) -> Result<(), Error> {
         trace!("updating progress {}", progress);
-        try!(stmt.execute((&progress, qid)).map(|_| Ok(())))
-    }
-}
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn length() {}
-
-    fn download_files() {
-        use lib::downloader::Downloader;
+        stmt.execute((&progress, qid)).map(|_| Ok(()))?
     }
 }

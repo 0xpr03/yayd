@@ -214,13 +214,13 @@ pub fn add_file_entry(
         let mut stmt = conn
             .prepare("INSERT INTO files (rname,name,valid) VALUES (?,?,?)")
             .unwrap();
-        let result = try!(stmt.execute((&real_name, &name, &true)));
+        let result = stmt.execute((&real_name, &name, &true))?;
         fid = result.last_insert_id();
     }
     {
         if CONFIG.general.link_files {
-            let mut stmt = try!(conn.prepare("INSERT INTO `query_files` (qid,fid) VALUES(?,?)"));
-            try!(stmt.execute((&qid, &fid)));
+            let mut stmt = conn.prepare("INSERT INTO `query_files` (qid,fid) VALUES(?,?)")?;
+            stmt.execute((&qid, &fid))?;
         }
     }
     Ok(fid)
@@ -240,12 +240,12 @@ pub fn add_query_error(conn: &mut PooledConn, qid: &u64, status: &str) {
 
 /// Create new sub query, exmaple: for un-zipped playlist downloads, per-entry handle
 pub fn add_sub_query(url: &str, request: &Request) -> Result<u64, Error> {
-    let id: u64 = try!(insert_query(url, request));
+    let id: u64 = insert_query(url, request)?;
 
     if CONFIG.general.link_subqueries {
         let mut conn = request.get_conn();
-        let mut stmt = try!(conn.prepare("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)"));
-        try!(stmt.execute((&id, &request.qid)));
+        let mut stmt = conn.prepare("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)")?;
+        stmt.execute((&id, &request.qid))?;
     }
 
     Ok(id)
@@ -270,15 +270,15 @@ fn _insert_query(
 ) -> Result<u64, Error> {
     let id: u64;
     {
-        let mut stmt = try!(conn.prepare(
-            "INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)"
-        ));
-        let result = try!(stmt.execute((url, quality, uid, r_type)));
+        let mut stmt = conn.prepare(
+            "INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",
+        )?;
+        let result = stmt.execute((url, quality, uid, r_type))?;
         id = result.last_insert_id();
     }
     {
-        let mut stmt = try!(conn.prepare("INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)"));
-        try!(stmt.execute((&id, &CODE_WAITING)));
+        let mut stmt = conn.prepare("INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)")?;
+        stmt.execute((&id, &CODE_WAITING))?;
     }
     Ok(id)
 }
@@ -340,8 +340,8 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
 
 /// Mark file as to be deleted via delete flag
 pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<(), Error> {
-    let mut stmt = try!(conn.prepare("UPDATE files SET `delete` = ? WHERE fid = ?"));
-    try!(stmt.execute((delete, fid)));
+    let mut stmt = conn.prepare("UPDATE files SET `delete` = ? WHERE fid = ?")?;
+    stmt.execute((delete, fid))?;
     Ok(())
 }
 
@@ -364,11 +364,11 @@ pub fn get_files_to_delete(
             DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1 AND `valid` = 1"),
         };
     debug!("sql: {}", sql);
-    let mut stmt = try!(conn.prepare(&sql));
+    let mut stmt = conn.prepare(&sql)?;
     let mut qids = Vec::new();
     let mut files = Vec::new();
-    for result in try!(stmt.execute(())) {
-        let (qid, fid, name) = try!(from_row_opt::<(u64, u64, String)>(try!(result)));
+    for result in stmt.execute(())? {
+        let (qid, fid, name) = from_row_opt::<(u64, u64, String)>(result?)?;
         qids.push(qid);
         files.push((fid, name));
     }
@@ -380,8 +380,8 @@ pub fn get_files_to_delete(
 
 /// Set file valid flag
 pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<(), Error> {
-    let mut stmt = try!(conn.prepare("UPDATE `files` SET `valid` = ? WHERE `fid` = ?"));
-    if try!(stmt.execute((valid, fid))).affected_rows() != 1 {
+    let mut stmt = conn.prepare("UPDATE `files` SET `valid` = ? WHERE `fid` = ?")?;
+    if stmt.execute((valid, fid))?.affected_rows() != 1 {
         return Err(Error::InternalError(String::from(format!(
             "Invalid affected lines count!"
         ))));
@@ -410,23 +410,23 @@ pub fn delete_requests(
     qids: Vec<u64>,
     files: Vec<(u64, String)>,
 ) -> Result<(), Error> {
-    let mut transaction = try!(conn.start_transaction(false, None, None));
+    let mut transaction = conn.start_transaction(false, None, None)?;
 
     {
-        let mut stmt = try!(transaction.prepare("DELETE FROM files WHERE fid = ?"));
+        let mut stmt = transaction.prepare("DELETE FROM files WHERE fid = ?")?;
         for (fid, _) in files {
-            try!(stmt.execute((&fid,)));
+            stmt.execute((&fid,))?;
         }
     }
 
     let delete_sql_tmpl = "DELETE FROM %db% WHERE qid = ?";
     for db in REQ_DB_TABLES.iter() {
-        let mut stmt = try!(transaction.prepare(delete_sql_tmpl.replace("%db%", db)));
+        let mut stmt = transaction.prepare(delete_sql_tmpl.replace("%db%", db))?;
         for qid in &qids {
-            try!(stmt.execute((qid,)));
+            stmt.execute((qid,))?;
         }
     }
-    try!(transaction.commit());
+    transaction.commit()?;
     Ok(())
 }
 
@@ -545,18 +545,11 @@ mod test {
 
     /// Test wrapper, accepting ReqCore structs, with additional playlist insertion over _insert_query
     fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64, Error> {
-        let qid = try!(super::_insert_query(
-            &req.url,
-            &req.quality,
-            &req.uid,
-            &req.r_type,
-            conn
-        ));
+        let qid = super::_insert_query(&req.url, &req.quality, &req.uid, &req.r_type, conn)?;
         if req.playlist {
-            let mut stmt = try!(
-                conn.prepare("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")
-            );
-            let _ = try!(stmt.execute((qid, req.from, req.to, req.split)));
+            let mut stmt = conn
+                .prepare("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")?;
+            let _ = stmt.execute((qid, req.from, req.to, req.split))?;
         }
         Ok(qid)
     }

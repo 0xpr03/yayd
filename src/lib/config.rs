@@ -148,14 +148,13 @@ fn parse_config(input: String) -> Result<Config, ConfigError> {
 
 /// Read config from file.
 pub fn read_config(file: &Path) -> Result<String, ConfigError> {
-    let mut f = try!(OpenOptions::new()
+    let mut f = OpenOptions::new()
         .read(true)
         .open(file)
-        .map_err(|_| ConfigError::ReadError));
+        .map_err(|_| ConfigError::ReadError)?;
     let mut data = String::new();
-    try!(f
-        .read_to_string(&mut data)
-        .map_err(|_| ConfigError::ReadError));
+    f.read_to_string(&mut data)
+        .map_err(|_| ConfigError::ReadError)?;
     Ok(data)
 }
 
@@ -262,9 +261,8 @@ audio_hq = 22
 
 /// Writes the recived string into the file
 fn write_config_file(path: &Path, data: &str) -> Result<(), ConfigError> {
-    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError));
-    try!(file
-        .write_all(data.as_bytes())
-        .map_err(|_| ConfigError::WriteError));
+    let mut file = File::create(path).map_err(|_| ConfigError::CreateError)?;
+    file.write_all(data.as_bytes())
+        .map_err(|_| ConfigError::WriteError)?;
     Ok(())
 }

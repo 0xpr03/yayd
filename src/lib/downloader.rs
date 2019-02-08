@@ -118,13 +118,13 @@ impl Downloader {
         trace!("{:?}", request.url);
 
         trace!("quality: {}", quality);
-        let mut child = try!(self.run_download_process(file_path, &request.url, quality));
+        let mut child = self.run_download_process(file_path, &request.url, quality)?;
         let stdout = BufReader::new(child.stdout.take().unwrap());
 
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = request.get_conn();
-        let mut statement = try!(prepare_progress_updater(&mut conn));
+        let mut statement = prepare_progress_updater(&mut conn)?;
 
         for line in stdout.lines() {
             match line {
@@ -138,11 +138,11 @@ impl Downloader {
                         Some(cap) => {
                             //println!("Match at {}", s.0);
                             debug!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
-                            try!(self.update_progress(
+                            self.update_progress(
                                 &request.qid,
                                 &mut statement,
                                 cap.get(1).unwrap().as_str()
-                            ));
+                            )?;
                         }
                         None => (),
                     }
@@ -150,10 +150,10 @@ impl Downloader {
             }
         }
 
-        try!(child.wait()); // waits for finish & then exists zombi process, fixes #10
+        child.wait()?; // waits for finish & then exists zombi process, fixes #10
 
         let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
+        stderr_buffer.read_to_string(&mut stderr)?;
 
         if stderr.is_empty() {
             Ok(true)
@@ -174,7 +174,7 @@ impl Downloader {
         file_path: &Path,
         quality: &str,
     ) -> Result<bool, Error> {
-        let _guard = try!(self.lock.read());
+        let _guard = self.lock.read()?;
         for attempts in 0..2 {
             match self.download_file_in(&request, file_path, quality) {
                 Ok(v) => return Ok(v),
@@ -191,18 +191,18 @@ impl Downloader {
     /// As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
     /// Through specifying a quality it's possible to get extension specific for the format.
     pub fn get_file_name(&self, url: &str, quality: Option<String>) -> Result<Filename, Error> {
-        let _guard = try!(self.lock.read());
+        let _guard = self.lock.read()?;
         for attempts in 0..2 {
-            let mut child = try!(self.run_filename_process(url, quality.as_ref()));
+            let mut child = self.run_filename_process(url, quality.as_ref())?;
             let mut stdout_buffer = BufReader::new(child.stdout.take().unwrap());
             let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
             let mut stdout: String = String::new();
-            try!(stdout_buffer.read_to_string(&mut stdout));
+            stdout_buffer.read_to_string(&mut stdout)?;
             let mut stderr: String = String::new();
-            try!(stderr_buffer.read_to_string(&mut stderr));
+            stderr_buffer.read_to_string(&mut stderr)?;
 
-            try!(child.wait());
+            child.wait()?;
             let capture = REGEX_NAME.captures(&stdout.trim());
             if stderr.is_empty() && capture.is_some() {
                 let caps = capture.unwrap();
@@ -233,8 +233,8 @@ impl Downloader {
     /// Gets the playlist ids needed for furture download requests.
     /// The output is a vector of IDs
     pub fn get_playlist_ids(&self, request: &Request) -> Result<Vec<String>, Error> {
-        let _guard = try!(self.lock.read());
-        let mut child = try!(self.run_playlist_extract(request));
+        let _guard = self.lock.read()?;
+        let mut child = self.run_playlist_extract(request)?;
         trace!("retrieving playlist ids");
         let stdout = BufReader::new(child.stdout.take().unwrap());
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
@@ -263,9 +263,9 @@ impl Downloader {
         }
 
         let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
+        stderr_buffer.read_to_string(&mut stderr)?;
 
-        try!(child.wait());
+        child.wait()?;
 
         if !stderr.is_empty() {
             warn!("stderr: {:?}", stderr);
@@ -277,8 +277,8 @@ impl Downloader {
 
     /// Retrives the playlist name, will kill the process due to yt-dl starting detailed retrieval afterwards.
     pub fn get_playlist_name(&self, url: &str) -> Result<String, Error> {
-        let _guard = try!(self.lock.read());
-        let mut child = try!(self.run_playlist_get_name(url));
+        let _guard = self.lock.read()?;
+        let mut child = self.run_playlist_get_name(url)?;
         let stdout = BufReader::new(child.stdout.take().unwrap());
 
         let re = regex!(r"\[download\] Downloading playlist: (.*)");
@@ -296,7 +296,7 @@ impl Downloader {
                         Some(cap) => {
                             trace!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
                             name = cap.get(1).unwrap().as_str().to_string();
-                            try!(child.wait());
+                            child.wait()?;
                             trace!("done");
                             return Ok(name);
                         }
@@ -306,7 +306,7 @@ impl Downloader {
             }
         }
 
-        try!(child.wait()); // waits for finish & then exists zombi process fixes #10
+        child.wait()?; // waits for finish & then exists zombi process fixes #10
 
         Err(Error::DownloadError("no playlist name".to_string()))
     }
@@ -324,18 +324,18 @@ impl Downloader {
         quality: &str,
         get_video: bool,
     ) -> Result<Filename, Error> {
-        let _guard = try!(self.lock.read());
+        let _guard = self.lock.read()?;
         let mut child =
-            try!(self.lib_request_video_cmd(&request.url, file_path, quality, get_video));
+            self.lib_request_video_cmd(&request.url, file_path, quality, get_video)?;
         trace!("Requesting video via lib..");
-        let stdout = BufReader::new(try!(child
+        let stdout = BufReader::new(child
             .stdout
             .take()
-            .ok_or(Error::InternalError("stdout socket error!".into()))));
-        let mut stderr_buffer = BufReader::new(try!(child
+            .ok_or(Error::InternalError("stdout socket error!".into()))?);
+        let mut stderr_buffer = BufReader::new(child
             .stderr
             .take()
-            .ok_or(Error::InternalError("stderr socket error".into()))));
+            .ok_or(Error::InternalError("stderr socket error".into()))?);
 
         let re = regex!(r"step (\d)");
 
@@ -370,9 +370,9 @@ impl Downloader {
         trace!("reading stderr");
 
         let mut stderr: String = String::new();
-        try!(stderr_buffer.read_to_string(&mut stderr));
+        stderr_buffer.read_to_string(&mut stderr)?;
 
-        try!(child.wait());
+        child.wait()?;
 
         if !stderr.is_empty() {
             warn!("stderr: {:?}", stderr);
@@ -539,13 +539,13 @@ impl Downloader {
 
     /// Executes the progress update statement.
     fn update_progress(&self, qid: &u64, stmt: &mut Stmt, progress: &str) -> Result<(), Error> {
-        try!(stmt.execute((progress, qid)).map(|_| Ok(())))
+        stmt.execute((progress, qid)).map(|_| Ok(()))?
         //-> only return errors, ignore the return value of stmt.execute
     }
 
     /// Returns the latest upstream version number and sha256
     pub fn get_latest_version() -> Result<Version, Error> {
-        let mut json = try!(lib::http::http_json_get(UPDATE_VERSION_URL));
+        let mut json = lib::http::http_json_get(UPDATE_VERSION_URL)?;
         let version = match &mut json[UPDATE_VERSION_KEY] {
             &mut JsonValue::Null => {
                 return Err(Error::InternalError("Version key not found!".into()));
@@ -578,11 +578,11 @@ impl Downloader {
     pub fn update_downloader(&self) -> Result<(), Error> {
         use std::fs::{remove_file, rename};
 
-        let guard_ = try!(self.lock.write());
+        let guard_ = self.lock.write()?;
         // check for existence of lib
         let download_file = self.cmd_path.join(YTDL_NAME);
         let backup_file = self.cmd_path.join("ytdl_backup");
-        let r_version = try!(Downloader::get_latest_version());
+        let r_version = Downloader::get_latest_version()?;
         debug!("Latest version: {}", r_version.version);
         if download_file.exists() {
             let version = self.version()?;
@@ -615,7 +615,7 @@ impl Downloader {
     fn inner_update(&self, file_path: &Path, sha2: &str) -> Result<(), Error> {
         use lib::http;
 
-        try!(http::http_download(UPDATE_DOWNLOAD_URL, &file_path));
+        http::http_download(UPDATE_DOWNLOAD_URL, &file_path)?;
         debug!("yt-dl updated");
         match lib::check_SHA256(&file_path, sha2)? {
             true => Ok(()),

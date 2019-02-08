@@ -176,7 +176,7 @@ pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool, Err
     use std::io::{ErrorKind, Read};
     trace!("Checking SHA256..");
 
-    let mut file = try!(File::open(path));
+    let mut file = File::open(path)?;
     let mut sha2 = Sha256::default();
     let mut buf = [0; 1024];
     loop {
@@ -258,22 +258,22 @@ pub fn format_save_path<'a>(path: &Path, fname: &Filename) -> Result<PathBuf, Er
 /// Zips all files inside folder into one file
 pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
     trace!("Starting zipping..");
-    if try!(metadata(folder)).is_dir() {
-        let output_file = try!(File::create(destination));
+    if metadata(folder)?.is_dir() {
+        let output_file = File::create(destination)?;
         let mut writer = zip::ZipWriter::new(output_file);
 
-        for entry in try!(read_dir(folder)) {
-            let entry = try!(entry);
-            if try!(entry.metadata()).is_file() {
+        for entry in read_dir(folder)? {
+            let entry = entry?;
+            if entry.metadata()?.is_file() {
                 let mut f_options = zip::write::FileOptions::default();
                 f_options = f_options.compression_method(zip::CompressionMethod::Deflated);
-                try!(writer.start_file(entry.file_name().to_string_lossy().into_owned(), f_options));
-                let mut reader = try!(File::open(entry.path()));
+                writer.start_file(entry.file_name().to_string_lossy().into_owned(), f_options)?;
+                let mut reader = File::open(entry.path())?;
                 let _ = reader.sync_data();
-                try!(copy(&mut reader, &mut writer));
+                copy(&mut reader, &mut writer)?;
             }
         }
-        try!(writer.finish());
+        writer.finish()?;
         trace!("finished zipping");
         Ok(())
     } else {
@@ -285,7 +285,7 @@ pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
 
 /// Returns the current executable folder
 pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
-    let mut folder = try!(current_exe());
+    let mut folder = current_exe()?;
     folder.pop();
     Ok(folder)
 }
@@ -298,8 +298,8 @@ pub fn delete_files(
     delete_type: db::DeleteRequestType,
     dir_path: &Path,
 ) -> Result<(), Error> {
-    let mut conn = try!(pool.get_conn());
-    let (qids, mut files) = try!(db::get_files_to_delete(&mut conn, delete_type));
+    let mut conn = pool.get_conn()?;
+    let (qids, mut files) = db::get_files_to_delete(&mut conn, delete_type)?;
 
     debug!("Len before: {}", files.len());
     files.retain(|&(_, ref url)| {
@@ -322,11 +322,11 @@ pub fn delete_files(
     });
     debug!("Len after: {}", files.len());
     if CONFIG.cleanup.auto_delete_request {
-        try!(db::delete_requests(&mut conn, qids, files));
+        db::delete_requests(&mut conn, qids, files)?;
     } else {
         for (fid, _) in files {
-            try!(db::set_file_delete_flag(&mut conn, &fid, false));
-            try!(db::set_file_valid_flag(&mut conn, &fid, false));
+            db::set_file_delete_flag(&mut conn, &fid, false)?;
+            db::set_file_valid_flag(&mut conn, &fid, false)?;
         }
     }
     Ok(())

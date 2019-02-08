@@ -66,14 +66,14 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
     
     let name = Filename {
-            name: try!(handle_db.downloader.get_playlist_name(&request.url)),
+            name: handle_db.downloader.get_playlist_name(&request.url)?,
             extension: "zip".to_string(),
     };
     let mut step: i32 = 1;
     
     db::set_query_state(&mut request.get_conn(), &request.qid, "1/?");
     trace!("crawling ids");
-    let file_ids = try!(handle_db.downloader.get_playlist_ids(request));
+    let file_ids = handle_db.downloader.get_playlist_ids(request)?;
     
     if request.split {
         trace!("creating new requests for playlist entries");
@@ -81,13 +81,13 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         for id in file_ids.iter() {
             current_url = String::from(YT_VIDEO_URL);
             current_url.push_str(&id);
-            try!(db::add_sub_query(&current_url,&request));
+            db::add_sub_query(&current_url,&request)?;
         }
     } else {
-        let save_path = try!(lib::format_save_path(&request.path, &name));;
+        let save_path = lib::format_save_path(&request.path, &name)?;
         request.temp_path.push(request.qid.to_string());
         request.path = request.temp_path.clone();
-        try!(create_dir(&request.path));
+        create_dir(&request.path)?;
         let mut warnings = false;
         let mut current_url: String;
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
@@ -118,11 +118,11 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         step += 1;
         db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
         trace!("starting zipping");
-        try!(lib::zip_folder(&request.temp_path, &save_path));
+        lib::zip_folder(&request.temp_path, &save_path)?;
         trace!("adding file");
         handle_db.addFile(&save_path, &name.full_name());
         trace!("removing dir {}",request.path.to_string_lossy());
-        try!(remove_dir_all(&request.path));
+        remove_dir_all(&request.path)?;
         trace!("updating state");
     }
 
@@ -132,7 +132,7 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
 
 /// Handle file request
 fn handle_file(handle_db: &mut HandleData, request: &mut Request) -> Result<(), Error> {
-    try!(handle_file_int(handle_db, &request));
+    handle_file_int(handle_db, &request)?;
 
     Ok(())
 }
@@ -141,9 +141,9 @@ fn handle_file(handle_db: &mut HandleData, request: &mut Request) -> Result<(), 
 fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), Error> {
     trace!("youtube file handler started");
     if request.quality < 0 {
-        try!(handle_audio(handle_db,request))
+        handle_audio(handle_db,request)?
     } else {
-        try!(handle_video(handle_db,request))
+        handle_video(handle_db,request)?
     }
 
     Ok(())
@@ -159,14 +159,14 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     let mut dmca = false;
 
     trace!("Retriving name");
-    let name = try!(get_name(&hdb, &request, true, true, &temp_file_v, &mut dmca));
+    let name = get_name(&hdb, &request, true, true, &temp_file_v, &mut dmca)?;
     let origin_name = name.full_name();
     debug!("name: {}.{}", &name.name, &name.extension);
 
-    let save_file = try!(lib::format_save_path(&request.path, &name));
+    let save_file = lib::format_save_path(&request.path, &name)?;
 
     if dmca {
-        try!(lib::move_file(&temp_file_v, &save_file));
+        lib::move_file(&temp_file_v, &save_file)?;
         hdb.addFile(save_file.as_ref(), &origin_name);
         hdb.pop();
         return Ok(());
@@ -180,24 +180,24 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
     trace!("downloading video");
-    try!(hdb.downloader.download_file(&request, &temp_file_v, &request.quality.to_string()));
+    hdb.downloader.download_file(&request, &temp_file_v, &request.quality.to_string())?;
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
     let mut temp_file_a = request.temp_path.clone();
     temp_file_a.push(format!("{}a", request.qid));
     hdb.push(&temp_file_a);
     trace!("downloading audio");
-    try!(hdb.downloader.download_file(&request, &temp_file_a, &audio_id.to_string()));
+    hdb.downloader.download_file(&request, &temp_file_a, &audio_id.to_string())?;
 
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
     trace!("merging");
-    try!(hdb.converter.merge_files(&request.qid, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn()));
+    hdb.converter.merge_files(&request.qid, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn())?;
     if !request.playlist {
         hdb.addFile(&save_file, &origin_name);
     }
-    try!(remove_file(&temp_file_a));
+    remove_file(&temp_file_a)?;
     hdb.pop();
-    try!(remove_file(&temp_file_v));
+    remove_file(&temp_file_v)?;
     hdb.pop();
 
     Ok(())
@@ -207,18 +207,18 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
 fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
     let mut dmca = false;
-    let quality = try!(get_audio_quality(&request.quality));
+    let quality = get_audio_quality(&request.quality)?;
 
     let mut temp_file_v = request.temp_path.clone();
     temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
 
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
-    let mut name = try!(get_name(&hdb, &request, false, false, &temp_file_v, &mut dmca));
+    let mut name = get_name(&hdb, &request, false, false, &temp_file_v, &mut dmca)?;
 
     if dmca {
-        let save_file = try!(lib::format_save_path(&request.path, &name));
-        try!(lib::move_file(&temp_file_v, &save_file));
+        let save_file = lib::format_save_path(&request.path, &name)?;
+        lib::move_file(&temp_file_v, &save_file)?;
         if !request.playlist {
             hdb.pop();
             hdb.addFile(&save_file, &name.full_name());
@@ -227,7 +227,7 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     }
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
-    try!(hdb.downloader.download_file(&request, &temp_file_v, &quality));
+    hdb.downloader.download_file(&request, &temp_file_v, &quality)?;
 
     if request.quality == CONFIG.codecs.audio_raw ||
        request.quality == CONFIG.codecs.audio_source_hq {
@@ -237,13 +237,13 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     }
     
     condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
-    let file = try!(lib::format_save_path(&request.path, &name));
-    try!(hdb.converter.extract_audio(&request.qid,
+    let file = lib::format_save_path(&request.path, &name)?;
+    hdb.converter.extract_audio(&request.qid,
                                      &temp_file_v,
                                      &file,
                                      request.quality == CONFIG.codecs.audio_mp3,
-                                     &mut request.get_conn()));
-    try!(remove_file(&temp_file_v));
+                                     &mut request.get_conn())?;
+    remove_file(&temp_file_v)?;
     hdb.pop();
     if !request.playlist {
         hdb.addFile(&file, &name.full_name());

@@ -126,7 +126,7 @@ impl<'a> Registry<'a> {
             
             if !handle_db.getFiles().is_empty() { // insert processed files into the db
                 for file in handle_db.getFiles() {
-                    try!(db::add_file_entry(&mut data.get_conn(), &data.qid, &file.path.file_name().unwrap().to_string_lossy(), &file.origin_name));
+                    db::add_file_entry(&mut data.get_conn(), &data.qid, &file.path.file_name().unwrap().to_string_lossy(), &file.origin_name)?;
                 }
             }
             result
