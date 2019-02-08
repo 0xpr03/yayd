@@ -10,31 +10,32 @@ extern crate log4rs;
 
 #[macro_use]
 extern crate lazy_static;
-extern crate timer;
 extern crate chrono;
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate json;
 extern crate flate2;
+extern crate json;
+extern crate reqwest;
 extern crate sha2;
+extern crate timer;
 
-mod lib;
 mod handler;
+mod lib;
 
-use lib::downloader::Downloader;
-use lib::converter::Converter;
+use mysql::Pool;
+
 use handler::init_handlers;
 use handler::Registry;
-use timer::{Timer};
-use std::sync::Arc;
 use lib::config;
+use lib::converter::Converter;
 use lib::db;
+use lib::downloader::Downloader;
 use lib::logger;
 use lib::Error;
+use std::sync::Arc;
+use timer::Timer;
 
 const VERSION: &'static str = "0.6.3";
 const CONFIG_PATH: &'static str = "config.cfg";
-const USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
+const C_USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
 const LOG_CONFIG: &'static str = "logger.yaml";
 const LOG_PATTERN: &'static str = "{d(%d-%m-%Y %H:%M:%S)}\t{l}\t{f}:{L} \t{m:>10}{n}";
 const CODE_WAITING: i8 = -1;
@@ -49,15 +50,23 @@ const CODE_FAILED_UNKNOWN: i8 = 13; // URL invalid, no handler
 
 lazy_static! {
     pub static ref CONFIG: config::Config = {
-        println!("Starting yayd-backend v{}",&VERSION);
+        println!("Starting yayd-backend v{}", &VERSION);
         config::init_config()
     };
-    pub static ref SLEEP_TIME: std::time::Duration = {
-        std::time::Duration::new(5,0)
-    };
+    pub static ref SLEEP_TIME: std::time::Duration = { std::time::Duration::new(5, 0) };
 }
 
-macro_rules! try_return { ($e:expr) => (match $e { Ok(x) => x, Err(e) => {error!("{}",e);return; },}) }
+macro_rules! try_return {
+    ($e:expr) => {
+        match $e {
+            Ok(x) => x,
+            Err(e) => {
+                error!("{}", e);
+                return;
+            }
+        }
+    };
+}
 
 //#[allow(non_camel_case_types)]
 //#[derive(Clone, Eq, PartialEq, Debug, Copy)]
@@ -76,70 +85,82 @@ fn main() {
     logger::initialize();
     let pool = Arc::new(db::db_connect(db::mysql_options(&CONFIG), *SLEEP_TIME));
     debug!("cleaning db...");
-    let mut conn = pool.get_conn().map_err(|_| panic!("Couldn't retrieve connection!")).unwrap();
+    let mut conn = pool
+        .get_conn()
+        .map_err(|_| panic!("Couldn't retrieve connection!"))
+        .unwrap();
     db::clear_query_states(&mut conn);
-    
-    let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir,&CONFIG.general.mp3_quality);
-    
+
+    let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir, &CONFIG.general.mp3_quality);
+
     if !converter.startup_test() {
         error!("Converter self test failed! Exiting");
         return;
     }
-    
+
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
-    
+
     if !downloader.startup_test() {
         error!("Downloader self test failed! Exiting");
         return;
     }
-    
-    let handler = init_handlers(downloader.clone(),converter);
-    
+
+    let handler = init_handlers(downloader.clone(), converter);
+
     let timer = timer::Timer::new();
-    debug!("Auto cleanup old files: {}",CONFIG.cleanup.auto_delete_files);
+    debug!(
+        "Auto cleanup old files: {}",
+        CONFIG.cleanup.auto_delete_files
+    );
     if CONFIG.cleanup.auto_delete_files {
         run_auto_cleanup_thread(pool.clone(), &timer);
     }
-    
-    debug!("Cleanup marked entries with `delete` flag: {}",CONFIG.cleanup.delete_files);
+
+    debug!(
+        "Cleanup marked entries with `delete` flag: {}",
+        CONFIG.cleanup.delete_files
+    );
     if CONFIG.cleanup.delete_files {
         run_cleanup_thread(pool.clone(), &timer);
     }
-    
-    debug!("Auto-Update yt-dl: {}",CONFIG.general.youtube_dl_auto_update);
+
+    debug!(
+        "Auto-Update yt-dl: {}",
+        CONFIG.general.youtube_dl_auto_update
+    );
     if CONFIG.general.youtube_dl_auto_update {
         run_update_thread(downloader.clone(), &timer);
     }
-        
+
     debug!("finished startup");
     main_loop(&*pool, handler);
     //drop(update_thread);
 }
 
-fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
+fn main_loop(pool: &Pool, mut handler: Registry) {
     let mut print_pause = true;
-    
+
     loop {
         if let Some(mut request) = db::request_entry(pool) {
             trace!("got request");
             print_pause = true;
             let qid = request.qid.clone();
-            db::set_query_code(&mut request.get_conn(), &request.qid ,&CODE_STARTED);
-            db::set_query_state(&mut request.get_conn(),&request.qid, "started");
+            db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_STARTED);
+            db::set_query_state(&mut request.get_conn(), &request.qid, "started");
             trace!("starting handler");
             let code: i8 = match handler.handle(&mut request) {
                 Ok(_) => CODE_SUCCESS,
                 Err(e) => {
-                    trace!("Error: {:?}",e);
+                    trace!("Error: {:?}", e);
                     match e {
                         Error::NotAvailable => CODE_FAILED_UNAVAILABLE,
                         Error::ExtractorError => CODE_FAILED_UNAVAILABLE,
                         Error::QualityNotAvailable => CODE_FAILED_QUALITY,
                         Error::UnknownURL => CODE_FAILED_UNKNOWN,
                         _ => {
-                            error!("Unknown Error: {:?}",e);
+                            error!("Unknown Error: {:?}", e);
                             let details = match e {
-                                Error::DBError(s) => format!("{:?}",s),
+                                Error::DBError(s) => format!("{:?}", s),
                                 Error::DownloadError(s) => s,
                                 Error::FFMPEGError(s) => s,
                                 Error::InternalError(s) => s,
@@ -147,59 +168,72 @@ fn main_loop(pool: &mysql::conn::pool::Pool, mut handler: Registry) {
                                 Error::HandlerError(s) => s,
                                 _ => unreachable!(),
                             };
-                            db::add_query_error(&mut request.get_conn(),&qid, &details);
+                            db::add_query_error(&mut request.get_conn(), &qid, &details);
                             CODE_FAILED_INTERNAL
-                        },
+                        }
                     }
                 }
             };
             trace!("handler finished");
-            db::set_query_code(&mut request.get_conn(), &qid,&code);
+            db::set_query_code(&mut request.get_conn(), &qid, &code);
             db::set_null_state(&mut request.get_conn(), &qid);
         } else {
-            if print_pause { trace!("Worker idle.."); print_pause = false; }
+            if print_pause {
+                trace!("Worker idle..");
+                print_pause = false;
+            }
             std::thread::sleep(*SLEEP_TIME);
         }
     }
 }
 
 /// Auto cleanup task
-fn run_auto_cleanup_thread<'a>(pool: Arc<mysql::conn::pool::Pool>, timer: &'a Timer) {
+fn run_auto_cleanup_thread<'a>(pool: Arc<Pool>, timer: &'a Timer) {
     let path = std::path::PathBuf::from(&CONFIG.general.download_dir);
-    let a = timer.schedule_repeating(chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64), move || {
-        trace!("performing auto cleanup");
-        let local_pool = &*pool;
-        let val = lib::delete_files(local_pool,db::DeleteRequestType::AgedMin(&CONFIG.cleanup.auto_delete_age),&path);
-        match val {
-            Ok(_) => (),
-            Err(e) => error!("Couldn't auto cleanup! {:?}",e),
-        }
-    });
+    let a = timer.schedule_repeating(
+        chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64),
+        move || {
+            trace!("performing auto cleanup");
+            let local_pool = &*pool;
+            let val = lib::delete_files(
+                local_pool,
+                db::DeleteRequestType::AgedMin(&CONFIG.cleanup.auto_delete_age),
+                &path,
+            );
+            match val {
+                Ok(_) => (),
+                Err(e) => error!("Couldn't auto cleanup! {:?}", e),
+            }
+        },
+    );
     a.ignore(); // ignore schedule guard a
 }
 
 /// Cleanup requested task
-fn run_cleanup_thread<'a>(pool: Arc<mysql::conn::pool::Pool>, timer: &'a Timer) {
+fn run_cleanup_thread<'a>(pool: Arc<Pool>, timer: &'a Timer) {
     let path = std::path::PathBuf::from(&CONFIG.general.download_dir);
-    let a = timer.schedule_repeating(chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64), move || {
-        trace!("performing deletion requests");
-        let local_pool = &*pool;
-        let val = lib::delete_files(local_pool,db::DeleteRequestType::Marked,&path);
-        match val {
-            Ok(_) => (),
-            Err(e) => error!("Couldn't perform deletions! {:?}",e),
-        }
-    });
+    let a = timer.schedule_repeating(
+        chrono::Duration::minutes(CONFIG.cleanup.delete_interval as i64),
+        move || {
+            trace!("performing deletion requests");
+            let local_pool = &*pool;
+            let val = lib::delete_files(local_pool, db::DeleteRequestType::Marked, &path);
+            match val {
+                Ok(_) => (),
+                Err(e) => error!("Couldn't perform deletions! {:?}", e),
+            }
+        },
+    );
     a.ignore(); // ignore schedule guard a
 }
 
 /// youtube-dl update task
-fn run_update_thread<'a>(downloader: Arc<Downloader>,timer: &'a Timer) {
+fn run_update_thread<'a>(downloader: Arc<Downloader>, timer: &'a Timer) {
     let a = timer.schedule_repeating(chrono::Duration::hours(24), move || {
-    match downloader.update_downloader() {
-        Ok(_) => (),
-        Err(e) => error!("Couldn't perform youtube-dl update! {:?}",e),
-    }
+        match downloader.update_downloader() {
+            Ok(_) => (),
+            Err(e) => error!("Couldn't perform youtube-dl update! {:?}", e),
+        }
     });
     a.ignore(); // ignore schedule guard a
 }
