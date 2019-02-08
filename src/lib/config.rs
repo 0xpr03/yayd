@@ -1,15 +1,15 @@
 use toml::from_str;
 
-use std::io::Write;
 use std::io::Read;
+use std::io::Write;
 
-use std::fs::{File,metadata,OpenOptions};
+use std::fs::{metadata, File, OpenOptions};
 use std::path::Path;
 
 use std::process::exit;
 
+use lib::{self, l_expect};
 use CONFIG_PATH;
-use lib::{self,l_expect};
 
 // pub mod config;
 // Config section
@@ -44,10 +44,10 @@ pub struct ConfigDB {
 
 /// General settings config struct
 #[derive(Clone, Debug, Deserialize)]
-pub struct ConfigGen{
+pub struct ConfigGen {
     pub link_subqueries: bool,
     pub link_files: bool,
-    pub temp_dir: String, // folder to temp. save the raw files
+    pub temp_dir: String,     // folder to temp. save the raw files
     pub download_dir: String, // folder to which the files should be moved
     pub mp3_quality: i16,
     pub download_mbps: u16, // download speed limit, curr. not supported by the DMCA lib
@@ -63,18 +63,18 @@ pub struct ConfigGen{
 
 /// Cleanup settings config struct
 #[derive(Clone, Debug, Deserialize)]
-pub struct ConfigCleanup{
-    pub auto_delete_files: bool, // auto delete files
-    pub auto_delete_age: u16, // max age s
+pub struct ConfigCleanup {
+    pub auto_delete_files: bool,   // auto delete files
+    pub auto_delete_age: u16,      // max age s
     pub auto_delete_interval: u16, // cleanup interval
     pub auto_delete_request: bool, // delete also the request: db entries of these files
-    pub delete_files: bool, // delete files requested
-    pub delete_request: bool, // delete also the request itself
-    pub delete_interval: u16, // execution interval
+    pub delete_files: bool,        // delete files requested
+    pub delete_request: bool,      // delete also the request itself
+    pub delete_interval: u16,      // execution interval
 }
 
 /// Codec config struct
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ConfigCodecs {
     pub audio_raw: i16,
     pub audio_source_hq: i16,
@@ -83,12 +83,11 @@ pub struct ConfigCodecs {
 }
 
 /// Youtube config struct
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ConfigYT {
     pub audio_normal_mp4: i16,
     pub audio_normal_webm: i16,
     pub audio_hq: i16,
-    
 }
 
 /// Init config, reading from file or creating such
@@ -96,19 +95,20 @@ pub struct ConfigYT {
 pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
     path.push(CONFIG_PATH); // set_file_name doesn't return smth -> needs to be run on mut path
-    trace!("config path {:?}",path );
+    trace!("config path {:?}", path);
     let data: String;
-    if metadata(&path).is_ok() { // PathExt for path..as_path().exists() is unstable
+    if metadata(&path).is_ok() {
+        // PathExt for path..as_path().exists() is unstable
         info!("Config file found.");
-        data = l_expect(read_config(&path),"unable to read config!");
-    }else{
+        data = l_expect(read_config(&path), "unable to read config!");
+    } else {
         info!("Config file not found.");
         data = create_config();
-        l_expect(write_config_file(&path, &data),"unable to write config");
-        
+        l_expect(write_config_file(&path, &data), "unable to write config");
+
         exit(0);
     }
-    
+
     l_expect(parse_config(data), "unable to parse config")
 }
 
@@ -121,11 +121,11 @@ pub fn init_config() -> Config {
     );
 
     let data = create_config();
-    let mut conf = l_expect(parse_config(data),"invalid default config!");
+    let mut conf = l_expect(parse_config(data), "invalid default config!");
     conf.general.ffmpeg_bin_dir = env!("ffmpeg_dir");
     conf.general.download_dir = env!("download_dir");
     conf.general.temp_dir = env!("temp_dir");
-    conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(),"parse mbps");
+    conf.general.download_mbps = l_expect(env!("mbps").parse::<u16>(), "parse mbps");
     conf.general.link_files = true;
     conf.general.link_subqueries = true;
     conf.db.user = env!("user");
@@ -140,16 +140,24 @@ pub fn init_config() -> Config {
 /// Parse input toml to config struct
 fn parse_config(input: String) -> Result<Config, ConfigError> {
     match from_str(&input) {
-        Err(e) => { error!("{}",e); Err(ConfigError::ParseError) },
+        Err(e) => {
+            error!("{}", e);
+            Err(ConfigError::ParseError)
+        }
         Ok(dconfig) => Ok(dconfig),
     }
 }
 
 /// Read config from file.
-pub fn read_config(file: &Path) -> Result<String,ConfigError> {
-    let mut f = try!(OpenOptions::new().read(true).open(file).map_err(|_| ConfigError::ReadError));
+pub fn read_config(file: &Path) -> Result<String, ConfigError> {
+    let mut f = try!(OpenOptions::new()
+        .read(true)
+        .open(file)
+        .map_err(|_| ConfigError::ReadError));
     let mut data = String::new();
-    try!(f.read_to_string(&mut data).map_err(|_| ConfigError::ReadError));
+    try!(f
+        .read_to_string(&mut data)
+        .map_err(|_| ConfigError::ReadError));
     Ok(data)
 }
 
@@ -250,13 +258,15 @@ audio_hq = 22
 #supported = ["Source","High","Medium","Low","Mobile"]
     "#;
     trace!("Raw new config: {:?}", toml);
-    
+
     toml.to_owned()
 }
 
 /// Writes the recived string into the file
-fn write_config_file(path: &Path, data: &str) -> Result<(),ConfigError> {
-    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError ));
-    try!(file.write_all(data.as_bytes()).map_err(|_| ConfigError::WriteError));
+fn write_config_file(path: &Path, data: &str) -> Result<(), ConfigError> {
+    let mut file = try!(File::create(path).map_err(|_| ConfigError::CreateError));
+    try!(file
+        .write_all(data.as_bytes())
+        .map_err(|_| ConfigError::WriteError));
     Ok(())
 }
