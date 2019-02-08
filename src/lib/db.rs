@@ -53,17 +53,6 @@ macro_rules! try_option {
         }
     };
 }
-macro_rules! try_Eoption {
-    ($e:expr) => {
-        match $e {
-            Some(x) => x,
-            None => {
-                error!("No value!");
-                return None;
-            }
-        }
-    };
-}
 
 /// Take value and return, log an error with the missing column otherwise
 macro_rules! take_value {
@@ -493,19 +482,15 @@ mod test {
     use mysql;
     use mysql::from_row;
     use mysql::{Pool, PooledConn};
-    use std::cell::RefCell;
 
-    use chrono;
     use chrono::naive::NaiveDateTime;
     use chrono::offset::Local;
-    use chrono::DateTime;
     use chrono::Duration;
 
     use lib;
     use lib::logger;
     use lib::Error;
     use lib::ReqCore;
-    use lib::Request;
 
     fn create_request(playlist: bool, config: &lib::config::Config) -> ReqCore {
         let mut req = ReqCore {
@@ -539,7 +524,7 @@ mod test {
 
     fn setup(conn: &mut PooledConn) {
         use super::setup_db;
-        setup_db(conn, true);
+        let _ = setup_db(conn, true);
     }
 
     fn get_status(conn: &mut PooledConn, qid: &u64) -> (i8, Option<f64>, Option<String>) {
@@ -556,29 +541,6 @@ mod test {
             .unwrap();
         let mut result = stmt.execute((qid,)).unwrap();
         result.next().unwrap().unwrap().take("msg")
-    }
-
-    /// Cleans all tables, only for testing
-    fn clean_db(conn: &mut PooledConn) {
-        use std::env;
-        let mut tables: Vec<String> = Vec::new();
-        {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT `TABLE_NAME` FROM information_schema.`TABLES` WHERE `TABLE_SCHEMA` = ?",
-                )
-                .unwrap();
-
-            for row in stmt.execute((env::var("db").unwrap(),)).unwrap() {
-                let mut row_u = row.unwrap();
-                tables.push(row_u.take("TABLE_NAME").unwrap());
-            }
-        }
-
-        conn.prep_exec("SET FOREIGN_KEY_CHECKS=0;", ()).unwrap(); // disable key checks, avoiding theoretical problems
-        for tbl in tables {
-            conn.prep_exec(format!("TRUNCATE `{}`", tbl), ()).unwrap();
-        }
     }
 
     /// Test wrapper, accepting ReqCore structs, with additional playlist insertion over _insert_query
@@ -605,15 +567,6 @@ mod test {
             .prepare("UPDATE files SET `created`= ? WHERE fid = ?")
             .unwrap();
         assert!(stmt.execute((date, qid)).is_ok());
-    }
-
-    /// Retrieve NaiveDateTime LUC from querydetails
-    fn get_luc(conn: &mut PooledConn, qid: &u64) -> NaiveDateTime {
-        let mut stmt = conn
-            .prepare("SELECT luc from querydetails WHERE qid = ?")
-            .unwrap();
-        let mut result = stmt.execute((qid,)).unwrap();
-        result.next().unwrap().unwrap().take("luc").unwrap()
     }
 
     /// Get fid,name, r_name of files for qid to test against an insertion
@@ -690,9 +643,9 @@ mod test {
 
         delete_requests(&mut conn, qids, files).unwrap();
 
-        let SQL = "SELECT COUNT(*) as amount FROM %db% WHERE 1";
+        let sql = "SELECT COUNT(*) as amount FROM %db% WHERE 1";
         for db in REQ_DB_TABLES.iter() {
-            let mut res = conn.prep_exec(SQL.replace("%db%", db), ()).unwrap();
+            let mut res = conn.prep_exec(sql.replace("%db%", db), ()).unwrap();
             let amount: i32 = res.next().unwrap().unwrap().take("amount").unwrap();
             assert_eq!(amount, 0);
         }
@@ -702,9 +655,9 @@ mod test {
     fn file_delete_sql_test() {
         lib::config::init_config();
 
-        const age: u16 = 60 * 25; // minutes, age subtracted per iter
-        const max_age_diff: u16 = age - 10;
-        const affected_invalid: i16 = 2; // i count file which will be invalidated
+        const AGE: u16 = 60 * 25; // minutes, age subtracted per iter
+        const MAX_AGE_DIFF: u16 = AGE - 10;
+        const AFFECTED_INVALID: i16 = 2; // i count file which will be invalidated
         const AMOUNT_FILES: i16 = 16;
         const AGE_DEL_RATIO: i16 = 50;
 
@@ -733,7 +686,7 @@ mod test {
                 let fid = add_file_entry(&mut conn, &req_new.qid, &f_name, &f_r_name).unwrap();
                 let delete = amount_flagged_delete < treshold;
 
-                let valid = match i == affected_invalid {
+                let valid = match i == AFFECTED_INVALID {
                     true => {
                         assert!(set_file_valid_flag(&mut conn, &fid, false).is_ok());
                         false
@@ -765,7 +718,7 @@ mod test {
         {
             // get aged files-test
             let (qids, files) =
-                get_files_to_delete(&mut conn, DeleteRequestType::AgedMin(&max_age_diff)).unwrap();
+                get_files_to_delete(&mut conn, DeleteRequestType::AgedMin(&MAX_AGE_DIFF)).unwrap();
             // Vec<u64>,Vec<(u64,String)>
             assert_eq!(files.is_empty(), false);
             for (fid, name) in files {
@@ -778,7 +731,7 @@ mod test {
                 assert_eq!(f_name, &name);
                 assert_eq!(r_valid, &true);
                 assert_eq!(r_fid, &fid);
-                let diff = start_time - Duration::minutes(max_age_diff as i64);
+                let diff = start_time - Duration::minutes(MAX_AGE_DIFF as i64);
                 assert!(time <= &diff.naive_local());
                 assert!(qids.contains(&r_qid));
                 assert!(iter.next().is_none());
@@ -786,7 +739,7 @@ mod test {
             }
             // re-check that no results remain
             let (qids, files) =
-                get_files_to_delete(&mut conn, DeleteRequestType::AgedMin(&max_age_diff)).unwrap();
+                get_files_to_delete(&mut conn, DeleteRequestType::AgedMin(&MAX_AGE_DIFF)).unwrap();
             assert!(qids.is_empty());
             assert!(files.is_empty());
         }
@@ -807,7 +760,7 @@ mod test {
                 assert_eq!(r_valid, &true);
                 assert_eq!(r_delete, &true);
                 assert_eq!(r_fid, &fid);
-                let diff = start_time - Duration::minutes(max_age_diff as i64);
+                let diff = start_time - Duration::minutes(MAX_AGE_DIFF as i64);
                 assert!(time >= &diff.naive_local());
                 assert!(qids.contains(&r_qid));
                 assert!(iter.next().is_none());

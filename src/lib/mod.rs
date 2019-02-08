@@ -13,7 +13,6 @@ use lib::downloader::Filename;
 use mysql;
 use mysql::{Pool, PooledConn};
 
-use std::ascii::AsciiExt;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::env::current_exe;
@@ -25,10 +24,6 @@ use std::path::{Path, PathBuf};
 use std::{self, io};
 
 use CONFIG;
-
-macro_rules! regex(
-    ($s:expr) => (regex::Regex::new($s).unwrap());
-);
 
 /// Struct holding all data concerning the request
 pub struct Request {
@@ -73,22 +68,6 @@ pub struct ReqCore {
 
 #[cfg(test)]
 impl ReqCore {
-    pub fn new(origin: &Request) -> ReqCore {
-        ReqCore {
-            url: origin.url.clone(),
-            quality: origin.quality.clone(),
-            playlist: origin.playlist.clone(),
-            split: origin.split.clone(),
-            r_type: origin.r_type.clone(),
-            qid: origin.qid.clone(),
-            from: origin.from.clone(),
-            to: origin.to.clone(),
-            path: origin.path.clone(),
-            temp_path: origin.temp_path.clone(),
-            uid: origin.uid.clone(),
-        }
-    }
-
     pub fn verify(&self, input: &Request) {
         assert_eq!(self.url, input.url);
         assert_eq!(self.quality, input.quality);
@@ -107,9 +86,6 @@ impl ReqCore {
 impl<'a> Request {
     pub fn get_conn(&self) -> RefMut<PooledConn> {
         self.conn.borrow_mut()
-    }
-    fn set_dir(&mut self, new_path: &'a Path) {
-        self.path = new_path.to_path_buf();
     }
 }
 
@@ -138,8 +114,6 @@ pub enum Error {
     InputError(String),
     /// Unexpected lib internal error
     InternalError(String),
-    /// Unexpected error in handler
-    HandlerError(String),
     /// Can't handle this URL, no valid handler found
     UnknownURL,
     /// used by db lib

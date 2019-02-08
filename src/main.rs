@@ -56,18 +56,6 @@ lazy_static! {
     pub static ref SLEEP_TIME: std::time::Duration = { std::time::Duration::new(5, 0) };
 }
 
-macro_rules! try_return {
-    ($e:expr) => {
-        match $e {
-            Ok(x) => x,
-            Err(e) => {
-                error!("{}", e);
-                return;
-            }
-        }
-    };
-}
-
 //#[allow(non_camel_case_types)]
 //#[derive(Clone, Eq, PartialEq, Debug, Copy)]
 //#[repr(i8)]// broken, enum not usable as of #10292
@@ -136,7 +124,6 @@ fn main() {
 
     debug!("finished startup");
     main_loop(&*pool, handler);
-    //drop(update_thread);
 }
 
 fn main_loop(pool: &Pool, mut handler: Registry) {
@@ -167,7 +154,6 @@ fn main_loop(pool: &Pool, mut handler: Registry) {
                                 Error::FFMPEGError(s) => s,
                                 Error::InternalError(s) => s,
                                 Error::InputError(s) => s,
-                                Error::HandlerError(s) => s,
                                 _ => unreachable!(),
                             };
                             db::add_query_error(&mut request.get_conn(), &qid, &details);
