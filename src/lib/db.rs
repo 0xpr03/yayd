@@ -640,7 +640,7 @@ mod test {
 
     #[test]
     fn connect_setup_test() {
-        let (cfg, pool) = connect();
+        let (_cfg, pool) = connect();
         setup(&mut pool.get_conn().unwrap());
     }
 
@@ -775,7 +775,7 @@ mod test {
                 let mut iter = requests
                     .iter()
                     .filter(|&&(_, ref r_fid, _, _, _, _, _)| r_fid == &fid);
-                let &(ref r_qid, ref r_fid, ref time, ref f_name, _, ref r_valid, ref r_delete) =
+                let &(ref r_qid, ref r_fid, ref time, ref f_name, _, ref r_valid, ref _r_delete) =
                     iter.next().unwrap();
                 assert_eq!(f_name, &name);
                 assert_eq!(r_valid, &true);
@@ -865,7 +865,7 @@ mod test {
         let new_state = String::from("asd");
         super::set_query_code(&mut conn, &id, &new_code);
         super::set_query_state(&mut conn, &id, &new_state);
-        let (code, progr, state) = get_status(&mut conn, &id);
+        let (code, _progr, state) = get_status(&mut conn, &id);
         assert_eq!(code, new_code);
         assert!(state.is_some());
         assert_eq!(new_state, state.unwrap());

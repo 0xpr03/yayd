@@ -98,11 +98,11 @@ pub fn init_config() {
         .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
         .build();
 
-    let mut root = Root::builder()
+    let root = Root::builder()
         .appender(APPENDER_STDOUT)
         .build(LevelFilter::max());
 
-    let mut config = Config::builder()
+    let _config = Config::builder()
         .appender(Appender::builder().build(APPENDER_STDOUT, Box::new(console)))
         .build(root)
         .unwrap();

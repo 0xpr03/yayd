@@ -1,4 +1,3 @@
-use flate2::read::GzDecoder;
 use json;
 use json::JsonValue;
 use reqwest::header::HeaderMap;
@@ -8,8 +7,6 @@ use reqwest::header::{
 use reqwest::{Client, Response};
 
 use std::fs::File;
-use std::io::copy;
-use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
