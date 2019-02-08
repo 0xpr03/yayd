@@ -91,7 +91,6 @@ pub struct ConfigYT {
 }
 
 /// Init config, reading from file or creating such
-#[cfg(not(test))]
 pub fn init_config() -> Config {
     let mut path = l_expect(lib::get_executable_folder(), "config folder"); // PathBuf
     path.push(CONFIG_PATH); // set_file_name doesn't return smth -> needs to be run on mut path
@@ -113,8 +112,7 @@ pub fn init_config() -> Config {
 }
 
 /// Config for test builds, using environment variables
-#[cfg(test)]
-pub fn init_config() -> Config {
+pub fn init_config_test() -> Config {
     use std::env;
     macro_rules! env(
         ($s:expr) => (match env::var($s) { Ok(val) => val, Err(_) => panic!("unable to read env var {}",$s),});

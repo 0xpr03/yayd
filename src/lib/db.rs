@@ -126,8 +126,7 @@ impl<'a> From<&'a Pool> for STConnection<'a> {
     }
 }
 /// Connect to DBMS, retry on failure.
-#[cfg(not(test))]
-pub fn db_connect(opts: Opts, sleep_time: Duration) -> Pool {
+pub fn db_connect(opts: Opts, sleep_time: Option<Duration>) -> Pool {
     loop {
         match Pool::new(opts.clone()) {
             Ok(conn) => {
@@ -135,13 +134,12 @@ pub fn db_connect(opts: Opts, sleep_time: Duration) -> Pool {
             }
             Err(err) => error!("Unable to establish a connection: {}", err),
         };
-        sleep(sleep_time);
+        if let Some(time) = sleep_time {
+            sleep(time);
+        } else {
+            panic!("Couldn't connect, sleep disabled!");
+        }
     }
-}
-
-#[cfg(test)]
-pub fn db_connect(opts: Opts) -> Pool {
-    Pool::new(opts.clone()).unwrap()
 }
 
 /// Set state of query
@@ -535,7 +533,7 @@ mod test {
 
     fn connect() -> (lib::config::Config, Pool) {
         let config = lib::config::init_config();
-        let pool = db_connect(mysql_options(&config));
+        let pool = db_connect(mysql_options(&config), None);
         (config, pool)
     }
 
@@ -825,7 +823,7 @@ mod test {
 
     #[test]
     fn query_test() {
-        logger::init_config();
+        logger::init_config_test();
         lib::config::init_config();
         {
             let (conf, pool) = connect();

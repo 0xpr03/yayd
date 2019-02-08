@@ -18,7 +18,6 @@ const APPENDER_FILE: &'static str = "file";
 const APPENDER_STDOUT: &'static str = "stdout";
 
 /// Initializes the logger.
-#[cfg(not(test))]
 pub fn initialize() {
     let mut log_path = get_executable_folder().unwrap_or(std::path::PathBuf::from("/"));
     log_path.push(LOG_CONFIG);
@@ -36,7 +35,6 @@ pub fn initialize() {
 }
 
 /// Initialize log config from file
-#[cfg(not(test))]
 fn init_file(conf: &Path) {
     match log4rs::init_file(conf, Default::default()) {
         Ok(_) => (),
@@ -46,7 +44,6 @@ fn init_file(conf: &Path) {
 
 /// Initialize a fallback configurated logger.
 /// Consisting of log to conole & if possible to file.
-#[cfg(not(test))]
 fn init_config() {
     let stdout_appender = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
@@ -92,8 +89,7 @@ fn init_config() {
 }
 
 /// Test logger configuration, without file support, ignoring external configs
-#[cfg(test)]
-pub fn init_config() {
+pub fn init_config_test() {
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
         .build();

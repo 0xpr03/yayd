@@ -80,10 +80,12 @@ macro_rules! try_return {
 //    FailedQuality = 11,
 //    FailedUnavailable = 12,
 //}
-#[cfg(not(test))]
 fn main() {
     logger::initialize();
-    let pool = Arc::new(db::db_connect(db::mysql_options(&CONFIG), *SLEEP_TIME));
+    let pool = Arc::new(db::db_connect(
+        db::mysql_options(&CONFIG),
+        Some(*SLEEP_TIME),
+    ));
     debug!("cleaning db...");
     let mut conn = pool
         .get_conn()
