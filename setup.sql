@@ -31,7 +31,7 @@ CREATE TABLE `queries` (
  PRIMARY KEY (`qid`),
  KEY `created` (`created`),
  KEY `uid` (`uid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
 
 /*
  * If a query is an playlist job, all details are stored in this table.
@@ -44,7 +44,7 @@ CREATE TABLE `playlists` (
  `to` smallint(6) NOT NULL,
  `split` tinyint(1) NOT NULL,
  PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
 
 /*
  * Table for progress information which are changing rapidly.
@@ -58,7 +58,7 @@ CREATE TABLE `querydetails` (
  PRIMARY KEY (`qid`),
  KEY `code` (`code`),
  KEY `luc` (`luc`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 /*
  * Table storing the name of a file, and `rname` for the name actually used on the HDD (ASCII sanitized).
@@ -77,7 +77,7 @@ CREATE TABLE `files` (
  KEY `valid` (`valid`),
  KEY `delete` (`delete`),
  KEY `created` (`created`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
 
 /*
  * Table with logged error messages for queries
@@ -86,7 +86,7 @@ CREATE TABLE `queryerror` (
  `qid` int(10) unsigned NOT NULL,
  `msg` text NOT NULL,
  PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
 
 /*
  * Used if log subqueries is enabled for non-zipped queries
@@ -95,7 +95,7 @@ CREATE TABLE `subqueries` (
  `qid` int(10) unsigned NOT NULL,
  `origin_id` int(10) unsigned NOT NULL,
  PRIMARY KEY (`qid`,`origin_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
 
 /*
  * For file-query relations
@@ -107,4 +107,4 @@ CREATE TABLE `query_files` (
  UNIQUE KEY `qid` (`qid`,`fid`),
  KEY `qid_2` (`qid`),
  KEY `fid` (`fid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
