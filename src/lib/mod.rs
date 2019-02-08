@@ -89,11 +89,6 @@ impl<'a> Request {
     }
 }
 
-/*#[derive(Debug)]
-pub struct Error {
-    message: String
-}*/
-
 /// Error trait
 /// HandlerWarn is NOT for errors, it's value will be inserted into the warn DB
 #[derive(Debug)]

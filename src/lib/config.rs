@@ -112,6 +112,7 @@ pub fn init_config() -> Config {
 }
 
 /// Config for test builds, using environment variables
+#[allow(unused)]
 pub fn init_config_test() -> Config {
     use std::env;
     macro_rules! env(

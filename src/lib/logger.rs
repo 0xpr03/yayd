@@ -89,6 +89,7 @@ fn init_config() {
 }
 
 /// Test logger configuration, without file support, ignoring external configs
+#[allow(unused)]
 pub fn init_config_test() {
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
