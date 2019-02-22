@@ -3,7 +3,7 @@ use lib::{Error,Request};
 
 /// Init youtube handler, registering it
 pub fn init(registry: &mut Registry){
-    
+
     registry.register(Module {
         checker: Box::new(checker),
         handler: Box::new(handler),

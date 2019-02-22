@@ -198,7 +198,7 @@ impl<'a> Converter<'a> {
                     self.update_progress(
                         &mut statement,
                         format!("{:.2}", (seconds / file_info.duration) * 100.0),
-                        qid
+                        qid,
                     )?;
                 }
             }

@@ -1,11 +1,11 @@
 extern crate regex;
 
-use super::{Registry, Module, HandleData};
-use lib::{self, Error, Request, db};
+use super::{HandleData, Module, Registry};
 use lib::downloader::Filename;
-use std::fs::remove_file;
-use std::fs::remove_dir_all;
+use lib::{self, db, Error, Request};
 use std::fs::create_dir;
+use std::fs::remove_dir_all;
+use std::fs::remove_file;
 use std::path::Path;
 
 use CODE_IN_PROGRESS;
@@ -64,24 +64,24 @@ fn checker_playlist(data: &Request) -> bool {
 fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<(), Error> {
     trace!("youtube playlist handler started");
     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
-    
+
     let name = Filename {
-            name: handle_db.downloader.get_playlist_name(&request.url)?,
-            extension: "zip".to_string(),
+        name: handle_db.downloader.get_playlist_name(&request.url)?,
+        extension: "zip".to_string(),
     };
     let mut step: i32 = 1;
-    
+
     db::set_query_state(&mut request.get_conn(), &request.qid, "1/?");
     trace!("crawling ids");
     let file_ids = handle_db.downloader.get_playlist_ids(request)?;
-    
+
     if request.split {
         trace!("creating new requests for playlist entries");
         let mut current_url: String;
         for id in file_ids.iter() {
             current_url = String::from(YT_VIDEO_URL);
             current_url.push_str(&id);
-            db::add_sub_query(&current_url,&request)?;
+            db::add_sub_query(&current_url, &request)?;
         }
     } else {
         let save_path = lib::format_save_path(&request.path, &name)?;
@@ -91,12 +91,12 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         let mut warnings = false;
         let mut current_url: String;
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
-        
+
         let max_steps = file_ids.len() as i32 + 2;
-        db::update_steps(&mut request.get_conn(), &request.qid, 2,max_steps);
+        db::update_steps(&mut request.get_conn(), &request.qid, 2, max_steps);
         for id in file_ids.iter() {
             step += 1;
-            db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
+            db::update_steps(&mut request.get_conn(), &request.qid, step, max_steps);
             current_url = String::from(YT_VIDEO_URL);
             current_url.push_str(&id);
             request.url = current_url.clone();
@@ -114,18 +114,17 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
             debug!("found warnings");
             db::add_query_error(&mut request.get_conn(), &request.qid, &failed_log);
         }
-        
+
         step += 1;
-        db::update_steps(&mut request.get_conn(), &request.qid, step,max_steps);
+        db::update_steps(&mut request.get_conn(), &request.qid, step, max_steps);
         trace!("starting zipping");
         lib::zip_folder(&request.temp_path, &save_path)?;
         trace!("adding file");
         handle_db.addFile(&save_path, &name.full_name());
-        trace!("removing dir {}",request.path.to_string_lossy());
+        trace!("removing dir {}", request.path.to_string_lossy());
         remove_dir_all(&request.path)?;
         trace!("updating state");
     }
-
 
     Ok(())
 }
@@ -141,9 +140,9 @@ fn handle_file(handle_db: &mut HandleData, request: &mut Request) -> Result<(), 
 fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), Error> {
     trace!("youtube file handler started");
     if request.quality < 0 {
-        handle_audio(handle_db,request)?
+        handle_audio(handle_db, request)?
     } else {
-        handle_video(handle_db,request)?
+        handle_video(handle_db, request)?
     }
 
     Ok(())
@@ -151,7 +150,10 @@ fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), 
 
 /// Handler for videos
 fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
-    condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
+    condition!(
+        db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),
+        !request.playlist
+    );
     let mut temp_file_v = request.temp_path.clone();
     temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
@@ -177,21 +179,38 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     } else {
         CONFIG.codecs.yt.audio_normal_webm
     };
-    
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
+
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 1, 3),
+        !request.playlist
+    );
     trace!("downloading video");
-    hdb.downloader.download_file(&request, &temp_file_v, &request.quality.to_string())?;
-    
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
+    hdb.downloader
+        .download_file(&request, &temp_file_v, &request.quality.to_string())?;
+
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 2, 3),
+        !request.playlist
+    );
     let mut temp_file_a = request.temp_path.clone();
     temp_file_a.push(format!("{}a", request.qid));
     hdb.push(&temp_file_a);
     trace!("downloading audio");
-    hdb.downloader.download_file(&request, &temp_file_a, &audio_id.to_string())?;
+    hdb.downloader
+        .download_file(&request, &temp_file_a, &audio_id.to_string())?;
 
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 3, 3),
+        !request.playlist
+    );
     trace!("merging");
-    hdb.converter.merge_files(&request.qid, &temp_file_v, &temp_file_a, &save_file,&mut request.get_conn())?;
+    hdb.converter.merge_files(
+        &request.qid,
+        &temp_file_v,
+        &temp_file_a,
+        &save_file,
+        &mut request.get_conn(),
+    )?;
     if !request.playlist {
         hdb.addFile(&save_file, &origin_name);
     }
@@ -205,7 +224,10 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
 
 /// Handler for audios
 fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
-    condition!(db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),!request.playlist);
+    condition!(
+        db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),
+        !request.playlist
+    );
     let mut dmca = false;
     let quality = get_audio_quality(&request.quality)?;
 
@@ -213,7 +235,10 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     temp_file_v.push(request.qid.to_string());
     hdb.push(&temp_file_v);
 
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 1,3),!request.playlist);
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 1, 3),
+        !request.playlist
+    );
     let mut name = get_name(&hdb, &request, false, false, &temp_file_v, &mut dmca)?;
 
     if dmca {
@@ -225,24 +250,34 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
         }
         return Ok(());
     }
-    
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 2,3),!request.playlist);
-    hdb.downloader.download_file(&request, &temp_file_v, &quality)?;
 
-    if request.quality == CONFIG.codecs.audio_raw ||
-       request.quality == CONFIG.codecs.audio_source_hq {
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 2, 3),
+        !request.playlist
+    );
+    hdb.downloader
+        .download_file(&request, &temp_file_v, &quality)?;
+
+    if request.quality == CONFIG.codecs.audio_raw
+        || request.quality == CONFIG.codecs.audio_source_hq
+    {
         name.extension = String::from("m4a");
     } else if request.quality == CONFIG.codecs.audio_mp3 {
         name.extension = String::from("mp3");
     }
-    
-    condition!(db::update_steps(&mut request.get_conn(), &request.qid, 3,3),!request.playlist);
+
+    condition!(
+        db::update_steps(&mut request.get_conn(), &request.qid, 3, 3),
+        !request.playlist
+    );
     let file = lib::format_save_path(&request.path, &name)?;
-    hdb.converter.extract_audio(&request.qid,
-                                     &temp_file_v,
-                                     &file,
-                                     request.quality == CONFIG.codecs.audio_mp3,
-                                     &mut request.get_conn())?;
+    hdb.converter.extract_audio(
+        &request.qid,
+        &temp_file_v,
+        &file,
+        request.quality == CONFIG.codecs.audio_mp3,
+        &mut request.get_conn(),
+    )?;
     remove_file(&temp_file_v)?;
     hdb.pop();
     if !request.playlist {
@@ -252,28 +287,27 @@ fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
     Ok(())
 }
 
-
 /// Retrive name of youtube video
 /// If we should encounter an DMCA we'll let the lib call handle this
 /// (if enabled), this gives us a downloaded file and the name
 /// In this case we only need to move the file to it's destination
 /// If use_quality is true, the name will be retrived for the request's quality
-fn get_name<'a>(hdb: &HandleData,
-                request: &Request,
-                use_qality: bool,
-                video: bool,
-                path: &Path,
-                dmca: &'a mut bool)
-                -> Result<Filename, Error> {
+fn get_name<'a>(
+    hdb: &HandleData,
+    request: &Request,
+    use_qality: bool,
+    video: bool,
+    path: &Path,
+    dmca: &'a mut bool,
+) -> Result<Filename, Error> {
     let quality = if use_qality {
         Some(request.quality.to_string())
     } else {
         None
     };
-    Ok(match hdb.downloader.get_file_name(&request.url, quality) { // get filename
-        Ok(v) => {
-            v
-        }
+    Ok(match hdb.downloader.get_file_name(&request.url, quality) {
+        // get filename
+        Ok(v) => v,
         Err(Error::DMCAError) => {
             // now request via lib.. // k if( k == Err(DownloadError::DMCAError) )
             info!("DMCA error!");
@@ -281,12 +315,14 @@ fn get_name<'a>(hdb: &HandleData,
                 if !request.split {
                     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
                 }
-                match hdb.downloader.lib_request_video(1,
-                                                       0,
-                                                       path,
-                                                       request,
-                                                       &request.quality.to_string(),
-                                                       video) {
+                match hdb.downloader.lib_request_video(
+                    1,
+                    0,
+                    path,
+                    request,
+                    &request.quality.to_string(),
+                    video,
+                ) {
                     Err(err) => {
                         warn!("lib-call error {:?}", err);
                         return Err(err);
@@ -328,19 +364,33 @@ mod test {
 
     #[test]
     fn regex() {
-        assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
+        assert!(REGEX_VIDEO.is_match(
+            r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"
+        ));
         assert!(REGEX_VIDEO.is_match(r"http://m.youtube.com/watch?v=IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://m.youtube.com/watch?v=IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"http://youtu.be/IO-_EoRSpUA"));
         assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
-        assert!(REGEX_VIDEO.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
-        assert!(!REGEX_VIDEO.is_match(r"https://www.youtube.com/playlist?list=PLJYiF4qyO-fpaYWfTylcFu3VGUCVK4xfz"));
+        assert!(REGEX_VIDEO.is_match(
+            r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"
+        ));
+        assert!(!REGEX_VIDEO
+            .is_match(r"https://www.youtube.com/playlist?list=PLJYiF4qyO-fpaYWfTylcFu3VGUCVK4xfz"));
 
-        assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/playlist?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv"));
-        assert!(REGEX_PLAYLIST.is_match(r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"));
-        assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/playlist?list=PLBCC15D0E3ED5E67A"));
-        assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&index=2&list=PLBCC15D0E3ED5E67A"));
-        assert!(REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"));
+        assert!(REGEX_PLAYLIST
+            .is_match(r"https://m.youtube.com/playlist?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv"));
+        assert!(REGEX_PLAYLIST.is_match(
+            r"https://m.youtube.com/watch?list=PLTXoSHLJey0RR60hjLhuUAaj_ftAdShqv&v=IO-_EoRSpUA"
+        ));
+        assert!(
+            REGEX_PLAYLIST.is_match(r"https://www.youtube.com/playlist?list=PLBCC15D0E3ED5E67A")
+        );
+        assert!(REGEX_PLAYLIST.is_match(
+            r"https://www.youtube.com/watch?v=IO-_EoRSpUA&index=2&list=PLBCC15D0E3ED5E67A"
+        ));
+        assert!(REGEX_PLAYLIST.is_match(
+            r"https://www.youtube.com/watch?v=IO-_EoRSpUA&list=PL6DA1502C5DDC0317&index=21"
+        ));
         assert!(!REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
     }
 

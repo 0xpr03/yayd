@@ -141,7 +141,7 @@ impl Downloader {
                             self.update_progress(
                                 &request.qid,
                                 &mut statement,
-                                cap.get(1).unwrap().as_str()
+                                cap.get(1).unwrap().as_str(),
                             )?;
                         }
                         None => (),
@@ -325,17 +325,20 @@ impl Downloader {
         get_video: bool,
     ) -> Result<Filename, Error> {
         let _guard = self.lock.read()?;
-        let mut child =
-            self.lib_request_video_cmd(&request.url, file_path, quality, get_video)?;
+        let mut child = self.lib_request_video_cmd(&request.url, file_path, quality, get_video)?;
         trace!("Requesting video via lib..");
-        let stdout = BufReader::new(child
-            .stdout
-            .take()
-            .ok_or(Error::InternalError("stdout socket error!".into()))?);
-        let mut stderr_buffer = BufReader::new(child
-            .stderr
-            .take()
-            .ok_or(Error::InternalError("stderr socket error".into()))?);
+        let stdout = BufReader::new(
+            child
+                .stdout
+                .take()
+                .ok_or(Error::InternalError("stdout socket error!".into()))?,
+        );
+        let mut stderr_buffer = BufReader::new(
+            child
+                .stderr
+                .take()
+                .ok_or(Error::InternalError("stderr socket error".into()))?,
+        );
 
         let re = regex!(r"step (\d)");
 
