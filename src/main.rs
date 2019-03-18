@@ -33,7 +33,7 @@ use lib::Error;
 use std::sync::Arc;
 use timer::Timer;
 
-const VERSION: &'static str = "0.6.3";
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const CONFIG_PATH: &'static str = "config.cfg";
 const C_USER_AGENT: &'static str = "hyper/yayd (github.com/0xpr03/yayd)";
 const LOG_CONFIG: &'static str = "logger.yaml";

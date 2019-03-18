@@ -1,6 +1,6 @@
 [package]
 name = "yayd-backend"
-version = "0.6.3"
+version = "0.6.4"
 authors = ["Aron Heinecke <Ox0p54r36@t-online.de>"]
 
 [[bin]]
