@@ -135,7 +135,7 @@ impl From<io::Error> for Error {
             "descr:{} kind:{:?} cause:{:?} id:{:?}",
             err.description(),
             err.kind(),
-            err.cause(),
+            err.source(),
             err.raw_os_error()
         ))
     }
@@ -158,7 +158,7 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
         Error::InternalError(format!(
             "descr:{} cause:{:?}",
             err.description(),
-            err.cause()
+            err.source()
         ))
     }
 }

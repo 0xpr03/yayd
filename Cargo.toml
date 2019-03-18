@@ -7,7 +7,7 @@ authors = ["Aron Heinecke <Ox0p54r36@t-online.de>"]
 name = "yayd-backend"
 
 [profile.release]
-lto = "fat"
+lto = true
 
 [dependencies]
 lazy_static = "1"
