@@ -9,7 +9,7 @@ addons:
 services: mariadb
 before_script:
  - sh -c "mysql -e 'create database yayd'"
- - if [ ! -f "/tmp/ffmpeg-64bit-static/ffmpeg" ]; then wget "http://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz" -q -O "/tmp/ffmpeg.tar.xz"; fi
+ - if [ ! -f "/tmp/ffmpeg-64bit-static/ffmpeg" ]; then wget "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz" -q -O "/tmp/ffmpeg.tar.xz"; fi
  - if [ ! -f "/tmp/ffmpeg-64bit-static/ffmpeg" ]; then mkdir "/tmp/ffmpeg-64bit-static/"; tar -xf "/tmp/ffmpeg.tar.xz" -C "/tmp/ffmpeg-64bit-static" --strip-components=1 ; chmod +x "/tmp/ffmpeg-64bit-static/ffmpeg" "/tmp/ffmpeg-64bit-static/ffprobe" "/tmp/ffmpeg-64bit-static/qt-faststart"; fi
  - wget --no-check-certificate "https://yt-dl.org/downloads/latest/youtube-dl" -O "/tmp/youtube-dl"
  - chmod +x "/tmp/youtube-dl"
