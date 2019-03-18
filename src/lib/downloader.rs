@@ -19,7 +19,8 @@ use json::JsonValue;
 
 use lib;
 
-const UPDATE_VERSION_URL: &'static str = "https://rg3.github.io/youtube-dl/update/versions.json"; // youtube-dl version check url
+const UPDATE_VERSION_URL: &'static str =
+    "https://ytdl-org.github.io/youtube-dl/update/versions.json"; // youtube-dl version check url
 const UPDATE_DOWNLOAD_URL: &'static str = "https://yt-dl.org/downloads/latest/youtube-dl"; // youtube-dl update url
 const UPDATE_VERSION_KEY: &'static str = "latest"; // key in the json map
 const VERSIONS_KEY: &'static str = "versions"; // key for versions sub group
