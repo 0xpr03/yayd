@@ -11,12 +11,6 @@
  * Setup SQL for required tables
  * Please leave the uid column in `queries` even if you don't want multi-user support
  */
- 
- 
-/*
- *Required table file format 'barracuda' for compression, and strict mode to sensure the correct creation of it.
- *MySQL won't notice you of a failed creation without compression otherwise.
- */
 
 /*
  * Yayd job table
@@ -31,7 +25,7 @@ CREATE TABLE `queries` (
  PRIMARY KEY (`qid`),
  KEY `created` (`created`),
  KEY `uid` (`uid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PAGE_COMPRESSED=1;
 
 /*
  * If a query is an playlist job, all details are stored in this table.
@@ -44,7 +38,7 @@ CREATE TABLE `playlists` (
  `to` smallint(6) NOT NULL,
  `split` tinyint(1) NOT NULL,
  PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PAGE_COMPRESSED=1;
 
 /*
  * Table for progress information which are changing rapidly.
@@ -77,7 +71,7 @@ CREATE TABLE `files` (
  KEY `valid` (`valid`),
  KEY `delete` (`delete`),
  KEY `created` (`created`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PAGE_COMPRESSED=1;
 
 /*
  * Table with logged error messages for queries
@@ -86,7 +80,7 @@ CREATE TABLE `queryerror` (
  `qid` int(10) unsigned NOT NULL,
  `msg` text NOT NULL,
  PRIMARY KEY (`qid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PAGE_COMPRESSED=1;
 
 /*
  * Used if log subqueries is enabled for non-zipped queries
@@ -95,7 +89,7 @@ CREATE TABLE `subqueries` (
  `qid` int(10) unsigned NOT NULL,
  `origin_id` int(10) unsigned NOT NULL,
  PRIMARY KEY (`qid`,`origin_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPRESSED;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 PAGE_COMPRESSED=1;
 
 /*
  * For file-query relations
