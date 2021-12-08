@@ -7,6 +7,8 @@ use std::convert::Into;
 use std::error::Error as EType;
 use std::io::prelude::*;
 use std::io::BufReader;
+#[cfg(target_os = "linux")]
+use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
@@ -78,6 +80,13 @@ impl Downloader {
     /// Returns true on success
     pub fn startup_test(&self) -> bool {
         info!("Testing yt-dl settings");
+        let ytdl_path = self.ytdl_path();
+        if ytdl_path.exists() {
+            if let Err(e) = Self::check_ytdl_perm(&ytdl_path) {
+                error!("Can't set required permissions on {:?}: {:?}",ytdl_path,e);
+                return false;
+            }
+        }
         if self.defaults.youtube_dl_auto_update {
             match self.update_downloader() {
                 Ok(_) => true,
@@ -584,7 +593,7 @@ impl Downloader {
 
         let guard_ = self.lock.write()?;
         // check for existence of lib
-        let download_file = self.cmd_path.join(YTDL_NAME);
+        let download_file = self.ytdl_path();
         let backup_file = self.cmd_path.join("ytdl_backup");
         let r_version = Downloader::get_latest_version()?;
         debug!("Latest version: {}", r_version.version);
@@ -621,10 +630,29 @@ impl Downloader {
 
         http::http_download(&version.url, &file_path)?;
         debug!("yt-dl updated");
-        match lib::check_SHA256(&file_path, &version.sha256)? {
-            true => Ok(()),
-            false => Err(Error::InternalError("Hash mismatch".into())),
+        if !lib::check_SHA256(&file_path, &version.sha256)? {
+            return Err(Error::InternalError("Hash mismatch".into()));
         }
+
+        Self::check_ytdl_perm(file_path)?;
+
+        Ok(())
+    }
+
+    fn ytdl_path(&self) -> PathBuf {
+        self.cmd_path.join(YTDL_NAME)
+    }
+
+    fn check_ytdl_perm(path: &Path) -> Result<(), Error> {
+        #[cfg(target_os = "linux")]
+        {
+            let file = std::fs::File::open(path)?;
+            let metadata = file.metadata()?;
+            let mut permissions = metadata.permissions();
+            permissions.set_mode(0o744);
+        }
+
+        Ok(())
     }
 }
 
