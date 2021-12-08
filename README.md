@@ -1,7 +1,7 @@
-# yayd [![Build Status](https://travis-ci.org/0xpr03/yayd.svg?branch=master)](https://travis-ci.org/0xpr03/yayd)
+# yayd [![Build](https://github.com/0xpr03/yayd/actions/workflows/build.yml/badge.svg)](https://github.com/0xpr03/yayd/actions/workflows/build.yml)
 
 ## About:  
-YAYD is intended as backend for [youtube-dl] / aka yt-dl. It's purpose is processing download jobs which are fetched from a Database. You probably want to
+YAYD is intended as backend for [yt-dl] / aka yt-dl. It's purpose is processing download jobs which are fetched from a Database. You probably want to
 let it run over a webserver, using it as online service.
 It was born out of ISP related problems and has multi-user support, can delete stored files from jobs after a time and supports proxies.
 Currently there are only modules for youtube, twitch and soundcloud, feel free to extend them. (See [Hacking Yayd](#hacking-yayd))
@@ -10,7 +10,7 @@ Currently there are only modules for youtube, twitch and soundcloud, feel free t
 
 Required:  
 * [FFMPEG] for conversions ([linux static builds](https://www.johnvansickle.com/ffmpeg/))
-* [python] 2.6, 2.7, or 3.2+ for [youtube-dl], which is called & kept up to date by yayd
+* [python] 2.6, 2.7, or 3.2+ for [yt-dl], which is called & kept up to date by yayd
 * [mariaDB]/MySQL
 
 1. Use a [release] build or build yayd from source with [rust]: `cargo build --release`
@@ -26,7 +26,7 @@ A frontend example is vailable under [yayd-frontend] and [looks like this](docs/
 ## Hacking Yayd
 
 Every supported site has it's own handler module inside [src/handler](src/handler/)  
-All library stuff, including [youtube-dl] and [ffmpeg] bindings are inside [src/lib](src/lib/)  
+All library stuff, including [yt-dl] and [ffmpeg] bindings are inside [src/lib](src/lib/)  
 The Request struct used by every handler is inside [lib/mod.rs](src/lib/mod.rs#L36).
 In general every request has an URL, quality code and information about whether it's an playlist request or not.
 (A youtube URL for a single video can include a playlist tag.)
@@ -111,7 +111,7 @@ WebM (303) doesn't have this problem.
 
 There is currently no multithreading support, meaning one job at a time. This is intentional and prevents DOS-Blocks (captcha requests) by some sites.
 
-   [youtube-dl]: <https://yt-dl.org>
+   [yt-dl]: <https://github.com/yt-dlp/yt-dlp>
    [FFMPEG]: <http://ffmpeg.org/>
    [mariadb]: <https://mariadb.org/>
    [rust]: <http://rust-lang.org/>
