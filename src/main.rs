@@ -54,7 +54,7 @@ lazy_static! {
         println!("Starting yayd-backend v{}", &VERSION);
         config::init_config()
     };
-    pub static ref SLEEP_TIME: std::time::Duration = { std::time::Duration::new(5, 0) };
+    pub static ref SLEEP_TIME: std::time::Duration = std::time::Duration::new(5, 0);
 }
 
 //#[allow(non_camel_case_types)]

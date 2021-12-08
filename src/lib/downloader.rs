@@ -137,7 +137,7 @@ impl Downloader {
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = request.get_conn();
-        let mut statement = prep_progress_updater(&mut conn)?;
+        let statement = prep_progress_updater(&mut conn)?;
 
         for line in stdout.lines() {
             match line {
@@ -651,7 +651,6 @@ impl Downloader {
             let mut permissions = metadata.permissions();
             permissions.set_mode(0o744);
         }
-
         Ok(())
     }
 }
@@ -672,7 +671,7 @@ struct GHRelease {
 struct GHAsset {
     name: String,
     browser_download_url: String,
-    content_type: String,
+    // content_type: String,
 }
 
 #[cfg(test)]

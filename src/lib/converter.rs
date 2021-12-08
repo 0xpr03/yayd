@@ -108,7 +108,7 @@ impl<'a> Converter<'a> {
         trace!("started merge process");
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
 
-        let mut statement = self.prepare_progress_updater(conn);
+        let statement = self.prepare_progress_updater(conn);
         let re = regex!(r"frame=\s*(\d+)");
 
         let mut buf = vec![];
@@ -171,7 +171,7 @@ impl<'a> Converter<'a> {
 
         let mut stdout = BufReader::new(child.stderr.take().unwrap());
 
-        let mut statement = self.prepare_progress_updater(conn);
+        let statement = self.prepare_progress_updater(conn);
         let re = regex!(r"time=(\d+):(\d+):(\d+.?\d*)");
 
         let mut buf = vec![];

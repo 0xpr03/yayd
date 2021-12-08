@@ -172,7 +172,7 @@ pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool, Err
 
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
-    let n = io::copy(&mut file, &mut hasher)?;
+    io::copy(&mut file, &mut hasher)?;
     let result = format!("{:X}", hasher.finalize());
     let result = result.to_lowercase();
     let is_matching = result == expected;

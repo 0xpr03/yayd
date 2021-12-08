@@ -50,7 +50,7 @@ fn get_raw(url: &str, htype: HeaderType) -> Result<Response, Error> {
 /// Do an http(s) get request, returning text
 pub fn http_text_get(url: &str) -> Result<String, Error> {
     trace!("Starting request {}", url);
-    let mut response = get_raw(url, HeaderType::Ajax)?;
+    let response = get_raw(url, HeaderType::Ajax)?;
     Ok(response.text()?)
 }
 
@@ -58,7 +58,7 @@ pub fn http_text_get(url: &str) -> Result<String, Error> {
 pub fn http_json_get<T>(url: &str) -> Result<T, Error>
 where T: DeserializeOwned {
     trace!("Starting request {}", url);
-    let mut response = get_raw(url, HeaderType::Ajax)?;
+    let response = get_raw(url, HeaderType::Ajax)?;
     let body = response.text()?;
     match serde_json::from_str(&body) {
         Err(e) => {

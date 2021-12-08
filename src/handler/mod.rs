@@ -79,9 +79,9 @@ impl<'a> HandleData<'a> {
 /// Every handler (XY.rs) can register multiple modules, see youtube.rs for example
 pub struct Module {
     /// Checking module, returning true if it's able to handle the URL
-    checker: Box<Fn(&Request) -> bool>,
+    checker: Box<dyn Fn(&Request) -> bool>,
     /// Handler, called when the checking module returns true
-    handler: Box<Fn(&mut HandleData, &mut Request) -> Result<(), Error>>,
+    handler: Box<dyn Fn(&mut HandleData, &mut Request) -> Result<(), Error>>,
 }
 
 /// Registry holding all available modules
