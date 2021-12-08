@@ -1,12 +1,12 @@
 extern crate log;
 extern crate log4rs;
-use lib::get_executable_folder;
+use crate::lib::get_executable_folder;
 
 use std;
 use std::default::Default;
 use std::fs::metadata;
 use std::path::Path;
-use {LOG_CONFIG, LOG_PATTERN};
+use crate::{LOG_CONFIG, LOG_PATTERN};
 
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;

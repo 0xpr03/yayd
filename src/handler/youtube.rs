@@ -1,15 +1,15 @@
 extern crate regex;
 
 use super::{HandleData, Module, Registry};
-use lib::downloader::Filename;
-use lib::{self, db, Error, Request};
+use crate::lib::downloader::Filename;
+use crate::lib::{self, db, Error, Request};
 use std::fs::create_dir;
 use std::fs::remove_dir_all;
 use std::fs::remove_file;
 use std::path::Path;
 
-use CODE_IN_PROGRESS;
-use CONFIG;
+use crate::CODE_IN_PROGRESS;
+use crate::CONFIG;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());

@@ -8,8 +8,8 @@ use std::path::Path;
 
 use std::process::exit;
 
-use lib::{self, l_expect};
-use CONFIG_PATH;
+use crate::lib::{self, l_expect};
+use crate::CONFIG_PATH;
 
 // pub mod config;
 // Config section

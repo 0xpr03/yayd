@@ -8,7 +8,7 @@ pub mod downloader;
 pub mod http;
 pub mod logger;
 
-use lib::downloader::Filename;
+use crate::lib::downloader::Filename;
 
 use mysql;
 use mysql::{Pool, PooledConn};
@@ -23,7 +23,7 @@ use std::io::copy;
 use std::path::{Path, PathBuf};
 use std::{self, io};
 
-use CONFIG;
+use crate::CONFIG;
 
 /// Struct holding all data concerning the request
 pub struct Request {

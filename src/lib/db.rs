@@ -13,13 +13,13 @@ use std::time::Duration;
 
 use super::{Error, Request};
 
-use lib;
+use crate::lib;
 
-use CODE_FAILED_INTERNAL;
-use CODE_IN_PROGRESS;
-use CODE_STARTED;
-use CODE_WAITING;
-use CONFIG;
+use crate::CODE_FAILED_INTERNAL;
+use crate::CODE_IN_PROGRESS;
+use crate::CODE_STARTED;
+use crate::CODE_WAITING;
+use crate::CONFIG;
 
 ///Move result value out, return with none on err & print
 macro_rules! try_reoption {
@@ -454,10 +454,10 @@ mod test {
     use chrono::offset::Local;
     use chrono::Duration;
 
-    use lib;
-    use lib::logger;
-    use lib::Error;
-    use lib::ReqCore;
+    use crate::lib;
+    use crate::lib::logger;
+    use crate::lib::Error;
+    use crate::lib::ReqCore;
 
     fn create_request(playlist: bool, config: &lib::config::Config) -> ReqCore {
         let mut req = ReqCore {

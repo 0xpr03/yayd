@@ -23,14 +23,14 @@ mod lib;
 
 use mysql::Pool;
 
-use handler::init_handlers;
-use handler::Registry;
-use lib::config;
-use lib::converter::Converter;
-use lib::db;
-use lib::downloader::Downloader;
-use lib::logger;
-use lib::Error;
+use crate::handler::init_handlers;
+use crate::handler::Registry;
+use crate::lib::config;
+use crate::lib::converter::Converter;
+use crate::lib::db;
+use crate::lib::downloader::Downloader;
+use crate::lib::logger;
+use crate::lib::Error;
 use std::sync::Arc;
 use timer::Timer;
 

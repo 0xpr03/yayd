@@ -9,9 +9,9 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Duration;
 
-use lib::Error;
+use crate::lib::Error;
 
-use C_USER_AGENT;
+use crate::C_USER_AGENT;
 
 /// Download into file
 pub fn http_download<P: AsRef<Path>>(url: &str, target: P) -> Result<(), Error> {

@@ -2,11 +2,11 @@ mod soundcloud;
 mod twitch;
 mod youtube;
 
-use lib::converter::Converter;
-use lib::db;
-use lib::downloader::Downloader;
-use lib::Error;
-use lib::Request;
+use crate::lib::converter::Converter;
+use crate::lib::db;
+use crate::lib::downloader::Downloader;
+use crate::lib::Error;
+use crate::lib::Request;
 use std::fs::remove_dir_all;
 use std::fs::remove_file;
 use std::path::Path;
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::vec::Vec;
 
-use CONFIG;
+use crate::CONFIG;
 
 /// Structure holding a list of produced and left files
 /// `left_files` is a storage used for temporary files

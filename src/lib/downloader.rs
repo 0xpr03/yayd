@@ -14,12 +14,12 @@ use std::process::{Child, Command, Stdio};
 
 use std::sync::RwLock;
 
-use lib::config::ConfigGen;
-use lib::db::prep_progress_updater;
-use lib::Error;
-use lib::Request;
+use crate::lib::config::ConfigGen;
+use crate::lib::db::prep_progress_updater;
+use crate::lib::Error;
+use crate::lib::Request;
 
-use lib;
+use crate::lib;
 
 const UPDATE_VERSION_URL: &'static str =
     "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"; // youtube-dl version check url
@@ -626,7 +626,7 @@ impl Downloader {
     /// download & verify update
     /// does NOT lock!
     fn inner_update(&self, file_path: &Path, version: &Version) -> Result<(), Error> {
-        use lib::http;
+        use crate::lib::http;
 
         http::http_download(&version.url, &file_path)?;
         debug!("yt-dl updated");

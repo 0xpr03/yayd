@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::str;
 
-use lib::Error;
+use crate::lib::Error;
 
 use mysql::PooledConn;
 use mysql::Statement;

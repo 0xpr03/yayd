@@ -1,13 +1,13 @@
 extern crate regex;
 
 use super::{HandleData, Module, Registry};
-use lib::db;
-use lib::{self, Error, Request};
+use crate::lib::db;
+use crate::lib::{self, Error, Request};
 use std::fs::create_dir;
 use std::fs::remove_dir_all;
 use std::fs::rename;
 
-use CODE_IN_PROGRESS;
+use crate::CODE_IN_PROGRESS;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
