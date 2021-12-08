@@ -60,7 +60,7 @@ fn init_config() {
         root_builder = root_builder.appender(APPENDER_FILE);
     }
 
-    let root = root_builder.build(LevelFilter::max());
+    let root = root_builder.build(LevelFilter::Warn);
 
     let mut config_builder = Config::builder()
         .appender(Appender::builder().build(APPENDER_STDOUT, Box::new(stdout_appender)));
@@ -69,11 +69,12 @@ fn init_config() {
             .appender(Appender::builder().build(APPENDER_FILE, Box::new(file_appender.unwrap())));
     }
 
-    config_builder = config_builder.logger(Logger::builder().build("hyper", LevelFilter::Warn));
+    config_builder = config_builder.logger(Logger::builder().build("yayd_backend", LevelFilter::max()));
 
     let config = config_builder.build(root).unwrap();
 
     println!("Log fallback init: {}", log4rs::init_config(config).is_ok());
+    trace!("Log fallback init");
 
     if !file_success {
         // print after log init, useless otherwise

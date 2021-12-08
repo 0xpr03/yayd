@@ -1,5 +1,7 @@
 extern crate regex;
-use mysql::Stmt;
+use mysql::PooledConn;
+use mysql::Statement;
+use mysql::prelude::Queryable;
 
 use std::convert::Into;
 use std::error::Error as EType;
@@ -11,30 +13,30 @@ use std::process::{Child, Command, Stdio};
 use std::sync::RwLock;
 
 use lib::config::ConfigGen;
-use lib::db::prepare_progress_updater;
+use lib::db::prep_progress_updater;
 use lib::Error;
 use lib::Request;
-
-use json::JsonValue;
 
 use lib;
 
 const UPDATE_VERSION_URL: &'static str =
-    "https://ytdl-org.github.io/youtube-dl/update/versions.json"; // youtube-dl version check url
-const UPDATE_DOWNLOAD_URL: &'static str = "https://yt-dl.org/downloads/latest/youtube-dl"; // youtube-dl update url
-const UPDATE_VERSION_KEY: &'static str = "latest"; // key in the json map
-const VERSIONS_KEY: &'static str = "versions"; // key for versions sub group
-const VERSION_BIN_KEY: &'static str = "bin"; // key for versions sub group
-const VERSION_SHA_INDEX: usize = 1;
-const YTDL_NAME: &'static str = "youtube-dl"; // name of the python program file
+    "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"; // youtube-dl version check url
+const UPDATE_SHA256_FILE: &'static str = "SHA2-256SUMS";
+#[cfg(not(target_os = "windows"))]
+const YTDL_NAME: &'static str = "yt-dlp"; // name of the python program file
+#[cfg(target_os = "windows")]
+const YTDL_NAME: &'static str = "yt-dlp.exe"; // name of the python program file
+const UPDATE_ASSET_NAME: &'static str = YTDL_NAME;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
 );
 
+#[derive(Debug)]
 pub struct Version {
     version: String,
     sha256: String,
+    url: String,
 }
 
 lazy_static! {
@@ -98,6 +100,7 @@ impl Downloader {
     /// Returns the version
     /// Does not check for the guard!
     pub fn version(&self) -> Result<String, Error> {
+        trace!("Checking own version");
         let result = self.ytdl_base().arg("--version").output()?;
         if result.status.success() {
             Ok(String::from_utf8_lossy(&result.stdout).trim().to_string())
@@ -125,7 +128,7 @@ impl Downloader {
         let mut stderr_buffer = BufReader::new(child.stderr.take().unwrap());
 
         let mut conn = request.get_conn();
-        let mut statement = prepare_progress_updater(&mut conn)?;
+        let mut statement = prep_progress_updater(&mut conn)?;
 
         for line in stdout.lines() {
             match line {
@@ -141,7 +144,8 @@ impl Downloader {
                             debug!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
                             self.update_progress(
                                 &request.qid,
-                                &mut statement,
+                                &mut conn,
+                                &statement,
                                 cap.get(1).unwrap().as_str(),
                             )?;
                         }
@@ -542,37 +546,33 @@ impl Downloader {
     }
 
     /// Executes the progress update statement.
-    fn update_progress(&self, qid: &u64, stmt: &mut Stmt, progress: &str) -> Result<(), Error> {
-        stmt.execute((progress, qid)).map(|_| Ok(()))?
+    fn update_progress(&self, qid: &u64, conn: &mut PooledConn, stmt: &Statement, progress: &str) -> Result<(), Error> {
+        conn.exec_drop(stmt, (progress, qid))?;
+        Ok(())
         //-> only return errors, ignore the return value of stmt.execute
     }
 
     /// Returns the latest upstream version number and sha256
     pub fn get_latest_version() -> Result<Version, Error> {
-        let mut json = lib::http::http_json_get(UPDATE_VERSION_URL)?;
-        let version = match &mut json[UPDATE_VERSION_KEY] {
-            &mut JsonValue::Null => {
-                return Err(Error::InternalError("Version key not found!".into()));
-            }
-            r_version => r_version
-                .take_string()
-                .ok_or(Error::InternalError("Version value is not a str!".into()))?,
+        let release: GHRelease = lib::http::http_json_get(UPDATE_VERSION_URL)?;
+        let version = release.tag_name;
+        let hashes = {
+            let sha256_asset = match release.assets.iter().find(|v|v.name == UPDATE_SHA256_FILE) {
+                Some(v) => v,
+                None => return Err(Error::InternalError("SHA256 asset not found!".into())),
+            };
+            lib::http::http_text_get(&sha256_asset.browser_download_url)?
         };
-        let sha256 = match &mut json[VERSIONS_KEY][&version][VERSION_BIN_KEY][VERSION_SHA_INDEX] {
-            // [VERSION_BIN_KEY];
-            &mut JsonValue::Null => {
-                return Err(Error::InternalError("SHA256 key not found!".into()));
-            }
-            r_sha256 => {
-                debug!("sha: {:?}", r_sha256);
-                r_sha256
-                    .take_string()
-                    .ok_or(Error::InternalError("SHA256 value is not an str!".into()))?
-            }
-        };
+        let sha256 = parse_hashfile(&hashes)?;
+        let asset_url = match release.assets.into_iter().find(|v|v.name == UPDATE_ASSET_NAME) {
+            Some(v) => v.browser_download_url,
+            None => return Err(Error::InternalError("yt-dlp asset not found!".into())),
+        };        
+        
         Ok(Version {
             version: version,
-            sha256: sha256,
+            sha256: sha256.to_owned(),
+            url: asset_url,
         })
     }
 
@@ -592,7 +592,7 @@ impl Downloader {
             let version = self.version()?;
             debug!("Current version: {}", version);
             if version != r_version.version {
-                match self.inner_update(&download_file, &r_version.sha256) {
+                match self.inner_update(&download_file, &r_version) {
                     Ok(_) => {}
                     Err(v) => {
                         // rollback to old version
@@ -608,7 +608,7 @@ impl Downloader {
                 trace!("equal version");
             }
         } else {
-            self.inner_update(&download_file, &r_version.sha256)?;
+            self.inner_update(&download_file, &r_version)?;
         }
         drop(guard_);
         Ok(())
@@ -616,16 +616,35 @@ impl Downloader {
 
     /// download & verify update
     /// does NOT lock!
-    fn inner_update(&self, file_path: &Path, sha2: &str) -> Result<(), Error> {
+    fn inner_update(&self, file_path: &Path, version: &Version) -> Result<(), Error> {
         use lib::http;
 
-        http::http_download(UPDATE_DOWNLOAD_URL, &file_path)?;
+        http::http_download(&version.url, &file_path)?;
         debug!("yt-dl updated");
-        match lib::check_SHA256(&file_path, sha2)? {
+        match lib::check_SHA256(&file_path, &version.sha256)? {
             true => Ok(()),
             false => Err(Error::InternalError("Hash mismatch".into())),
         }
     }
+}
+
+fn parse_hashfile(input: &str) -> Result<&str, Error> {
+    input.split('\n').find(|c| c.ends_with(UPDATE_ASSET_NAME))
+        .map(|v|v.split(" ").next().unwrap().trim())
+        .ok_or(Error::InternalError("Hash entry not found!".into()))
+}
+
+#[derive(Debug, Deserialize)]
+struct GHRelease {
+    tag_name: String,
+    assets: Vec<GHAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GHAsset {
+    name: String,
+    browser_download_url: String,
+    content_type: String,
 }
 
 #[cfg(test)]
@@ -641,6 +660,14 @@ mod test {
 
     #[test]
     fn latest_version() {
-        assert!(Downloader::get_latest_version().is_ok())
+        let version = Downloader::get_latest_version().unwrap();
+        dbg!(version);
+    }
+
+    #[test]
+    fn hash_parsing() {
+        let data = include_str!("../../tests/SHA2-256SUMS.txt");
+        let expected = "5c37c8f9aaf8cc12faea034de96deb5794b7177f071425ce69dad3f315335559";
+        assert_eq!(expected,parse_hashfile(data).unwrap());
     }
 }

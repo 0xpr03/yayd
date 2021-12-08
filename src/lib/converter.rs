@@ -11,7 +11,8 @@ use std::str;
 use lib::Error;
 
 use mysql::PooledConn;
-use mysql::Stmt;
+use mysql::Statement;
+use mysql::prelude::Queryable;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -132,7 +133,8 @@ impl<'a> Converter<'a> {
                     debug!("frame: {}", cap.get(1).unwrap().as_str());
                     cur_frame = cap.get(1).unwrap().as_str().parse::<f32>().unwrap();
                     self.update_progress(
-                        &mut statement,
+                        conn,
+                        &statement,
                         format!("{:.2}", (cur_frame / file_info.frames) * 100.0),
                         qid,
                     )?;
@@ -196,7 +198,8 @@ impl<'a> Converter<'a> {
                     let seconds: f32 =
                         seconds as f32 + cap.get(3).unwrap().as_str().parse::<f32>().unwrap();
                     self.update_progress(
-                        &mut statement,
+                        conn,
+                        &statement,
                         format!("{:.2}", (seconds / file_info.duration) * 100.0),
                         qid,
                     )?;
@@ -338,15 +341,16 @@ impl<'a> Converter<'a> {
     }
 
     // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-    fn prepare_progress_updater(&'a self, conn: &'a mut PooledConn) -> Stmt<'a> {
+    fn prepare_progress_updater(&'a self, conn: &'a mut PooledConn) -> Statement {
         // no livetime needed: struct livetime used
-        conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?")
+        conn.prep("UPDATE querydetails SET progress = ? WHERE qid = ?")
             .unwrap()
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self, stmt: &mut Stmt, progress: String, qid: &u64) -> Result<(), Error> {
+    fn update_progress(&self, conn: &'a mut PooledConn, stmt: &Statement, progress: String, qid: &u64) -> Result<(), Error> {
         trace!("updating progress {}", progress);
-        stmt.execute((&progress, qid)).map(|_| Ok(()))?
+        conn.exec_drop(stmt,(&progress, qid))?;
+        Ok(())
     }
 }

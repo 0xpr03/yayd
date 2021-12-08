@@ -168,22 +168,12 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
 #[allow(non_snake_case)]
 pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool, Error> {
     use sha2::{Digest, Sha256};
-    use std::io::{ErrorKind, Read};
     trace!("Checking SHA256..");
 
     let mut file = File::open(path)?;
-    let mut sha2 = Sha256::default();
-    let mut buf = [0; 1024];
-    loop {
-        let len = match file.read(&mut buf) {
-            Ok(0) => break,
-            Ok(len) => len,
-            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
-            Err(e) => return Err(e.into()),
-        };
-        sha2.input(&buf[..len]);
-    }
-    let result = format!("{:X}", sha2.result());
+    let mut hasher = Sha256::new();
+    let n = io::copy(&mut file, &mut hasher)?;
+    let result = format!("{:X}", hasher.finalize());
     let result = result.to_lowercase();
     let is_matching = result == expected;
     if !is_matching {

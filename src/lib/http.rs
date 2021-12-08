@@ -1,10 +1,9 @@
-use json;
-use json::JsonValue;
 use reqwest::header::HeaderMap;
 use reqwest::header::{
     ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_ENCODING, LOCATION, USER_AGENT,
 };
-use reqwest::{Client, Response};
+use reqwest::blocking::{Client, Response};
+use serde::de::DeserializeOwned;
 
 use std::fs::File;
 use std::path::Path;
@@ -48,12 +47,25 @@ fn get_raw(url: &str, htype: HeaderType) -> Result<Response, Error> {
     Ok(res)
 }
 
-/// Do an http(s) get request, returning JSON
-pub fn http_json_get(url: &str) -> Result<JsonValue, Error> {
+/// Do an http(s) get request, returning text
+pub fn http_text_get(url: &str) -> Result<String, Error> {
     trace!("Starting request {}", url);
     let mut response = get_raw(url, HeaderType::Ajax)?;
+    Ok(response.text()?)
+}
 
-    json::parse(&response.text()?).map_err(|e| Error::InternalError(format!("Parsing error {}", e)))
+/// Do an http(s) get request, returning JSON
+pub fn http_json_get<T>(url: &str) -> Result<T, Error>
+where T: DeserializeOwned {
+    trace!("Starting request {}", url);
+    let mut response = get_raw(url, HeaderType::Ajax)?;
+    let body = response.text()?;
+    match serde_json::from_str(&body) {
+        Err(e) => {
+            Err(Error::InternalError(format!("Parsing error {} for {}", e,body)))
+        },
+        Ok(v) => Ok(v),
+    }
 }
 
 /// Construct a header
@@ -90,10 +102,12 @@ fn header(htype: HeaderType) -> HeaderMap {
 
 #[cfg(test)]
 mod test {
+    use serde_json::Value;
+
     use super::*;
 
     #[test]
     fn get_ajax() {
-        assert!(http_json_get("https://httpbin.org/user-agent").is_ok());
+        assert!(http_json_get::<Value>("https://httpbin.org/user-agent").is_ok());
     }
 }

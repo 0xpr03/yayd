@@ -12,7 +12,8 @@ extern crate log4rs;
 extern crate lazy_static;
 extern crate chrono;
 extern crate flate2;
-extern crate json;
+extern crate serde_json;
+extern crate serde;
 extern crate reqwest;
 extern crate sha2;
 extern crate timer;
@@ -84,14 +85,14 @@ fn main() {
     let converter = Converter::new(&CONFIG.general.ffmpeg_bin_dir, &CONFIG.general.mp3_quality);
 
     if !converter.startup_test() {
-        error!("Converter self test failed! Exiting");
+        error!("Converter self test failed! Shutting down");
         return;
     }
 
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
 
     if !downloader.startup_test() {
-        error!("Downloader self test failed! Exiting");
+        error!("Downloader self test failed! Shutting down");
         return;
     }
 

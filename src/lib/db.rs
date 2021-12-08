@@ -1,7 +1,7 @@
 extern crate regex;
 
-use mysql::Stmt;
-use mysql::{from_row_opt, Value};
+use mysql::prelude::Queryable;
+use mysql::{from_row_opt, Value, Statement, TxOpts, Row};
 use mysql::{Opts, OptsBuilder};
 use mysql::{Pool, PooledConn};
 
@@ -41,15 +41,6 @@ macro_rules! try_return {
                 warn!("{}", e);
                 return;
             }
-        }
-    };
-}
-
-macro_rules! try_option {
-    ($e:expr) => {
-        match $e {
-            Some(x) => x,
-            None => return None,
         }
     };
 }
@@ -133,19 +124,14 @@ pub fn db_connect(opts: Opts, sleep_time: Option<Duration>) -> Pool {
 
 /// Set state of query
 pub fn set_query_state(conn: &mut PooledConn, qid: &u64, state: &str) {
-    // same here
-    let mut stmt = try_return!(
-        conn.prepare("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?")
-    );
-    let result = stmt.execute((&state, &0, qid)); // why is this var needed ?!
-    match result {
+    match conn.exec_drop("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?",(&state, &0, qid)) {
         Ok(_) => (),
         Err(why) => error!("Error setting query state: {}", why),
     }
 }
 
 pub fn clear_query_states(conn: &mut PooledConn) {
-    let affected = try_return!(conn.prep_exec(
+    let affected = try_return!(conn.exec_iter(
         "UPDATE `querydetails` SET `code` = ?, `status` = NULL WHERE `code` = ? OR `code` = ?",
         (CODE_FAILED_INTERNAL, CODE_STARTED, CODE_IN_PROGRESS)
     ))
@@ -161,13 +147,9 @@ pub fn clear_query_states(conn: &mut PooledConn) {
 ///
 /// Saves table space for finished downloads & sets progress to 100
 pub fn set_null_state(conn: &mut PooledConn, qid: &u64) {
-    let mut stmt = try_return!(
-        conn.prepare("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?")
-    );
-    let result = stmt.execute((qid,));
-    match result {
+    match conn.exec_drop("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?", (qid,)) {
         Ok(_) => (),
-        Err(why) => error!("Error setting query sate: {}", why),
+        Err(why) => error!("Error setting query null sate: {}", why),
     }
 }
 
@@ -176,11 +158,7 @@ pub fn set_null_state(conn: &mut PooledConn, qid: &u64) {
 pub fn set_query_code(conn: &mut PooledConn, qid: &u64, code: &i8) {
     // same here
     trace!("Setting query code {} for id {}", code, qid);
-    let mut stmt = conn
-        .prepare("UPDATE querydetails SET code = ? WHERE qid = ?")
-        .unwrap();
-    let result = stmt.execute((&code, &qid));
-    match result {
+    match conn.exec_drop("UPDATE querydetails SET code = ? WHERE qid = ?",(&code, &qid)) {
         Ok(_) => (),
         Err(why) => error!("Error inserting querystatus: {}", why),
     }
@@ -192,10 +170,10 @@ pub fn update_steps(conn: &mut PooledConn, qid: &u64, ref step: i32, ref max_ste
     set_query_state(conn, qid, &format!("{}|{}", step, max_steps));
 }
 
-/// Prepares the progress update statement.
+/// preps the progress update statement.
 // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-pub fn prepare_progress_updater(conn: &mut PooledConn) -> Result<Stmt, Error> {
-    match conn.prepare("UPDATE querydetails SET progress = ? WHERE qid = ?") {
+pub fn prep_progress_updater(conn: &mut PooledConn) -> Result<Statement, Error> {
+    match conn.prep("UPDATE querydetails SET progress = ? WHERE qid = ?") {
         Ok(v) => Ok(v),
         Err(e) => Err(From::from(e)), // because implementing type conversion for non self declared types isn't allowed
     }
@@ -211,16 +189,12 @@ pub fn add_file_entry(
     trace!("name: {}", name);
     let fid: u64;
     {
-        let mut stmt = conn
-            .prepare("INSERT INTO files (rname,name,valid) VALUES (?,?,?)")
-            .unwrap();
-        let result = stmt.execute((&real_name, &name, &true))?;
-        fid = result.last_insert_id();
+        let result = conn.exec_iter("INSERT INTO files (rname,name,valid) VALUES (?,?,?)",(&real_name, &name, &true))?;
+        fid = result.last_insert_id().unwrap();
     }
     {
         if CONFIG.general.link_files {
-            let mut stmt = conn.prepare("INSERT INTO `query_files` (qid,fid) VALUES(?,?)")?;
-            stmt.execute((&qid, &fid))?;
+            conn.exec_drop("INSERT INTO `query_files` (qid,fid) VALUES(?,?)",(&qid, &fid))?;
         }
     }
     Ok(fid)
@@ -228,11 +202,7 @@ pub fn add_file_entry(
 
 /// Add query status msg for error reporting
 pub fn add_query_error(conn: &mut PooledConn, qid: &u64, status: &str) {
-    let mut stmt = conn
-        .prepare("INSERT INTO queryerror (qid,msg) VALUES (?,?)")
-        .unwrap();
-    let result = stmt.execute((&qid, &status));
-    match result {
+    match conn.exec_drop("INSERT INTO queryerror (qid,msg) VALUES (?,?)",(&qid, &status)) {
         Ok(_) => (),
         Err(why) => error!("Error inserting query error: {}", why),
     }
@@ -244,8 +214,7 @@ pub fn add_sub_query(url: &str, request: &Request) -> Result<u64, Error> {
 
     if CONFIG.general.link_subqueries {
         let mut conn = request.get_conn();
-        let mut stmt = conn.prepare("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)")?;
-        stmt.execute((&id, &request.qid))?;
+        conn.exec_drop("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)",(&id, &request.qid))?;
     }
 
     Ok(id)
@@ -270,15 +239,11 @@ fn _insert_query(
 ) -> Result<u64, Error> {
     let id: u64;
     {
-        let mut stmt = conn.prepare(
-            "INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",
-        )?;
-        let result = stmt.execute((url, quality, uid, r_type))?;
-        id = result.last_insert_id();
+        let result = conn.exec_iter("INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",(url, quality, uid, r_type))?;
+        id = result.last_insert_id().unwrap();
     }
     {
-        let mut stmt = conn.prepare("INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)")?;
-        stmt.execute((&id, &CODE_WAITING))?;
+        conn.exec_drop("INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)",(&id, &CODE_WAITING))?;
     }
     Ok(id)
 }
@@ -290,18 +255,25 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
         STConnection::Conn(x) => x,
     };
 
-    let mut row;
+    let mut row: Row;
     {
-        let mut stmt = try_reoption!(db_conn.prepare(
+        row = match db_conn.query_first(
             "SELECT queries.qid,url,quality,`split`,`from`,`to`,uid,`type` FROM queries \
              JOIN querydetails ON queries.qid = querydetails.qid \
              LEFT JOIN playlists ON queries.qid = playlists.qid \
              WHERE querydetails.code = -1 \
              ORDER BY queries.created \
              LIMIT 1"
-        ));
-        let mut result = try_reoption!(stmt.execute(()));
-        row = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
+        ) {
+            Ok(Some(v)) => v,
+            Ok(None) => return None,
+            Err(e) => {
+                warn!("{}", e);
+                return None;
+            }
+        }
+        // let mut result = try_reoption!(stmt.execute(()));
+        // row = try_reoption!(try_option!(result.next())); // result.next().'Some'->value.'unwrap'
     }
 
     trace!("row: {:?}", row);
@@ -340,8 +312,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
 
 /// Mark file as to be deleted via delete flag
 pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<(), Error> {
-    let mut stmt = conn.prepare("UPDATE files SET `delete` = ? WHERE fid = ?")?;
-    stmt.execute((delete, fid))?;
+    conn.exec_drop("UPDATE files SET `delete` = ? WHERE fid = ?", (delete, fid))?;
     Ok(())
 }
 
@@ -364,15 +335,13 @@ pub fn get_files_to_delete(
             DeleteRequestType::Marked => String::from("WHERE files.`delete` = 1 AND `valid` = 1"),
         };
     debug!("sql: {}", sql);
-    let mut stmt = conn.prepare(&sql)?;
     let mut qids = Vec::new();
     let mut files = Vec::new();
-    for result in stmt.execute(())? {
+    for result in conn.exec_iter(sql,())? {
         let (qid, fid, name) = from_row_opt::<(u64, u64, String)>(result?)?;
         qids.push(qid);
         files.push((fid, name));
     }
-    drop(stmt);
     qids.sort();
     qids.dedup();
     Ok((qids, files))
@@ -380,8 +349,8 @@ pub fn get_files_to_delete(
 
 /// Set file valid flag
 pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<(), Error> {
-    let mut stmt = conn.prepare("UPDATE `files` SET `valid` = ? WHERE `fid` = ?")?;
-    if stmt.execute((valid, fid))?.affected_rows() != 1 {
+    if conn.exec_iter("UPDATE `files` SET `valid` = ? WHERE `fid` = ?",(valid, fid))?
+        .affected_rows() != 1 {
         return Err(Error::InternalError(String::from(format!(
             "Invalid affected lines count!"
         ))));
@@ -391,14 +360,12 @@ pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Res
 
 /// Set DBMS connection settings
 pub fn mysql_options(conf: &lib::config::Config) -> Opts {
-    let mut builder = OptsBuilder::new();
-    builder
+    OptsBuilder::new()
         .ip_or_hostname(Some(conf.db.ip.clone()))
         .tcp_port(conf.db.port)
         .user(Some(conf.db.user.clone()))
         .pass(Some(conf.db.password.clone()))
-        .db_name(Some(conf.db.db.clone()));
-    builder.into()
+        .db_name(Some(conf.db.db.clone())).into()
 }
 
 /// Delete request or file entry
@@ -410,20 +377,20 @@ pub fn delete_requests(
     qids: Vec<u64>,
     files: Vec<(u64, String)>,
 ) -> Result<(), Error> {
-    let mut transaction = conn.start_transaction(false, None, None)?;
+    let mut transaction = conn.start_transaction(TxOpts::default())?;
 
     {
-        let mut stmt = transaction.prepare("DELETE FROM files WHERE fid = ?")?;
+        let stmt = transaction.prep("DELETE FROM files WHERE fid = ?")?;
         for (fid, _) in files {
-            stmt.execute((&fid,))?;
+            transaction.exec_drop(&stmt,(&fid,))?;
         }
     }
 
     let delete_sql_tmpl = "DELETE FROM %db% WHERE qid = ?";
     for db in REQ_DB_TABLES.iter() {
-        let mut stmt = transaction.prepare(delete_sql_tmpl.replace("%db%", db))?;
+        let stmt = transaction.prep(delete_sql_tmpl.replace("%db%", db))?;
         for qid in &qids {
-            stmt.execute((qid,))?;
+            transaction.exec_drop(&stmt,(qid,))?;
         }
     }
     transaction.commit()?;
@@ -436,7 +403,7 @@ pub fn delete_requests(
 fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(), Error> {
     let tables = get_db_create_sql();
     for a in tables {
-        conn.query(if temp {
+        conn.query_drop(if temp {
             a.replace("CREATE TABLE", "CREATE TEMPORARY TABLE")
         } else {
             a
@@ -523,23 +490,22 @@ mod test {
     }
 
     fn setup(conn: &mut PooledConn) {
-        use super::setup_db;
         let _ = setup_db(conn, true);
     }
 
     fn get_status(conn: &mut PooledConn, qid: &u64) -> (i8, Option<f64>, Option<String>) {
         let mut stmt = conn
-            .prepare("SELECT `code`,`progress`,`status` FROM `querydetails` WHERE `qid`=?")
+            .prep("SELECT `code`,`progress`,`status` FROM `querydetails` WHERE `qid`=?")
             .unwrap();
-        let mut result = stmt.execute((qid,)).unwrap();
+        let mut result = conn.exec_iter(&stmt,(qid,)).unwrap();
         mysql::from_row(result.next().unwrap().unwrap())
     }
 
     fn get_error(conn: &mut PooledConn, qid: &u64) -> Option<String> {
         let mut stmt = conn
-            .prepare("SELECT `msg` FROM `queryerror` WHERE `qid`=?")
+            .prep("SELECT `msg` FROM `queryerror` WHERE `qid`=?")
             .unwrap();
-        let mut result = stmt.execute((qid,)).unwrap();
+        let mut result = conn.exec_iter(&stmt,(qid,)).unwrap();
         result.next().unwrap().unwrap().take("msg")
     }
 
@@ -548,8 +514,8 @@ mod test {
         let qid = super::_insert_query(&req.url, &req.quality, &req.uid, &req.r_type, conn)?;
         if req.playlist {
             let mut stmt = conn
-                .prepare("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")?;
-            let _ = stmt.execute((qid, req.from, req.to, req.split))?;
+                .prep("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")?;
+            let _ = conn.exec_iter(&stmt,(qid, req.from, req.to, req.split))?;
         }
         Ok(qid)
     }
@@ -557,22 +523,22 @@ mod test {
     /// Set last update check date, used for deletion checks
     fn set_file_created(conn: &mut PooledConn, qid: &u64, date: NaiveDateTime) {
         let mut stmt = conn
-            .prepare("UPDATE files SET `created`= ? WHERE fid = ?")
+            .prep("UPDATE files SET `created`= ? WHERE fid = ?")
             .unwrap();
-        assert!(stmt.execute((date, qid)).is_ok());
+        assert!(conn.exec_iter(&stmt,(date, qid)).is_ok());
     }
 
     /// Get fid,name, r_name of files for qid to test against an insertion
     /// Retrusn an Vec<(fid,name,rname)>
     fn get_files(conn: &mut PooledConn, qid: &u64) -> Vec<(u64, String, String)> {
         let mut stmt = conn
-            .prepare(
+            .prep(
                 "SELECT files.fid,name, rname FROM files \
                  JOIN `query_files` ON files.fid = query_files.fid \
                  WHERE query_files.qid = ? ORDER BY fid",
             )
             .unwrap();
-        let result = stmt.execute((qid,)).unwrap();
+        let result = conn.exec_iter(&stmt,(qid,)).unwrap();
         let a: Vec<(u64, String, String)> = result.map(|row| from_row(row.unwrap())).collect();
         a
     }
@@ -638,7 +604,7 @@ mod test {
 
         let sql = "SELECT COUNT(*) as amount FROM %db% WHERE 1";
         for db in REQ_DB_TABLES.iter() {
-            let mut res = conn.prep_exec(sql.replace("%db%", db), ()).unwrap();
+            let mut res = conn.exec_iter(sql.replace("%db%", db), ()).unwrap();
             let amount: i32 = res.next().unwrap().unwrap().take("amount").unwrap();
             assert_eq!(amount, 0);
         }
