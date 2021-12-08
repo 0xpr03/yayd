@@ -393,5 +393,4 @@ mod test {
         ));
         assert!(!REGEX_PLAYLIST.is_match(r"https://www.youtube.com/watch?v=IO-_EoRSpUA"));
     }
-
 }

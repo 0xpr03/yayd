@@ -1,7 +1,7 @@
 extern crate regex;
+use mysql::prelude::Queryable;
 use mysql::PooledConn;
 use mysql::Statement;
-use mysql::prelude::Queryable;
 
 use std::convert::Into;
 use std::io::prelude::*;
@@ -15,8 +15,8 @@ use std::sync::RwLock;
 
 use crate::lib::config::ConfigGen;
 use crate::lib::db::prep_progress_updater;
-use crate::lib::{Error, Result};
 use crate::lib::Request;
+use crate::lib::{Error, Result};
 
 use crate::lib;
 
@@ -82,7 +82,7 @@ impl Downloader {
         let ytdl_path = self.ytdl_path();
         if ytdl_path.exists() {
             if let Err(e) = Self::check_ytdl_perm(&ytdl_path) {
-                error!("Can't set required permissions on {:?}: {:?}",ytdl_path,e);
+                error!("Can't set required permissions on {:?}: {:?}", ytdl_path, e);
                 return false;
             }
         }
@@ -121,12 +121,7 @@ impl Downloader {
     /// file_path specifies the download location.
     /// DMCA errors will get thrown.
     /// download_audio option: ignore the specified quality & download CONFIG.codecs.yt.audio_normal quality for split containers
-    fn download_file_in(
-        &self,
-        request: &Request,
-        file_path: &Path,
-        quality: &str,
-    ) -> Result<bool> {
+    fn download_file_in(&self, request: &Request, file_path: &Path, quality: &str) -> Result<bool> {
         trace!("{:?}", request.url);
 
         trace!("quality: {}", quality);
@@ -417,12 +412,7 @@ impl Downloader {
     }
 
     /// Formats the download command.
-    fn run_download_process(
-        &self,
-        file_path: &Path,
-        url: &str,
-        quality: &str,
-    ) -> Result<Child> {
+    fn run_download_process(&self, file_path: &Path, url: &str, quality: &str) -> Result<Child> {
         Ok(self
             .ytdl_base()
             .arg("--newline")
@@ -531,7 +521,13 @@ impl Downloader {
     }
 
     /// Executes the progress update statement.
-    fn update_progress(&self, qid: &u64, conn: &mut PooledConn, stmt: &Statement, progress: &str) -> Result<()> {
+    fn update_progress(
+        &self,
+        qid: &u64,
+        conn: &mut PooledConn,
+        stmt: &Statement,
+        progress: &str,
+    ) -> Result<()> {
         conn.exec_drop(stmt, (progress, qid))?;
         Ok(())
         //-> only return errors, ignore the return value of stmt.execute
@@ -542,18 +538,22 @@ impl Downloader {
         let release: GHRelease = lib::http::http_json_get(UPDATE_VERSION_URL)?;
         let version = release.tag_name;
         let hashes = {
-            let sha256_asset = match release.assets.iter().find(|v|v.name == UPDATE_SHA256_FILE) {
+            let sha256_asset = match release.assets.iter().find(|v| v.name == UPDATE_SHA256_FILE) {
                 Some(v) => v,
                 None => return Err(Error::InternalError("SHA256 asset not found!".into())),
             };
             lib::http::http_text_get(&sha256_asset.browser_download_url)?
         };
         let sha256 = parse_hashfile(&hashes)?;
-        let asset_url = match release.assets.into_iter().find(|v|v.name == UPDATE_ASSET_NAME) {
+        let asset_url = match release
+            .assets
+            .into_iter()
+            .find(|v| v.name == UPDATE_ASSET_NAME)
+        {
             Some(v) => v.browser_download_url,
             None => return Err(Error::InternalError("yt-dlp asset not found!".into())),
-        };        
-        
+        };
+
         Ok(Version {
             version: version,
             sha256: sha256.to_owned(),
@@ -632,8 +632,10 @@ impl Downloader {
 }
 
 fn parse_hashfile(input: &str) -> Result<&str> {
-    input.split('\n').find(|c| c.ends_with(UPDATE_ASSET_NAME))
-        .map(|v|v.split(" ").next().unwrap().trim())
+    input
+        .split('\n')
+        .find(|c| c.ends_with(UPDATE_ASSET_NAME))
+        .map(|v| v.split(" ").next().unwrap().trim())
         .ok_or(Error::InternalError("Hash entry not found!".into()))
 }
 
@@ -671,6 +673,6 @@ mod test {
     fn hash_parsing() {
         let data = include_str!("../../tests/SHA2-256SUMS.txt");
         let expected = "5c37c8f9aaf8cc12faea034de96deb5794b7177f071425ce69dad3f315335559";
-        assert_eq!(expected,parse_hashfile(data).unwrap());
+        assert_eq!(expected, parse_hashfile(data).unwrap());
     }
 }

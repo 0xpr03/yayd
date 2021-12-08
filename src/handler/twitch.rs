@@ -89,5 +89,4 @@ mod test {
         assert!(REGEX_VIDEO.is_match(r"https://secure.twitch.tv/fleddi/v/68777299"));
         assert!(!REGEX_VIDEO.is_match(r"https://www.twitch.tv/fleddi/profile"));
     }
-
 }

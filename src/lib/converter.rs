@@ -10,9 +10,9 @@ use std::str;
 
 use crate::lib::{Error, Result};
 
+use mysql::prelude::Queryable;
 use mysql::PooledConn;
 use mysql::Statement;
-use mysql::prelude::Queryable;
 
 macro_rules! regex(
     ($s:expr) => (regex::Regex::new($s).unwrap());
@@ -310,11 +310,7 @@ impl<'a> Converter<'a> {
         }
     }
 
-    fn run_audio_extract_to_mp3(
-        &self,
-        video_file: &Path,
-        output_file: &Path,
-    ) -> Result<Child> {
+    fn run_audio_extract_to_mp3(&self, video_file: &Path, output_file: &Path) -> Result<Child> {
         let mut command = self.create_ffmpeg_base("ffmpeg");
         command.args(&["-threads", "0"]);
         command.arg("-i");
@@ -348,9 +344,15 @@ impl<'a> Converter<'a> {
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self, conn: &'a mut PooledConn, stmt: &Statement, progress: String, qid: &u64) -> Result<()> {
+    fn update_progress(
+        &self,
+        conn: &'a mut PooledConn,
+        stmt: &Statement,
+        progress: String,
+        qid: &u64,
+    ) -> Result<()> {
         trace!("updating progress {}", progress);
-        conn.exec_drop(stmt,(&progress, qid))?;
+        conn.exec_drop(stmt, (&progress, qid))?;
         Ok(())
     }
 }

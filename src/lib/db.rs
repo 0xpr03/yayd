@@ -1,7 +1,7 @@
 extern crate regex;
 
 use mysql::prelude::Queryable;
-use mysql::{from_row_opt, Value, Statement, TxOpts, Row};
+use mysql::{from_row_opt, Row, Statement, TxOpts, Value};
 use mysql::{Opts, OptsBuilder};
 use mysql::{Pool, PooledConn};
 
@@ -12,7 +12,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crate::lib;
-use crate::lib::{Error, Result, Request};
+use crate::lib::{Error, Request, Result};
 
 use crate::CODE_FAILED_INTERNAL;
 use crate::CODE_IN_PROGRESS;
@@ -123,7 +123,10 @@ pub fn db_connect(opts: Opts, sleep_time: Option<Duration>) -> Pool {
 
 /// Set state of query
 pub fn set_query_state(conn: &mut PooledConn, qid: &u64, state: &str) {
-    match conn.exec_drop("UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?",(&state, &0, qid)) {
+    match conn.exec_drop(
+        "UPDATE querydetails SET status = ? , progress = ? WHERE qid = ?",
+        (&state, &0, qid),
+    ) {
         Ok(_) => (),
         Err(why) => error!("Error setting query state: {}", why),
     }
@@ -146,7 +149,10 @@ pub fn clear_query_states(conn: &mut PooledConn) {
 ///
 /// Saves table space for finished downloads & sets progress to 100
 pub fn set_null_state(conn: &mut PooledConn, qid: &u64) {
-    match conn.exec_drop("UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?", (qid,)) {
+    match conn.exec_drop(
+        "UPDATE querydetails SET status = NULL, progress = 100 WHERE qid = ?",
+        (qid,),
+    ) {
         Ok(_) => (),
         Err(why) => error!("Error setting query null sate: {}", why),
     }
@@ -157,7 +163,10 @@ pub fn set_null_state(conn: &mut PooledConn, qid: &u64) {
 pub fn set_query_code(conn: &mut PooledConn, qid: &u64, code: &i8) {
     // same here
     trace!("Setting query code {} for id {}", code, qid);
-    match conn.exec_drop("UPDATE querydetails SET code = ? WHERE qid = ?",(&code, &qid)) {
+    match conn.exec_drop(
+        "UPDATE querydetails SET code = ? WHERE qid = ?",
+        (&code, &qid),
+    ) {
         Ok(_) => (),
         Err(why) => error!("Error inserting querystatus: {}", why),
     }
@@ -188,12 +197,18 @@ pub fn add_file_entry(
     trace!("name: {}", name);
     let fid: u64;
     {
-        let result = conn.exec_iter("INSERT INTO files (rname,name,valid) VALUES (?,?,?)",(&real_name, &name, &true))?;
+        let result = conn.exec_iter(
+            "INSERT INTO files (rname,name,valid) VALUES (?,?,?)",
+            (&real_name, &name, &true),
+        )?;
         fid = result.last_insert_id().unwrap();
     }
     {
         if CONFIG.general.link_files {
-            conn.exec_drop("INSERT INTO `query_files` (qid,fid) VALUES(?,?)",(&qid, &fid))?;
+            conn.exec_drop(
+                "INSERT INTO `query_files` (qid,fid) VALUES(?,?)",
+                (&qid, &fid),
+            )?;
         }
     }
     Ok(fid)
@@ -201,7 +216,10 @@ pub fn add_file_entry(
 
 /// Add query status msg for error reporting
 pub fn add_query_error(conn: &mut PooledConn, qid: &u64, status: &str) {
-    match conn.exec_drop("INSERT INTO queryerror (qid,msg) VALUES (?,?)",(&qid, &status)) {
+    match conn.exec_drop(
+        "INSERT INTO queryerror (qid,msg) VALUES (?,?)",
+        (&qid, &status),
+    ) {
         Ok(_) => (),
         Err(why) => error!("Error inserting query error: {}", why),
     }
@@ -213,7 +231,10 @@ pub fn add_sub_query(url: &str, request: &Request) -> Result<u64> {
 
     if CONFIG.general.link_subqueries {
         let mut conn = request.get_conn();
-        conn.exec_drop("INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)",(&id, &request.qid))?;
+        conn.exec_drop(
+            "INSERT INTO `subqueries` (qid,origin_id) VALUES(?,?)",
+            (&id, &request.qid),
+        )?;
     }
 
     Ok(id)
@@ -238,11 +259,17 @@ fn _insert_query(
 ) -> Result<u64> {
     let id: u64;
     {
-        let result = conn.exec_iter("INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",(url, quality, uid, r_type))?;
+        let result = conn.exec_iter(
+            "INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",
+            (url, quality, uid, r_type),
+        )?;
         id = result.last_insert_id().unwrap();
     }
     {
-        conn.exec_drop("INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)",(&id, &CODE_WAITING))?;
+        conn.exec_drop(
+            "INSERT INTO `querydetails` (qid,`code`) VALUES(?,?)",
+            (&id, &CODE_WAITING),
+        )?;
     }
     Ok(id)
 }
@@ -262,7 +289,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
              LEFT JOIN playlists ON queries.qid = playlists.qid \
              WHERE querydetails.code = -1 \
              ORDER BY queries.created \
-             LIMIT 1"
+             LIMIT 1",
         ) {
             Ok(Some(v)) => v,
             Ok(None) => return None,
@@ -336,7 +363,7 @@ pub fn get_files_to_delete(
     debug!("sql: {}", sql);
     let mut qids = Vec::new();
     let mut files = Vec::new();
-    for result in conn.exec_iter(sql,())? {
+    for result in conn.exec_iter(sql, ())? {
         let (qid, fid, name) = from_row_opt::<(u64, u64, String)>(result?)?;
         qids.push(qid);
         files.push((fid, name));
@@ -348,8 +375,14 @@ pub fn get_files_to_delete(
 
 /// Set file valid flag
 pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<()> {
-    if conn.exec_iter("UPDATE `files` SET `valid` = ? WHERE `fid` = ?",(valid, fid))?
-        .affected_rows() != 1 {
+    if conn
+        .exec_iter(
+            "UPDATE `files` SET `valid` = ? WHERE `fid` = ?",
+            (valid, fid),
+        )?
+        .affected_rows()
+        != 1
+    {
         return Err(Error::InternalError(String::from(format!(
             "Invalid affected lines count!"
         ))));
@@ -364,7 +397,8 @@ pub fn mysql_options(conf: &lib::config::Config) -> Opts {
         .tcp_port(conf.db.port)
         .user(Some(conf.db.user.clone()))
         .pass(Some(conf.db.password.clone()))
-        .db_name(Some(conf.db.db.clone())).into()
+        .db_name(Some(conf.db.db.clone()))
+        .into()
 }
 
 /// Delete request or file entry
@@ -381,7 +415,7 @@ pub fn delete_requests(
     {
         let stmt = transaction.prep("DELETE FROM files WHERE fid = ?")?;
         for (fid, _) in files {
-            transaction.exec_drop(&stmt,(&fid,))?;
+            transaction.exec_drop(&stmt, (&fid,))?;
         }
     }
 
@@ -389,7 +423,7 @@ pub fn delete_requests(
     for db in REQ_DB_TABLES.iter() {
         let stmt = transaction.prep(delete_sql_tmpl.replace("%db%", db))?;
         for qid in &qids {
-            transaction.exec_drop(&stmt,(qid,))?;
+            transaction.exec_drop(&stmt, (qid,))?;
         }
     }
     transaction.commit()?;
@@ -496,7 +530,7 @@ mod test {
         let mut stmt = conn
             .prep("SELECT `code`,`progress`,`status` FROM `querydetails` WHERE `qid`=?")
             .unwrap();
-        let mut result = conn.exec_iter(&stmt,(qid,)).unwrap();
+        let mut result = conn.exec_iter(&stmt, (qid,)).unwrap();
         mysql::from_row(result.next().unwrap().unwrap())
     }
 
@@ -504,7 +538,7 @@ mod test {
         let mut stmt = conn
             .prep("SELECT `msg` FROM `queryerror` WHERE `qid`=?")
             .unwrap();
-        let mut result = conn.exec_iter(&stmt,(qid,)).unwrap();
+        let mut result = conn.exec_iter(&stmt, (qid,)).unwrap();
         result.next().unwrap().unwrap().take("msg")
     }
 
@@ -512,9 +546,9 @@ mod test {
     fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64> {
         let qid = super::_insert_query(&req.url, &req.quality, &req.uid, &req.r_type, conn)?;
         if req.playlist {
-            let mut stmt = conn
-                .prep("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")?;
-            let _ = conn.exec_iter(&stmt,(qid, req.from, req.to, req.split))?;
+            let mut stmt =
+                conn.prep("INSERT INTO `playlists` (`qid`,`from`,`to`,`split`) VALUES(?,?,?,?)")?;
+            let _ = conn.exec_iter(&stmt, (qid, req.from, req.to, req.split))?;
         }
         Ok(qid)
     }
@@ -524,7 +558,7 @@ mod test {
         let mut stmt = conn
             .prep("UPDATE files SET `created`= ? WHERE fid = ?")
             .unwrap();
-        assert!(conn.exec_iter(&stmt,(date, qid)).is_ok());
+        assert!(conn.exec_iter(&stmt, (date, qid)).is_ok());
     }
 
     /// Get fid,name, r_name of files for qid to test against an insertion
@@ -537,7 +571,7 @@ mod test {
                  WHERE query_files.qid = ? ORDER BY fid",
             )
             .unwrap();
-        let result = conn.exec_iter(&stmt,(qid,)).unwrap();
+        let result = conn.exec_iter(&stmt, (qid,)).unwrap();
         let a: Vec<(u64, String, String)> = result.map(|row| from_row(row.unwrap())).collect();
         a
     }

@@ -12,9 +12,9 @@ extern crate log4rs;
 extern crate lazy_static;
 extern crate chrono;
 extern crate flate2;
-extern crate serde_json;
-extern crate serde;
 extern crate reqwest;
+extern crate serde;
+extern crate serde_json;
 extern crate sha2;
 extern crate timer;
 

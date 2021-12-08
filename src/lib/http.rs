@@ -1,8 +1,8 @@
+use reqwest::blocking::{Client, Response};
 use reqwest::header::HeaderMap;
 use reqwest::header::{
     ACCEPT, ACCEPT_ENCODING, CONNECTION, CONTENT_ENCODING, LOCATION, USER_AGENT,
 };
-use reqwest::blocking::{Client, Response};
 use serde::de::DeserializeOwned;
 
 use std::fs::File;
@@ -56,14 +56,17 @@ pub fn http_text_get(url: &str) -> Result<String> {
 
 /// Do an http(s) get request, returning JSON
 pub fn http_json_get<T>(url: &str) -> Result<T>
-where T: DeserializeOwned {
+where
+    T: DeserializeOwned,
+{
     trace!("Starting request {}", url);
     let response = get_raw(url, HeaderType::Ajax)?;
     let body = response.text()?;
     match serde_json::from_str(&body) {
-        Err(e) => {
-            Err(Error::InternalError(format!("Parsing error {} for {}", e,body)))
-        },
+        Err(e) => Err(Error::InternalError(format!(
+            "Parsing error {} for {}",
+            e, body
+        ))),
         Ok(v) => Ok(v),
     }
 }

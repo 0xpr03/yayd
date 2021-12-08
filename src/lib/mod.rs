@@ -124,7 +124,7 @@ pub enum Error {
     #[error("Database error: `{0}`")]
     MysqlError(#[from] mysql::Error),
     #[error("Database error: `{0}`")]
-    MysqlDeserializeError(#[from] mysql::FromRowError)
+    MysqlDeserializeError(#[from] mysql::FromRowError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

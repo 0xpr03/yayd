@@ -2,11 +2,11 @@ extern crate log;
 extern crate log4rs;
 use crate::lib::get_executable_folder;
 
+use crate::{LOG_CONFIG, LOG_PATTERN};
 use std;
 use std::default::Default;
 use std::fs::metadata;
 use std::path::Path;
-use crate::{LOG_CONFIG, LOG_PATTERN};
 
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
@@ -69,7 +69,8 @@ fn init_config() {
             .appender(Appender::builder().build(APPENDER_FILE, Box::new(file_appender.unwrap())));
     }
 
-    config_builder = config_builder.logger(Logger::builder().build("yayd_backend", LevelFilter::max()));
+    config_builder =
+        config_builder.logger(Logger::builder().build("yayd_backend", LevelFilter::max()));
 
     let config = config_builder.build(root).unwrap();
 
