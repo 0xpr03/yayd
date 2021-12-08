@@ -11,9 +11,8 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 
-use super::{Error, Request};
-
 use crate::lib;
+use crate::lib::{Error, Result, Request};
 
 use crate::CODE_FAILED_INTERNAL;
 use crate::CODE_IN_PROGRESS;
@@ -172,7 +171,7 @@ pub fn update_steps(conn: &mut PooledConn, qid: &u64, ref step: i32, ref max_ste
 
 /// preps the progress update statement.
 // MyPooledConn does only live when MyOpts is alive -> lifetime needs to be declared
-pub fn prep_progress_updater(conn: &mut PooledConn) -> Result<Statement, Error> {
+pub fn prep_progress_updater(conn: &mut PooledConn) -> Result<Statement> {
     match conn.prep("UPDATE querydetails SET progress = ? WHERE qid = ?") {
         Ok(v) => Ok(v),
         Err(e) => Err(From::from(e)), // because implementing type conversion for non self declared types isn't allowed
@@ -185,7 +184,7 @@ pub fn add_file_entry(
     qid: &u64,
     name: &str,
     real_name: &str,
-) -> Result<u64, Error> {
+) -> Result<u64> {
     trace!("name: {}", name);
     let fid: u64;
     {
@@ -209,7 +208,7 @@ pub fn add_query_error(conn: &mut PooledConn, qid: &u64, status: &str) {
 }
 
 /// Create new sub query, exmaple: for un-zipped playlist downloads, per-entry handle
-pub fn add_sub_query(url: &str, request: &Request) -> Result<u64, Error> {
+pub fn add_sub_query(url: &str, request: &Request) -> Result<u64> {
     let id: u64 = insert_query(url, request)?;
 
     if CONFIG.general.link_subqueries {
@@ -221,7 +220,7 @@ pub fn add_sub_query(url: &str, request: &Request) -> Result<u64, Error> {
 }
 
 /// Insert wrapper for requests, differing only url wise
-fn insert_query(url: &str, req: &Request) -> Result<u64, Error> {
+fn insert_query(url: &str, req: &Request) -> Result<u64> {
     let mut conn = req.get_conn();
     match _insert_query(&url, &req.quality, &req.uid, &req.r_type, &mut conn) {
         Err(e) => Err(e),
@@ -236,7 +235,7 @@ fn _insert_query(
     uid: &u32,
     r_type: &i16,
     conn: &mut PooledConn,
-) -> Result<u64, Error> {
+) -> Result<u64> {
     let id: u64;
     {
         let result = conn.exec_iter("INSERT INTO `queries` (url,quality,uid,created,`type`) VALUES(?,?,?,Now(),?)",(url, quality, uid, r_type))?;
@@ -311,7 +310,7 @@ pub fn request_entry<'a, T: Into<STConnection<'a>>>(connection: T) -> Option<Req
 }
 
 /// Mark file as to be deleted via delete flag
-pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<(), Error> {
+pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> Result<()> {
     conn.exec_drop("UPDATE files SET `delete` = ? WHERE fid = ?", (delete, fid))?;
     Ok(())
 }
@@ -321,7 +320,7 @@ pub fn set_file_delete_flag(conn: &mut PooledConn, fid: &u64, delete: bool) -> R
 pub fn get_files_to_delete(
     conn: &mut PooledConn,
     del_type: DeleteRequestType,
-) -> Result<(Vec<u64>, Vec<(u64, String)>), Error> {
+) -> Result<(Vec<u64>, Vec<(u64, String)>)> {
     let sql = String::from(
         "SELECT `query_files`.`qid`,`files`.`fid`,`name` FROM files \
          LEFT JOIN `query_files` ON files.fid = query_files.fid ",
@@ -348,7 +347,7 @@ pub fn get_files_to_delete(
 }
 
 /// Set file valid flag
-pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<(), Error> {
+pub fn set_file_valid_flag(conn: &mut PooledConn, fid: &u64, valid: bool) -> Result<()> {
     if conn.exec_iter("UPDATE `files` SET `valid` = ? WHERE `fid` = ?",(valid, fid))?
         .affected_rows() != 1 {
         return Err(Error::InternalError(String::from(format!(
@@ -376,7 +375,7 @@ pub fn delete_requests(
     conn: &mut PooledConn,
     qids: Vec<u64>,
     files: Vec<(u64, String)>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut transaction = conn.start_transaction(TxOpts::default())?;
 
     {
@@ -400,7 +399,7 @@ pub fn delete_requests(
 /// Setup tables
 /// Created as temporary if specified (valid for the current connection)
 #[cfg(test)]
-fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<(), Error> {
+fn setup_db(conn: &mut PooledConn, temp: bool) -> Result<()> {
     let tables = get_db_create_sql();
     for a in tables {
         conn.query_drop(if temp {
@@ -510,7 +509,7 @@ mod test {
     }
 
     /// Test wrapper, accepting ReqCore structs, with additional playlist insertion over _insert_query
-    fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64, Error> {
+    fn insert_query_core(req: &lib::ReqCore, conn: &mut PooledConn) -> Result<u64> {
         let qid = super::_insert_query(&req.url, &req.quality, &req.uid, &req.r_type, conn)?;
         if req.playlist {
             let mut stmt = conn

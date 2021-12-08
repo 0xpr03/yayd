@@ -9,12 +9,12 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::lib::Error;
+use crate::lib::{Error, Result};
 
 use crate::C_USER_AGENT;
 
 /// Download into file
-pub fn http_download<P: AsRef<Path>>(url: &str, target: P) -> Result<(), Error> {
+pub fn http_download<P: AsRef<Path>>(url: &str, target: P) -> Result<()> {
     let mut response = get_raw(url, HeaderType::Html)?;
     let mut file = File::create(target)?;
     response.copy_to(&mut file)?;
@@ -30,7 +30,7 @@ pub enum HeaderType {
 }
 
 /// Does a raw get request under the provided url & header
-fn get_raw(url: &str, htype: HeaderType) -> Result<Response, Error> {
+fn get_raw(url: &str, htype: HeaderType) -> Result<Response> {
     trace!("Starting request {}", url);
 
     let client = Client::builder()
@@ -48,14 +48,14 @@ fn get_raw(url: &str, htype: HeaderType) -> Result<Response, Error> {
 }
 
 /// Do an http(s) get request, returning text
-pub fn http_text_get(url: &str) -> Result<String, Error> {
+pub fn http_text_get(url: &str) -> Result<String> {
     trace!("Starting request {}", url);
     let response = get_raw(url, HeaderType::Ajax)?;
     Ok(response.text()?)
 }
 
 /// Do an http(s) get request, returning JSON
-pub fn http_json_get<T>(url: &str) -> Result<T, Error>
+pub fn http_json_get<T>(url: &str) -> Result<T>
 where T: DeserializeOwned {
     trace!("Starting request {}", url);
     let response = get_raw(url, HeaderType::Ajax)?;

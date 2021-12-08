@@ -21,6 +21,7 @@ extern crate timer;
 mod handler;
 mod lib;
 
+use color_eyre::eyre::eyre;
 use mysql::Pool;
 
 use crate::handler::init_handlers;
@@ -69,7 +70,7 @@ lazy_static! {
 //    FailedQuality = 11,
 //    FailedUnavailable = 12,
 //}
-fn main() {
+fn main() -> color_eyre::eyre::Result<()> {
     logger::initialize();
     let pool = Arc::new(db::db_connect(
         db::mysql_options(&CONFIG),
@@ -86,14 +87,14 @@ fn main() {
 
     if !converter.startup_test() {
         error!("Converter self test failed! Shutting down");
-        return;
+        return Err(eyre!("Converter self test failed! Shutting down"));
     }
 
     let downloader = Arc::new(Downloader::new(&CONFIG.general));
 
     if !downloader.startup_test() {
         error!("Downloader self test failed! Shutting down");
-        return;
+        return Err(eyre!("Downloader self test failed! Shutting down"));
     }
 
     let handler = init_handlers(downloader.clone(), converter);
@@ -125,6 +126,7 @@ fn main() {
 
     debug!("finished startup");
     main_loop(&*pool, handler);
+    Ok(())
 }
 
 fn main_loop(pool: &Pool, mut handler: Registry) {
@@ -148,15 +150,8 @@ fn main_loop(pool: &Pool, mut handler: Registry) {
                         Error::QualityNotAvailable => CODE_FAILED_QUALITY,
                         Error::UnknownURL => CODE_FAILED_UNKNOWN,
                         _ => {
-                            error!("Unknown Error: {:?}", e);
-                            let details = match e {
-                                Error::DBError(s) => format!("{:?}", s),
-                                Error::DownloadError(s) => s,
-                                Error::FFMPEGError(s) => s,
-                                Error::InternalError(s) => s,
-                                Error::InputError(s) => s,
-                                _ => unreachable!(),
-                            };
+                            error!("Internal Error: {:?}", e);
+                            let details = e.to_string();
                             db::add_query_error(&mut request.get_conn(), &qid, &details);
                             CODE_FAILED_INTERNAL
                         }

@@ -12,6 +12,7 @@ use crate::lib::downloader::Filename;
 
 use mysql;
 use mysql::{Pool, PooledConn};
+use thiserror::Error;
 
 use std::cell::RefCell;
 use std::cell::RefMut;
@@ -91,49 +92,48 @@ impl<'a> Request {
 
 /// Error trait
 /// HandlerWarn is NOT for errors, it's value will be inserted into the warn DB
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// used by downloader lib
+    #[error("Failed to download source: `{0}`")]
     DownloadError(String),
     /// used by converter lib
+    #[error("Failed to convert: `{0}`")]
     FFMPEGError(String),
     /// Content down as of region lock, could be bypassed, see youtube handler
+    #[error("DMCA error, failed to retrieve source")]
     DMCAError,
     /// Unavailable (login, region lock etc)
+    #[error("Source not available, region lock or login required")]
     NotAvailable,
     /// Quality not available => valid input, but unavailable
+    #[error("Quality not vailable for source")]
     QualityNotAvailable,
     /// Error thrown by youtube-dl for some DASH containers, see youtube handler
+    #[error("Website extraction error, can't parse website")]
     ExtractorError,
     /// For wrong quality => invalid input, always unavailable
+    #[error("Invalid quality selected: `{0}`")]
     InputError(String),
     /// Unexpected lib internal error
+    #[error("Internal error: `{0}`")]
     InternalError(String),
     /// Can't handle this URL, no valid handler found
+    #[error("Unknown URL, can't handle this website")]
     UnknownURL,
-    /// used by db lib
-    DBError(mysql::Error),
-    /// used by db lib from row
-    DBRowError(mysql::FromRowError),
+    #[error("Database error: `{0}`")]
+    MysqlError(#[from] mysql::Error),
+    #[error("Database error: `{0}`")]
+    MysqlDeserializeError(#[from] mysql::FromRowError)
 }
 
-impl From<mysql::Error> for Error {
-    fn from(err: mysql::Error) -> Error {
-        Error::DBError(err)
-    }
-}
-
-impl From<mysql::FromRowError> for Error {
-    fn from(err: mysql::FromRowError) -> Error {
-        Error::DBRowError(err)
-    }
-}
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error::InternalError(format!(
             "descr:{} kind:{:?} cause:{:?} id:{:?}",
-            err.description(),
+            err.to_string(),
             err.kind(),
             err.source(),
             err.raw_os_error()
@@ -143,13 +143,13 @@ impl From<io::Error> for Error {
 
 impl From<zip::result::ZipError> for Error {
     fn from(err: zip::result::ZipError) -> Error {
-        Error::InternalError(format!("{}: {}", err, err.description()))
+        Error::InternalError(err.to_string())
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Error {
-        Error::InternalError(format!("{}: {}", err, err.description()))
+        Error::InternalError(err.to_string())
     }
 }
 
@@ -157,7 +157,7 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
     fn from(err: std::sync::PoisonError<T>) -> Error {
         Error::InternalError(format!(
             "descr:{} cause:{:?}",
-            err.description(),
+            err.to_string(),
             err.source()
         ))
     }
@@ -166,7 +166,7 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
 /// Check the SHA256 of a given file against the provided expected output
 /// The expected value has to be in lowercase
 #[allow(non_snake_case)]
-pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool, Error> {
+pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool> {
     use sha2::{Digest, Sha256};
     trace!("Checking SHA256..");
 
@@ -185,7 +185,7 @@ pub fn check_SHA256<P: AsRef<Path>>(path: P, expected: &str) -> Result<bool, Err
 /// Custom expect function logging errors plus custom messages on panic
 /// &'static str to prevent the usage of format!(), which would result in overhead
 #[inline]
-pub fn l_expect<T, E: std::fmt::Debug>(result: Result<T, E>, msg: &'static str) -> T {
+pub fn l_expect<T, E: std::fmt::Debug>(result: std::result::Result<T, E>, msg: &'static str) -> T {
     match result {
         Ok(v) => v,
         Err(e) => {
@@ -196,7 +196,7 @@ pub fn l_expect<T, E: std::fmt::Debug>(result: Result<T, E>, msg: &'static str) 
 }
 
 /// Move file to location
-pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<(), Error> {
+pub fn move_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, destination: Q) -> Result<()> {
     match rename(original, destination) {
         // no try possible..
         Err(v) => Err(v.into()),
@@ -219,7 +219,7 @@ pub fn url_sanitize(input: &str) -> String {
 }
 
 /// Returns a unique path, if the file already exists, a '-X' number will be added to it.
-pub fn format_save_path<'a>(path: &Path, fname: &Filename) -> Result<PathBuf, Error> {
+pub fn format_save_path<'a>(path: &Path, fname: &Filename) -> Result<PathBuf> {
     let clean_name = &url_sanitize(&fname.name);
     let mut path = path.to_path_buf();
 
@@ -241,7 +241,7 @@ pub fn format_save_path<'a>(path: &Path, fname: &Filename) -> Result<PathBuf, Er
 }
 
 /// Zips all files inside folder into one file
-pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
+pub fn zip_folder(folder: &Path, destination: &Path) -> Result<()> {
     trace!("Starting zipping..");
     if metadata(folder)?.is_dir() {
         let output_file = File::create(destination)?;
@@ -269,7 +269,7 @@ pub fn zip_folder(folder: &Path, destination: &Path) -> Result<(), Error> {
 }
 
 /// Returns the current executable folder
-pub fn get_executable_folder() -> Result<std::path::PathBuf, io::Error> {
+pub fn get_executable_folder() -> std::result::Result<std::path::PathBuf, io::Error> {
     let mut folder = current_exe()?;
     folder.pop();
     Ok(folder)
@@ -282,7 +282,7 @@ pub fn delete_files(
     pool: &Pool,
     delete_type: db::DeleteRequestType,
     dir_path: &Path,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut conn = pool.get_conn()?;
     let (qids, mut files) = db::get_files_to_delete(&mut conn, delete_type)?;
 

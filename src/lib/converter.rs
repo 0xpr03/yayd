@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::str;
 
-use crate::lib::Error;
+use crate::lib::{Error, Result};
 
 use mysql::PooledConn;
 use mysql::Statement;
@@ -63,7 +63,7 @@ impl<'a> Converter<'a> {
 
     /// Calls the provided binary of ffmpeg, expecting a '[binary] version] response on stdout
     /// Returns true on success
-    fn test_cmd(&self, command: &str) -> Result<bool, Error> {
+    fn test_cmd(&self, command: &str) -> Result<bool> {
         let mut cmd = self.create_ffmpeg_base(command);
         cmd.arg("-version");
 
@@ -100,7 +100,7 @@ impl<'a> Converter<'a> {
         audio_file: &Path,
         output_file: &Path,
         conn: &mut PooledConn,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let file_info = self.get_file_info(video_file)?;
         trace!("Total frames: {}", file_info.frames);
 
@@ -158,7 +158,7 @@ impl<'a> Converter<'a> {
         output_file: &Path,
         convert_mp3: bool,
         conn: &mut PooledConn,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let file_info = self.get_file_info(video_file)?;
         debug!("duration: {}", file_info.duration);
 
@@ -215,7 +215,7 @@ impl<'a> Converter<'a> {
     }
 
     /// Retrive file information
-    fn get_file_info(&self, video_file: &Path) -> Result<FileInfo, Error> {
+    fn get_file_info(&self, video_file: &Path) -> Result<FileInfo> {
         let stdout = self.run_file_probe(video_file)?;
 
         let regex_duration = regex!(r"duration=(\d+\.?\d*)");
@@ -244,7 +244,7 @@ impl<'a> Converter<'a> {
     }
 
     /// Runs a file probe and returns its output, used in progress calculation
-    fn run_file_probe(&self, video_file: &Path) -> Result<String, Error> {
+    fn run_file_probe(&self, video_file: &Path) -> Result<String> {
         let mut command = self.create_ffmpeg_base("ffprobe");
         command.args(&["-select_streams", "0"]);
         command.args(&["-show_entries", "format=duration:stream=r_frame_rate"]);
@@ -275,7 +275,7 @@ impl<'a> Converter<'a> {
         audio_file: &Path,
         video_file: &Path,
         output_file: &Path,
-    ) -> Result<Child, Error> {
+    ) -> Result<Child> {
         let mut command = self.create_ffmpeg_base("ffmpeg");
         command.args(&["-threads", "0"]);
         command.arg("-i");
@@ -296,7 +296,7 @@ impl<'a> Converter<'a> {
     }
 
     ///Create a ffmpeg instance with the audio extract cmd
-    fn run_audio_extract(&self, video_file: &Path, output_file: &Path) -> Result<Child, Error> {
+    fn run_audio_extract(&self, video_file: &Path, output_file: &Path) -> Result<Child> {
         let mut command = self.create_ffmpeg_base("ffmpeg");
         command.args(&["-threads", "0"]);
         command.arg("-i");
@@ -314,7 +314,7 @@ impl<'a> Converter<'a> {
         &self,
         video_file: &Path,
         output_file: &Path,
-    ) -> Result<Child, Error> {
+    ) -> Result<Child> {
         let mut command = self.create_ffmpeg_base("ffmpeg");
         command.args(&["-threads", "0"]);
         command.arg("-i");
@@ -348,7 +348,7 @@ impl<'a> Converter<'a> {
     }
 
     ///updater called from the stdout progress
-    fn update_progress(&self, conn: &'a mut PooledConn, stmt: &Statement, progress: String, qid: &u64) -> Result<(), Error> {
+    fn update_progress(&self, conn: &'a mut PooledConn, stmt: &Statement, progress: String, qid: &u64) -> Result<()> {
         trace!("updating progress {}", progress);
         conn.exec_drop(stmt,(&progress, qid))?;
         Ok(())

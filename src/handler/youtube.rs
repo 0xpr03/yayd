@@ -2,7 +2,7 @@ extern crate regex;
 
 use super::{HandleData, Module, Registry};
 use crate::lib::downloader::Filename;
-use crate::lib::{self, db, Error, Request};
+use crate::lib::{self, db, Error, Request, Result};
 use std::fs::create_dir;
 use std::fs::remove_dir_all;
 use std::fs::remove_file;
@@ -61,7 +61,7 @@ fn checker_playlist(data: &Request) -> bool {
 /// If compression is enabled all files will be downloaded into one dir and zipped afterwards
 /// Otherwise for every entry in the playlist a new query is created. These will be handled one after another,
 /// creating a file per entry.
-fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<(), Error> {
+fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<()> {
     trace!("youtube playlist handler started");
     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
 
@@ -130,14 +130,14 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
 }
 
 /// Handle file request
-fn handle_file(handle_db: &mut HandleData, request: &mut Request) -> Result<(), Error> {
+fn handle_file(handle_db: &mut HandleData, request: &mut Request) -> Result<()> {
     handle_file_int(handle_db, &request)?;
 
     Ok(())
 }
 
 /// Real handler, avoiding mut Request borrows for internal use
-fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), Error> {
+fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<()> {
     trace!("youtube file handler started");
     if request.quality < 0 {
         handle_audio(handle_db, request)?
@@ -149,7 +149,7 @@ fn handle_file_int(handle_db: &mut HandleData, request: &Request) -> Result<(), 
 }
 
 /// Handler for videos
-fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
+fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<()> {
     condition!(
         db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),
         !request.playlist
@@ -223,7 +223,7 @@ fn handle_video(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
 }
 
 /// Handler for audios
-fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<(), Error> {
+fn handle_audio(hdb: &mut HandleData, request: &Request) -> Result<()> {
     condition!(
         db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS),
         !request.playlist
@@ -299,7 +299,7 @@ fn get_name<'a>(
     video: bool,
     path: &Path,
     dmca: &'a mut bool,
-) -> Result<Filename, Error> {
+) -> Result<Filename> {
     let quality = if use_qality {
         Some(request.quality.to_string())
     } else {
@@ -345,7 +345,7 @@ fn get_name<'a>(
 }
 
 /// Get audio quality to use
-fn get_audio_quality(id: &i16) -> Result<String, Error> {
+fn get_audio_quality(id: &i16) -> Result<String> {
     let id = if *id == CONFIG.codecs.audio_raw {
         CONFIG.codecs.yt.audio_normal_mp4
     } else if *id == CONFIG.codecs.audio_source_hq {

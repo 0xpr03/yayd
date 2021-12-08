@@ -4,7 +4,6 @@ use mysql::Statement;
 use mysql::prelude::Queryable;
 
 use std::convert::Into;
-use std::error::Error as EType;
 use std::io::prelude::*;
 use std::io::BufReader;
 #[cfg(target_os = "linux")]
@@ -16,7 +15,7 @@ use std::sync::RwLock;
 
 use crate::lib::config::ConfigGen;
 use crate::lib::db::prep_progress_updater;
-use crate::lib::Error;
+use crate::lib::{Error, Result};
 use crate::lib::Request;
 
 use crate::lib;
@@ -108,7 +107,7 @@ impl Downloader {
 
     /// Returns the version
     /// Does not check for the guard!
-    pub fn version(&self) -> Result<String, Error> {
+    pub fn version(&self) -> Result<String> {
         trace!("Checking own version");
         let result = self.ytdl_base().arg("--version").output()?;
         if result.status.success() {
@@ -127,7 +126,7 @@ impl Downloader {
         request: &Request,
         file_path: &Path,
         quality: &str,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         trace!("{:?}", request.url);
 
         trace!("quality: {}", quality);
@@ -142,7 +141,7 @@ impl Downloader {
         for line in stdout.lines() {
             match line {
                 Err(why) => {
-                    error!("couldn't read cmd stdout: {}", EType::description(&why));
+                    error!("couldn't read cmd stdout: {}", why);
                     panic!();
                 }
                 Ok(text) => {
@@ -187,7 +186,7 @@ impl Downloader {
         request: &Request,
         file_path: &Path,
         quality: &str,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool> {
         let _guard = self.lock.read()?;
         for attempts in 0..2 {
             match self.download_file_in(&request, file_path, quality) {
@@ -204,7 +203,7 @@ impl Downloader {
     /// Trys to get the original name of a file, while checking for availability
     /// As an ExtractError can appear randomly, bug 11, we're retrying again 2 times if it should occour
     /// Through specifying a quality it's possible to get extension specific for the format.
-    pub fn get_file_name(&self, url: &str, quality: Option<String>) -> Result<Filename, Error> {
+    pub fn get_file_name(&self, url: &str, quality: Option<String>) -> Result<Filename> {
         let _guard = self.lock.read()?;
         for attempts in 0..2 {
             let mut child = self.run_filename_process(url, quality.as_ref())?;
@@ -246,7 +245,7 @@ impl Downloader {
 
     /// Gets the playlist ids needed for furture download requests.
     /// The output is a vector of IDs
-    pub fn get_playlist_ids(&self, request: &Request) -> Result<Vec<String>, Error> {
+    pub fn get_playlist_ids(&self, request: &Request) -> Result<Vec<String>> {
         let _guard = self.lock.read()?;
         let mut child = self.run_playlist_extract(request)?;
         trace!("retrieving playlist ids");
@@ -259,7 +258,7 @@ impl Downloader {
         for line in stdout.lines() {
             match line {
                 Err(why) => {
-                    error!("couldn't read cmd stdout: {}", EType::description(&why));
+                    error!("couldn't read cmd stdout: {}", why);
                     panic!();
                 }
                 Ok(text) => {
@@ -290,7 +289,7 @@ impl Downloader {
     }
 
     /// Retrives the playlist name, will kill the process due to yt-dl starting detailed retrieval afterwards.
-    pub fn get_playlist_name(&self, url: &str) -> Result<String, Error> {
+    pub fn get_playlist_name(&self, url: &str) -> Result<String> {
         let _guard = self.lock.read()?;
         let mut child = self.run_playlist_get_name(url)?;
         let stdout = BufReader::new(child.stdout.take().unwrap());
@@ -301,7 +300,7 @@ impl Downloader {
         for line in stdout.lines() {
             match line {
                 Err(why) => {
-                    error!("couldn't read cmd stdout: {}", EType::description(&why));
+                    error!("couldn't read cmd stdout: {}", why);
                     panic!();
                 }
                 Ok(text) => {
@@ -337,7 +336,7 @@ impl Downloader {
         request: &Request,
         quality: &str,
         get_video: bool,
-    ) -> Result<Filename, Error> {
+    ) -> Result<Filename> {
         let _guard = self.lock.read()?;
         let mut child = self.lib_request_video_cmd(&request.url, file_path, quality, get_video)?;
         trace!("Requesting video via lib..");
@@ -360,7 +359,7 @@ impl Downloader {
         for line in stdout.lines() {
             match line {
                 Err(why) => {
-                    error!("couldn't read cmd stdout: {}", EType::description(&why));
+                    error!("couldn't read cmd stdout: {}", why);
                     panic!();
                 } // we'll abort, kinda the floor vanishing under the feet
                 Ok(text) => {
@@ -423,8 +422,8 @@ impl Downloader {
         file_path: &Path,
         url: &str,
         quality: &str,
-    ) -> Result<Child, Error> {
-        match self
+    ) -> Result<Child> {
+        Ok(self
             .ytdl_base()
             .arg("--newline")
             .arg("--no-warnings")
@@ -438,15 +437,11 @@ impl Downloader {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-        {
-            Err(why) => Err(Error::InternalError(EType::description(&why).into())),
-            Ok(process) => Ok(process),
-        }
+            .spawn()?)
     }
 
     /// Runs the filename retrival process.
-    fn run_filename_process(&self, url: &str, quality: Option<&String>) -> Result<Child, Error> {
+    fn run_filename_process(&self, url: &str, quality: Option<&String>) -> Result<Child> {
         let mut cmd = self.ytdl_base();
         cmd.arg("--get-filename")
             .arg("--no-warnings")
@@ -454,16 +449,12 @@ impl Downloader {
         if quality.is_some() {
             cmd.args(&["-f", &quality.unwrap()]);
         }
-        match cmd
+        Ok(cmd
             .arg(url)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-        {
-            Err(why) => Err(Error::InternalError(EType::description(&why).into())),
-            Ok(process) => Ok(process),
-        }
+            .spawn()?)
     }
 
     /// Generate the lib command.
@@ -474,7 +465,7 @@ impl Downloader {
         file_path: &Path,
         quality: &str,
         get_video: bool,
-    ) -> Result<Child, Error> {
+    ) -> Result<Child> {
         let java_path = Path::new(&self.defaults.lib_dir);
 
         debug!(
@@ -487,7 +478,7 @@ impl Downloader {
             get_video,
             url
         );
-        match Command::new(&self.defaults.lib_bin)
+        Ok(Command::new(&self.defaults.lib_bin)
             .current_dir(&java_path)
             .args(&self.defaults.lib_args)
             .args(&["-q", quality])
@@ -499,18 +490,11 @@ impl Downloader {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-        {
-            Err(why) => {
-                warn!("{:?}", why);
-                Err(Error::InternalError(EType::description(&why).into()))
-            }
-            Ok(process) => Ok(process),
-        }
+            .spawn()?)
     }
 
     /// Runs the playlist extraction process.
-    fn run_playlist_extract(&self, request: &Request) -> Result<Child, Error> {
+    fn run_playlist_extract(&self, request: &Request) -> Result<Child> {
         let mut cmd = self.ytdl_base();
         cmd.arg("-s")
             .arg("--dump-json")
@@ -524,21 +508,17 @@ impl Downloader {
             cmd.arg("--playlist-end");
             cmd.arg(request.to.to_string());
         }
-        match cmd
+        Ok(cmd
             .arg(&request.url)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-        {
-            Err(why) => Err(Error::InternalError(EType::description(&why).into())),
-            Ok(process) => Ok(process),
-        }
+            .spawn()?)
     }
 
     /// Runs the playlist name retrival process.
-    fn run_playlist_get_name(&self, url: &str) -> Result<Child, Error> {
-        match self
+    fn run_playlist_get_name(&self, url: &str) -> Result<Child> {
+        Ok(self
             .ytdl_base()
             .arg("-s")
             .arg("--no-warnings")
@@ -547,22 +527,18 @@ impl Downloader {
             .arg(url)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .spawn()
-        {
-            Err(why) => Err(Error::InternalError(EType::description(&why).into())),
-            Ok(process) => Ok(process),
-        }
+            .spawn()?)
     }
 
     /// Executes the progress update statement.
-    fn update_progress(&self, qid: &u64, conn: &mut PooledConn, stmt: &Statement, progress: &str) -> Result<(), Error> {
+    fn update_progress(&self, qid: &u64, conn: &mut PooledConn, stmt: &Statement, progress: &str) -> Result<()> {
         conn.exec_drop(stmt, (progress, qid))?;
         Ok(())
         //-> only return errors, ignore the return value of stmt.execute
     }
 
     /// Returns the latest upstream version number and sha256
-    pub fn get_latest_version() -> Result<Version, Error> {
+    pub fn get_latest_version() -> Result<Version> {
         let release: GHRelease = lib::http::http_json_get(UPDATE_VERSION_URL)?;
         let version = release.tag_name;
         let hashes = {
@@ -588,7 +564,7 @@ impl Downloader {
     /// Update youtube-dl
     /// Check for version, download update and check for sha2
     /// W-Lcok
-    pub fn update_downloader(&self) -> Result<(), Error> {
+    pub fn update_downloader(&self) -> Result<()> {
         use std::fs::{remove_file, rename};
 
         let guard_ = self.lock.write()?;
@@ -625,7 +601,7 @@ impl Downloader {
 
     /// download & verify update
     /// does NOT lock!
-    fn inner_update(&self, file_path: &Path, version: &Version) -> Result<(), Error> {
+    fn inner_update(&self, file_path: &Path, version: &Version) -> Result<()> {
         use crate::lib::http;
 
         http::http_download(&version.url, &file_path)?;
@@ -643,7 +619,7 @@ impl Downloader {
         self.cmd_path.join(YTDL_NAME)
     }
 
-    fn check_ytdl_perm(path: &Path) -> Result<(), Error> {
+    fn check_ytdl_perm(path: &Path) -> Result<()> {
         #[cfg(target_os = "linux")]
         {
             let file = std::fs::File::open(path)?;
@@ -655,7 +631,7 @@ impl Downloader {
     }
 }
 
-fn parse_hashfile(input: &str) -> Result<&str, Error> {
+fn parse_hashfile(input: &str) -> Result<&str> {
     input.split('\n').find(|c| c.ends_with(UPDATE_ASSET_NAME))
         .map(|v|v.split(" ").next().unwrap().trim())
         .ok_or(Error::InternalError("Hash entry not found!".into()))

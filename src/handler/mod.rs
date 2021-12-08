@@ -5,7 +5,7 @@ mod youtube;
 use crate::lib::converter::Converter;
 use crate::lib::db;
 use crate::lib::downloader::Downloader;
-use crate::lib::Error;
+use crate::lib::{Error, Result};
 use crate::lib::Request;
 use std::fs::remove_dir_all;
 use std::fs::remove_file;
@@ -81,7 +81,7 @@ pub struct Module {
     /// Checking module, returning true if it's able to handle the URL
     checker: Box<dyn Fn(&Request) -> bool>,
     /// Handler, called when the checking module returns true
-    handler: Box<dyn Fn(&mut HandleData, &mut Request) -> Result<(), Error>>,
+    handler: Box<dyn Fn(&mut HandleData, &mut Request) -> Result<()>>,
 }
 
 /// Registry holding all available modules
@@ -107,7 +107,7 @@ impl<'a> Registry<'a> {
 
     /// Handle a request with it's appropriate handler, if existing
     /// Returns an error on failure
-    pub fn handle(&mut self, data: &mut Request) -> Result<(), Error> {
+    pub fn handle(&mut self, data: &mut Request) -> Result<()> {
         let mut handle_db = HandleData::new(&self.converter, &self.downloader);
 
         if let Some(module) = self.modules.iter().find(|module| (module.checker)(&data)) {

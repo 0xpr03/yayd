@@ -2,7 +2,7 @@ extern crate regex;
 
 use super::{HandleData, Module, Registry};
 use crate::lib::db;
-use crate::lib::{self, Error, Request};
+use crate::lib::{self, Error, Request, Result};
 use std::fs::create_dir;
 use std::fs::remove_dir_all;
 use std::fs::rename;
@@ -36,7 +36,7 @@ fn checker_file(data: &Request) -> bool {
 }
 
 /// Handle file request
-fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error> {
+fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<()> {
     db::set_query_code(&mut request.get_conn(), &request.qid, &CODE_IN_PROGRESS);
 
     request.temp_path.push(request.qid.to_string()); // create sub dir for part files
@@ -67,7 +67,7 @@ fn handle_file(hdb: &mut HandleData, request: &mut Request) -> Result<(), Error>
 }
 
 /// Get audio quality to use
-fn get_quality(qual_id: &i16) -> Result<String, Error> {
+fn get_quality(qual_id: &i16) -> Result<String> {
     let qual = match *qual_id {
         -14 => "Source",
         -13 => "High",
