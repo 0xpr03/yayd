@@ -2,7 +2,7 @@
 name = "yayd-backend"
 version = "0.7.0"
 authors = ["Aron Heinecke <Ox0p54r36@t-online.de>"]
-
+edition = "2021"
 [[bin]]
 name = "yayd-backend"
 
