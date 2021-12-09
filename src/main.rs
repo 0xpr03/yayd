@@ -71,6 +71,7 @@ lazy_static! {
 //    FailedUnavailable = 12,
 //}
 fn main() -> color_eyre::eyre::Result<()> {
+    color_eyre::install()?;
     logger::initialize();
     let pool = Arc::new(db::db_connect(
         db::mysql_options(&CONFIG),
