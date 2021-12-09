@@ -125,21 +125,11 @@ pub enum Error {
     MysqlError(#[from] mysql::Error),
     #[error("Database error: `{0}`")]
     MysqlDeserializeError(#[from] mysql::FromRowError),
+    #[error("Internal Error: `{0}`")]
+    IOError(#[from] std::io::Error)
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::InternalError(format!(
-            "descr:{} kind:{:?} cause:{:?} id:{:?}",
-            err.to_string(),
-            err.kind(),
-            err.source(),
-            err.raw_os_error()
-        ))
-    }
-}
 
 impl From<zip::result::ZipError> for Error {
     fn from(err: zip::result::ZipError) -> Error {

@@ -6,7 +6,7 @@ use mysql::Statement;
 use std::convert::Into;
 use std::io::prelude::*;
 use std::io::BufReader;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -85,6 +85,8 @@ impl Downloader {
                 error!("Can't set required permissions on {:?}: {:?}", ytdl_path, e);
                 return false;
             }
+        } else {
+            trace!("Ytdl not found.")
         }
         if self.defaults.youtube_dl_auto_update {
             match self.update_downloader() {
@@ -620,12 +622,10 @@ impl Downloader {
     }
 
     fn check_ytdl_perm(path: &Path) -> Result<()> {
-        #[cfg(target_os = "linux")]
+        #[cfg(not(target_os = "windows"))]
         {
-            let file = std::fs::File::open(path)?;
-            let metadata = file.metadata()?;
-            let mut permissions = metadata.permissions();
-            permissions.set_mode(0o744);
+            std::fs::set_permissions(path, PermissionsExt::from_mode(0o700))?;
+            trace!("Set file permissions for yt-dlp");
         }
         Ok(())
     }
