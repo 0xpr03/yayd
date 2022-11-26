@@ -53,6 +53,11 @@ pub struct Downloader {
     cmd_path: PathBuf,
 }
 
+#[derive(Deserialize)]
+pub struct PlaylistEntry {
+    pub url: String
+}
+
 /// Filename and extension storage
 pub struct Filename {
     pub name: String,
@@ -242,7 +247,8 @@ impl Downloader {
 
     /// Gets the playlist ids needed for furture download requests.
     /// The output is a vector of IDs
-    pub fn get_playlist_ids(&self, request: &Request) -> Result<Vec<String>> {
+    pub fn get_playlist_entries(&self, request: &Request) -> Result<Vec<PlaylistEntry>> {
+
         let _guard = self.lock.read()?;
         let mut child = self.run_playlist_extract(request)?;
         trace!("retrieving playlist ids");
@@ -251,7 +257,7 @@ impl Downloader {
 
         let re = regex!(r#""url": "([a-zA-Z0-9_-]+)""#);
 
-        let mut id_list: Vec<String> = Vec::new();
+        let mut entries: Vec<PlaylistEntry> = Vec::new();
         for line in stdout.lines() {
             match line {
                 Err(why) => {
@@ -259,14 +265,15 @@ impl Downloader {
                     panic!();
                 }
                 Ok(text) => {
-                    trace!("Out: {}", text);
-                    match re.captures(&text) {
-                        Some(cap) => {
-                            //println!("Match at {}", s.0);
-                            debug!("{}", cap.get(1).unwrap().as_str()); // ONLY with ASCII chars makeable!
-                            id_list.push(cap.get(1).unwrap().as_str().to_string());
-                        }
-                        None => (),
+                    match serde_json::from_str::<PlaylistEntry>(&text) {
+                        Ok(entry) => {
+                            trace!("Found list entry url {}",entry.url);
+                            entries.push(entry);
+                        },
+                        Err(e) => {
+                            warn!("Failed to parse playlist-extractor line: {}",e);
+                            warn!("Reponse from ytdl: {}", text);
+                        },
                     }
                 }
             }
@@ -282,7 +289,7 @@ impl Downloader {
             return Err(Error::InternalError(stderr));
         }
 
-        Ok(id_list)
+        Ok(entries)
     }
 
     /// Retrives the playlist name, will kill the process due to yt-dl starting detailed retrieval afterwards.

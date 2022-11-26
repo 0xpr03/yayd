@@ -73,15 +73,12 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
 
     db::set_query_state(&mut request.get_conn(), &request.qid, "1/?");
     trace!("crawling ids");
-    let file_ids = handle_db.downloader.get_playlist_ids(request)?;
+    let playlist_entries = handle_db.downloader.get_playlist_entries(request)?;
 
     if request.split {
         trace!("creating new requests for playlist entries");
-        let mut current_url: String;
-        for id in file_ids.iter() {
-            current_url = String::from(YT_VIDEO_URL);
-            current_url.push_str(&id);
-            db::add_sub_query(&current_url, &request)?;
+        for entry in playlist_entries.iter() {
+            db::add_sub_query(&entry.url, &request)?;
         }
     } else {
         let save_path = lib::format_save_path(&request.path, &name)?;
@@ -89,21 +86,18 @@ fn handle_playlist(handle_db: &mut HandleData, request: &mut Request) -> Result<
         request.path = request.temp_path.clone();
         create_dir(&request.path)?;
         let mut warnings = false;
-        let mut current_url: String;
         let mut failed_log: String = String::from("Following urls couldn't be downloaded: \n");
 
-        let max_steps = file_ids.len() as i32 + 2;
+        let max_steps = playlist_entries.len() as i32 + 2;
         db::update_steps(&mut request.get_conn(), &request.qid, 2, max_steps);
-        for id in file_ids.iter() {
+        for entry in playlist_entries.iter() {
             step += 1;
             db::update_steps(&mut request.get_conn(), &request.qid, step, max_steps);
-            current_url = String::from(YT_VIDEO_URL);
-            current_url.push_str(&id);
-            request.url = current_url.clone();
+            request.url = entry.url.clone();
             match handle_file_int(handle_db, &request) {
                 Err(e) => {
-                    warn!("error downloading {}: {:?}", id, e);
-                    failed_log.push_str(&format!("{} {:?}\n", current_url, e));
+                    warn!("error downloading {}: {:?}", entry.url, e);
+                    failed_log.push_str(&format!("{} {:?}\n", entry.url, e));
                     warnings = true;
                 }
                 Ok(_) => {}
